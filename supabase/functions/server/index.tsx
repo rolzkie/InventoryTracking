@@ -21,35 +21,6 @@ function genId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
 }
 
-const SEED_WAREHOUSES = [
-  { id: "WH-ALPHA", name: "Alpha Distribution Center", location: "Portland, OR", capacity: 12000, used: 8734, manager: "Sarah Chen", status: "active", createdAt: new Date().toISOString() },
-  { id: "WH-BETA",  name: "Beta Fulfillment Hub",       location: "Chicago, IL",  capacity: 8500,  used: 5210, manager: "Marcus Webb", status: "active", createdAt: new Date().toISOString() },
-  { id: "WH-GAMMA", name: "Gamma Cold Storage",          location: "Dallas, TX",   capacity: 5000,  used: 4780, manager: "Priya Nair",  status: "near_full", createdAt: new Date().toISOString() },
-  { id: "WH-DELTA", name: "Delta Overflow Unit",         location: "Newark, NJ",   capacity: 3000,  used: 420,  manager: "Tom Russo",   status: "active", createdAt: new Date().toISOString() },
-];
-
-const SEED_INVENTORY = [
-  { id: "INV-001", name: "Circuit Board v3.2",    sku: "CB-3200",  category: "Electronics",  warehouseId: "WH-ALPHA", qty: 2847, reorderPoint: 500, unit: "pcs",    cost: 42.50, notes: "", createdAt: new Date().toISOString() },
-  { id: "INV-002", name: "Hydraulic Pump 12V",    sku: "HP-012V",  category: "Hardware",     warehouseId: "WH-BETA",  qty: 134,  reorderPoint: 200, unit: "units",  cost: 189.00, notes: "", createdAt: new Date().toISOString() },
-  { id: "INV-003", name: "Isopropyl Alcohol 99%", sku: "IPA-99",   category: "Chemicals",    warehouseId: "WH-ALPHA", qty: 0,    reorderPoint: 100, unit: "liters", cost: 8.75, notes: "", createdAt: new Date().toISOString() },
-  { id: "INV-004", name: "Bubble Wrap Roll 50m",  sku: "BW-050",   category: "Packaging",    warehouseId: "WH-GAMMA", qty: 892,  reorderPoint: 150, unit: "rolls",  cost: 14.20, notes: "", createdAt: new Date().toISOString() },
-  { id: "INV-005", name: "Steel Rod 6mm × 3m",    sku: "SR-6300",  category: "Raw Materials", warehouseId: "WH-BETA", qty: 312,  reorderPoint: 100, unit: "rods",   cost: 6.90, notes: "", createdAt: new Date().toISOString() },
-  { id: "INV-006", name: "LED Strip 5050 RGB",    sku: "LED-5050", category: "Electronics",  warehouseId: "WH-ALPHA", qty: 67,   reorderPoint: 200, unit: "meters", cost: 3.40, notes: "", createdAt: new Date().toISOString() },
-  { id: "INV-007", name: "Epoxy Resin 2-Part",    sku: "ER-2PT",   category: "Chemicals",    warehouseId: "WH-GAMMA", qty: 441,  reorderPoint: 80,  unit: "kg",     cost: 22.00, notes: "", createdAt: new Date().toISOString() },
-  { id: "INV-008", name: "Servo Motor MG996R",    sku: "SM-MG996", category: "Electronics",  warehouseId: "WH-ALPHA", qty: 0,    reorderPoint: 50,  unit: "pcs",    cost: 11.50, notes: "", createdAt: new Date().toISOString() },
-  { id: "INV-009", name: "Aluminum Sheet 1mm",    sku: "AS-01MM",  category: "Raw Materials", warehouseId: "WH-BETA", qty: 650,  reorderPoint: 100, unit: "sheets", cost: 18.00, notes: "", createdAt: new Date().toISOString() },
-  { id: "INV-010", name: "Power Supply 24V 10A",  sku: "PS-24V10", category: "Electronics",  warehouseId: "WH-ALPHA", qty: 203,  reorderPoint: 50,  unit: "units",  cost: 55.00, notes: "", createdAt: new Date().toISOString() },
-];
-
-const SEED_TRANSFERS = [
-  { id: "TRF-2847", itemId: "INV-001", itemName: "Circuit Board v3.2",    fromWarehouseId: "WH-BETA",  toWarehouseId: "WH-ALPHA", qty: 200, date: "2026-07-09", status: "completed", initiator: "S. Chen",  notes: "", createdAt: new Date().toISOString() },
-  { id: "TRF-2846", itemId: "INV-004", itemName: "Bubble Wrap Roll 50m",  fromWarehouseId: "WH-ALPHA", toWarehouseId: "WH-GAMMA", qty: 50,  date: "2026-07-09", status: "in_transit", initiator: "M. Webb", notes: "", createdAt: new Date().toISOString() },
-  { id: "TRF-2845", itemId: "INV-005", itemName: "Steel Rod 6mm × 3m",    fromWarehouseId: "WH-GAMMA", toWarehouseId: "WH-BETA",  qty: 100, date: "2026-07-08", status: "in_transit", initiator: "P. Nair", notes: "", createdAt: new Date().toISOString() },
-  { id: "TRF-2844", itemId: "INV-006", itemName: "LED Strip 5050 RGB",    fromWarehouseId: "WH-ALPHA", toWarehouseId: "WH-DELTA", qty: 30,  date: "2026-07-08", status: "pending",    initiator: "T. Russo", notes: "", createdAt: new Date().toISOString() },
-  { id: "TRF-2843", itemId: "INV-007", itemName: "Epoxy Resin 2-Part",    fromWarehouseId: "WH-BETA",  toWarehouseId: "WH-GAMMA", qty: 75,  date: "2026-07-07", status: "completed",  initiator: "S. Chen", notes: "", createdAt: new Date().toISOString() },
-  { id: "TRF-2842", itemId: "INV-002", itemName: "Hydraulic Pump 12V",    fromWarehouseId: "WH-ALPHA", toWarehouseId: "WH-BETA",  qty: 20,  date: "2026-07-07", status: "cancelled",  initiator: "M. Webb", notes: "", createdAt: new Date().toISOString() },
-];
-
 async function getList(key: string): Promise<any[]> {
   const data = await kv.get(key);
   return Array.isArray(data) ? data : [];
@@ -66,13 +37,7 @@ function itemStatus(qty: number, reorderPoint: number): string {
 }
 
 // ── Seed ─────────────────────────────────────────────────────────────────────
-
-app.post(`${PREFIX}/seed`, async (c) => {
-  await kv.set("warehouses", SEED_WAREHOUSES);
-  await kv.set("inventory", SEED_INVENTORY);
-  await kv.set("transfers", SEED_TRANSFERS);
-  return c.json({ ok: true, message: "Database seeded successfully" });
-});
+// Seed functionality removed - users should add data via API
 
 // ── Health ────────────────────────────────────────────────────────────────────
 
@@ -103,11 +68,7 @@ app.get(`${PREFIX}/dashboard`, async (c) => {
 // ── Warehouses ────────────────────────────────────────────────────────────────
 
 app.get(`${PREFIX}/warehouses`, async (c) => {
-  let list = await getList("warehouses");
-  if (list.length === 0) {
-    list = SEED_WAREHOUSES;
-    await saveList("warehouses", list);
-  }
+  const list = await getList("warehouses");
   return c.json(list);
 });
 
@@ -153,11 +114,7 @@ app.delete(`${PREFIX}/warehouses/:id`, async (c) => {
 // ── Inventory ─────────────────────────────────────────────────────────────────
 
 app.get(`${PREFIX}/inventory`, async (c) => {
-  let list = await getList("inventory");
-  if (list.length === 0) {
-    list = SEED_INVENTORY;
-    await saveList("inventory", list);
-  }
+  const list = await getList("inventory");
   const warehouses = await getList("warehouses");
   const whMap: Record<string, any> = {};
   warehouses.forEach(w => { whMap[w.id] = w; });
@@ -250,11 +207,7 @@ app.post(`${PREFIX}/inventory/:id/adjust`, async (c) => {
 // ── Transfers ─────────────────────────────────────────────────────────────────
 
 app.get(`${PREFIX}/transfers`, async (c) => {
-  let list = await getList("transfers");
-  if (list.length === 0) {
-    list = SEED_TRANSFERS;
-    await saveList("transfers", list);
-  }
+  const list = await getList("transfers");
   return c.json([...list].sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
 });
 

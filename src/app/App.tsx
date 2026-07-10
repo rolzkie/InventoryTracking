@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+﻿import { useState, useEffect, useCallback, useRef } from "react";
 import {
   LayoutDashboard, Package, Warehouse, ArrowLeftRight, BarChart3,
   Bell, Search, ChevronDown, AlertTriangle, Plus, Download,
@@ -12,8 +12,9 @@ import {
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell
 } from "recharts";
 import { api, type InventoryItem, type Warehouse as WH, type Transfer, type DashboardStats, CATEGORIES, UNITS } from "../lib/api";
+import { initializeSeedData } from "../lib/seed-data";
 
-// ── Toast ─────────────────────────────────────────────────────────────────────
+// â”€â”€ Toast â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type Toast = { id: string; type: "success" | "error" | "info"; message: string };
 let toastSetter: ((fn: (t: Toast[]) => Toast[]) => void) | null = null;
@@ -44,7 +45,7 @@ function Toaster() {
   );
 }
 
-// ── Modal ─────────────────────────────────────────────────────────────────────
+// â”€â”€ Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
   useEffect(() => {
@@ -80,7 +81,7 @@ function FormField({ label, error, required, children }: { label: string; error?
 const inputCls = "w-full bg-secondary border border-border rounded-lg px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/30";
 const selectCls = `${inputCls} cursor-pointer`;
 
-// ── Confirm Dialog ────────────────────────────────────────────────────────────
+// â”€â”€ Confirm Dialog â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function ConfirmDialog({ title, message, onConfirm, onCancel, danger }: {
   title: string; message: string; onConfirm: () => void; onCancel: () => void; danger?: boolean;
@@ -100,7 +101,7 @@ function ConfirmDialog({ title, message, onConfirm, onCancel, danger }: {
   );
 }
 
-// ── Status Badge ──────────────────────────────────────────────────────────────
+// â”€â”€ Status Badge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
@@ -121,7 +122,7 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-// ── KPI Card ──────────────────────────────────────────────────────────────────
+// â”€â”€ KPI Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function KpiCard({ icon: Icon, label, value, delta, sub, color }: {
   icon: any; label: string; value: string | number; delta?: number; sub?: string; color: string;
@@ -147,7 +148,7 @@ function KpiCard({ icon: Icon, label, value, delta, sub, color }: {
   );
 }
 
-// ── Loading ───────────────────────────────────────────────────────────────────
+// â”€â”€ Loading â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function LoadingRow({ cols }: { cols: number }) {
   return (
@@ -155,7 +156,7 @@ function LoadingRow({ cols }: { cols: number }) {
       <td colSpan={cols} className="py-16 text-center">
         <div className="flex flex-col items-center gap-3 text-muted-foreground">
           <Loader2 size={20} className="animate-spin" />
-          <span className="text-xs">Loading data…</span>
+          <span className="text-xs">Loading dataâ€¦</span>
         </div>
       </td>
     </tr>
@@ -175,7 +176,7 @@ function EmptyRow({ cols, message }: { cols: number; message: string }) {
   );
 }
 
-// ── Inventory Item Modal (Add / Edit) ─────────────────────────────────────────
+// â”€â”€ Inventory Item Modal (Add / Edit) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type InvForm = { name: string; sku: string; category: string; warehouseId: string; qty: string; reorderPoint: string; unit: string; cost: string; notes: string };
 
@@ -205,8 +206,8 @@ function InventoryModal({ item, warehouses, onClose, onSaved }: {
     if (!form.name.trim()) e.name = "Required";
     if (!form.sku.trim()) e.sku = "Required";
     if (!form.warehouseId) e.warehouseId = "Required";
-    if (isNaN(Number(form.qty)) || Number(form.qty) < 0) e.qty = "Must be ≥ 0";
-    if (isNaN(Number(form.reorderPoint)) || Number(form.reorderPoint) < 0) e.reorderPoint = "Must be ≥ 0";
+    if (isNaN(Number(form.qty)) || Number(form.qty) < 0) e.qty = "Must be â‰¥ 0";
+    if (isNaN(Number(form.reorderPoint)) || Number(form.reorderPoint) < 0) e.reorderPoint = "Must be â‰¥ 0";
     if (!form.cost || isNaN(Number(form.cost)) || Number(form.cost) < 0) e.cost = "Must be a valid positive number";
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -277,7 +278,7 @@ function InventoryModal({ item, warehouses, onClose, onSaved }: {
           <button type="button" onClick={onClose} className="px-4 py-2 text-xs border border-border rounded-lg text-muted-foreground hover:text-foreground transition-colors">Cancel</button>
           <button type="submit" disabled={saving} className="flex items-center gap-1.5 px-4 py-2 text-xs bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors">
             {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-            {saving ? "Saving…" : editing ? "Save Changes" : "Add Item"}
+            {saving ? "Savingâ€¦" : editing ? "Save Changes" : "Add Item"}
           </button>
         </div>
       </form>
@@ -285,7 +286,7 @@ function InventoryModal({ item, warehouses, onClose, onSaved }: {
   );
 }
 
-// ── Adjust Qty Modal ──────────────────────────────────────────────────────────
+// â”€â”€ Adjust Qty Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function AdjustModal({ item, onClose, onAdjusted }: { item: InventoryItem; onClose: () => void; onAdjusted: (item: InventoryItem) => void }) {
   const [delta, setDelta] = useState("");
@@ -353,7 +354,7 @@ function AdjustModal({ item, onClose, onAdjusted }: { item: InventoryItem; onClo
           <button type="button" onClick={onClose} className="px-4 py-2 text-xs border border-border rounded-lg text-muted-foreground hover:text-foreground transition-colors">Cancel</button>
           <button type="submit" disabled={saving} className={`flex items-center gap-1.5 px-4 py-2 text-xs rounded-lg text-white disabled:opacity-50 transition-colors ${type === "add" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-red-600 hover:bg-red-700"}`}>
             {saving ? <Loader2 size={12} className="animate-spin" /> : (type === "add" ? <Plus size={12} /> : <Minus size={12} />)}
-            {saving ? "Saving…" : "Apply"}
+            {saving ? "Savingâ€¦" : "Apply"}
           </button>
         </div>
       </form>
@@ -361,7 +362,7 @@ function AdjustModal({ item, onClose, onAdjusted }: { item: InventoryItem; onClo
   );
 }
 
-// ── View Item Modal ───────────────────────────────────────────────────────────
+// â”€â”€ View Item Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function ViewItemModal({ item, warehouse, onClose, onEdit }: { item: InventoryItem; warehouse?: WH; onClose: () => void; onEdit: () => void }) {
   const fields = [
@@ -407,7 +408,7 @@ function ViewItemModal({ item, warehouse, onClose, onEdit }: { item: InventoryIt
   );
 }
 
-// ── Warehouse Modal ───────────────────────────────────────────────────────────
+// â”€â”€ Warehouse Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type WHForm = { name: string; location: string; capacity: string; manager: string };
 
@@ -465,7 +466,7 @@ function WarehouseModal({ wh, onClose, onSaved }: { wh?: WH; onClose: () => void
           <button type="button" onClick={onClose} className="px-4 py-2 text-xs border border-border rounded-lg text-muted-foreground hover:text-foreground transition-colors">Cancel</button>
           <button type="submit" disabled={saving} className="flex items-center gap-1.5 px-4 py-2 text-xs bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors">
             {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-            {saving ? "Saving…" : editing ? "Save Changes" : "Add Warehouse"}
+            {saving ? "Savingâ€¦" : editing ? "Save Changes" : "Add Warehouse"}
           </button>
         </div>
       </form>
@@ -473,7 +474,7 @@ function WarehouseModal({ wh, onClose, onSaved }: { wh?: WH; onClose: () => void
   );
 }
 
-// ── Transfer Modal ────────────────────────────────────────────────────────────
+// â”€â”€ Transfer Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function TransferModal({ warehouses, inventory, onClose, onSaved }: {
   warehouses: WH[]; inventory: InventoryItem[]; onClose: () => void; onSaved: (t: Transfer) => void;
@@ -519,20 +520,20 @@ function TransferModal({ warehouses, inventory, onClose, onSaved }: {
         <div className="grid grid-cols-2 gap-4">
           <FormField label="From Warehouse" required error={errors.fromWarehouseId}>
             <select className={selectCls} value={form.fromWarehouseId} onChange={e => setForm(f => ({ ...f, fromWarehouseId: e.target.value, itemId: "" }))}>
-              <option value="">— Select —</option>
+              <option value="">â€” Select â€”</option>
               {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
           </FormField>
           <FormField label="To Warehouse" required error={errors.toWarehouseId}>
             <select className={selectCls} value={form.toWarehouseId} onChange={e => setForm(f => ({ ...f, toWarehouseId: e.target.value }))}>
-              <option value="">— Select —</option>
+              <option value="">â€” Select â€”</option>
               {warehouses.filter(w => w.id !== form.fromWarehouseId).map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
           </FormField>
         </div>
         <FormField label="Item" required error={errors.itemId}>
           <select className={selectCls} value={form.itemId} onChange={e => setForm(f => ({ ...f, itemId: e.target.value }))}>
-            <option value="">— Select item —</option>
+            <option value="">â€” Select item â€”</option>
             {filteredItems.map(i => <option key={i.id} value={i.id}>{i.name} ({i.qty} {i.unit} available)</option>)}
           </select>
         </FormField>
@@ -551,13 +552,13 @@ function TransferModal({ warehouses, inventory, onClose, onSaved }: {
           </FormField>
         </div>
         <FormField label="Notes">
-          <textarea className={`${inputCls} resize-none`} rows={2} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Optional notes…" />
+          <textarea className={`${inputCls} resize-none`} rows={2} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Optional notesâ€¦" />
         </FormField>
         <div className="flex justify-end gap-2 pt-2 border-t border-border">
           <button type="button" onClick={onClose} className="px-4 py-2 text-xs border border-border rounded-lg text-muted-foreground hover:text-foreground transition-colors">Cancel</button>
           <button type="submit" disabled={saving} className="flex items-center gap-1.5 px-4 py-2 text-xs bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors">
             {saving ? <Loader2 size={12} className="animate-spin" /> : <ArrowLeftRight size={12} />}
-            {saving ? "Creating…" : "Create Transfer"}
+            {saving ? "Creatingâ€¦" : "Create Transfer"}
           </button>
         </div>
       </form>
@@ -565,7 +566,7 @@ function TransferModal({ warehouses, inventory, onClose, onSaved }: {
   );
 }
 
-// ── Dashboard Page ────────────────────────────────────────────────────────────
+// â”€â”€ Dashboard Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const CHART_DATA = [
   { month: "Jan", inbound: 1800, outbound: 1200 },
@@ -584,7 +585,7 @@ function Dashboard({ stats, onNavigate }: { stats: DashboardStats | null; onNavi
     <div className="flex items-center justify-center h-64 text-muted-foreground">
       <div className="flex flex-col items-center gap-3">
         <Loader2 size={22} className="animate-spin" />
-        <span className="text-xs">Loading dashboard…</span>
+        <span className="text-xs">Loading dashboardâ€¦</span>
       </div>
     </div>
   );
@@ -603,7 +604,7 @@ function Dashboard({ stats, onNavigate }: { stats: DashboardStats | null; onNavi
         <KpiCard icon={Package} label="Total SKUs" value={stats.totalSkus} sub="Active items" color="bg-blue-500/15 text-blue-400" />
         <KpiCard icon={Warehouse} label="Warehouses" value={stats.warehouseCount} sub="All operational" color="bg-purple-500/15 text-purple-400" />
         <KpiCard icon={AlertTriangle} label="Stock Alerts" value={stats.lowStock + stats.outOfStock}
-          sub={`${stats.outOfStock} out · ${stats.lowStock} low`} color="bg-amber-500/15 text-amber-400" />
+          sub={`${stats.outOfStock} out Â· ${stats.lowStock} low`} color="bg-amber-500/15 text-amber-400" />
         <KpiCard icon={TrendingUp} label="Total Value" value={`$${(stats.totalValue / 1000).toFixed(0)}k`}
           sub="Inventory value" color="bg-emerald-500/15 text-emerald-400" />
       </div>
@@ -613,7 +614,7 @@ function Dashboard({ stats, onNavigate }: { stats: DashboardStats | null; onNavi
           <div className="flex items-center justify-between mb-5">
             <div>
               <h3 className="text-sm font-semibold text-foreground">Stock Movement</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">Inbound vs outbound — last 7 months</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Inbound vs outbound â€” last 7 months</p>
             </div>
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-500" />Inbound</span>
@@ -671,14 +672,14 @@ function Dashboard({ stats, onNavigate }: { stats: DashboardStats | null; onNavi
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
               <AlertTriangle size={14} className="text-amber-400" /> Stock Alerts
             </h3>
-            <button onClick={() => onNavigate("inventory")} className="text-xs text-primary hover:underline">View all →</button>
+            <button onClick={() => onNavigate("inventory")} className="text-xs text-primary hover:underline">View all â†’</button>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
             {stats.alerts.map((a, i) => (
               <div key={i} className={`flex items-center justify-between p-3 rounded-lg border ${a.alertType === "out_of_stock" ? "border-red-500/20 bg-red-500/5" : "border-amber-500/20 bg-amber-500/5"}`}>
                 <div>
                   <p className="text-xs font-medium text-foreground">{a.name}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5" style={{ fontFamily: "JetBrains Mono, monospace" }}>{a.sku} · {a.warehouseId}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5" style={{ fontFamily: "JetBrains Mono, monospace" }}>{a.sku} Â· {a.warehouseId}</p>
                 </div>
                 <StatusBadge status={a.alertType} />
               </div>
@@ -690,7 +691,7 @@ function Dashboard({ stats, onNavigate }: { stats: DashboardStats | null; onNavi
   );
 }
 
-// ── Inventory Page ────────────────────────────────────────────────────────────
+// â”€â”€ Inventory Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const PAGE_SIZE = 8;
 type InvModal = { type: "add" } | { type: "edit"; item: InventoryItem } | { type: "view"; item: InventoryItem } | { type: "adjust"; item: InventoryItem } | { type: "delete"; item: InventoryItem };
@@ -764,7 +765,7 @@ function InventoryPage({ warehouses }: { warehouses: WH[] }) {
       <div className="flex items-center gap-2 flex-wrap">
         <div className="relative flex-1 min-w-48 max-w-xs">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name, SKU, category…"
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name, SKU, categoryâ€¦"
             className={`${inputCls} pl-9`} />
         </div>
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className={`${selectCls} w-auto`}>
@@ -870,7 +871,7 @@ function InventoryPage({ warehouses }: { warehouses: WH[] }) {
         {!loading && filtered.length > PAGE_SIZE && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-muted/20">
             <p className="text-xs text-muted-foreground">
-              Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
+              Showing {(page - 1) * PAGE_SIZE + 1}â€“{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
             </p>
             <div className="flex items-center gap-1">
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
@@ -895,7 +896,7 @@ function InventoryPage({ warehouses }: { warehouses: WH[] }) {
         )}
         {!loading && (
           <div className="px-4 py-2.5 border-t border-border bg-muted/10 flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">{filtered.length} items · Total value: <span className="text-foreground font-medium" style={{ fontFamily: "JetBrains Mono, monospace" }}>
+            <p className="text-xs text-muted-foreground">{filtered.length} items Â· Total value: <span className="text-foreground font-medium" style={{ fontFamily: "JetBrains Mono, monospace" }}>
               ${filtered.reduce((s, i) => s + i.qty * i.cost, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span></p>
           </div>
@@ -919,7 +920,7 @@ function InventoryPage({ warehouses }: { warehouses: WH[] }) {
   );
 }
 
-// ── Warehouses Page ───────────────────────────────────────────────────────────
+// â”€â”€ Warehouses Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function WarehousesPage({ warehouses, setWarehouses }: { warehouses: WH[]; setWarehouses: (w: WH[]) => void }) {
   const [modal, setModal] = useState<{ type: "add" } | { type: "edit"; wh: WH } | { type: "delete"; wh: WH } | null>(null);
@@ -1012,7 +1013,7 @@ function WarehousesPage({ warehouses, setWarehouses }: { warehouses: WH[]; setWa
   );
 }
 
-// ── Transfers Page ────────────────────────────────────────────────────────────
+// â”€â”€ Transfers Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function TransfersPage({ warehouses, inventory }: { warehouses: WH[]; inventory: InventoryItem[] }) {
   const [transfers, setTransfers] = useState<Transfer[]>([]);
@@ -1075,7 +1076,7 @@ function TransfersPage({ warehouses, inventory }: { warehouses: WH[]; inventory:
       <div className="flex items-center gap-2 flex-wrap">
         <div className="relative flex-1 min-w-48 max-w-xs">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search ID or item…" className={`${inputCls} pl-9`} />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search ID or itemâ€¦" className={`${inputCls} pl-9`} />
         </div>
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className={`${selectCls} w-auto`}>
           <option value="all">All Status</option>
@@ -1117,7 +1118,7 @@ function TransfersPage({ warehouses, inventory }: { warehouses: WH[]; inventory:
                     <td className="px-4 py-3 text-xs text-muted-foreground" style={{ fontFamily: "JetBrains Mono, monospace" }}>
                       {whMap[t.toWarehouseId]?.split(" ")[0] ?? t.toWarehouseId}
                     </td>
-                    <td className="px-4 py-3 text-xs font-semibold text-foreground" style={{ fontFamily: "JetBrains Mono, monospace" }}>×{t.qty}</td>
+                    <td className="px-4 py-3 text-xs font-semibold text-foreground" style={{ fontFamily: "JetBrains Mono, monospace" }}>Ã—{t.qty}</td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">{t.initiator}</td>
                     <td className="px-4 py-3 text-xs text-muted-foreground" style={{ fontFamily: "JetBrains Mono, monospace" }}>{t.date}</td>
                     <td className="px-4 py-3">
@@ -1146,7 +1147,7 @@ function TransfersPage({ warehouses, inventory }: { warehouses: WH[]; inventory:
         </div>
         {!loading && (
           <div className="px-4 py-2.5 border-t border-border bg-muted/10">
-            <p className="text-xs text-muted-foreground">{filtered.length} transfers · {transfers.filter(t => t.status === "in_transit").length} in transit</p>
+            <p className="text-xs text-muted-foreground">{filtered.length} transfers Â· {transfers.filter(t => t.status === "in_transit").length} in transit</p>
           </div>
         )}
       </div>
@@ -1164,7 +1165,7 @@ function TransfersPage({ warehouses, inventory }: { warehouses: WH[]; inventory:
   );
 }
 
-// ── Reports Page ──────────────────────────────────────────────────────────────
+// â”€â”€ Reports Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function ReportsPage({ inventory, warehouses }: { inventory: InventoryItem[]; warehouses: WH[] }) {
   const byWarehouse = warehouses.map(w => ({
@@ -1302,7 +1303,7 @@ function ReportsPage({ inventory, warehouses }: { inventory: InventoryItem[]; wa
   );
 }
 
-// ── Root App ──────────────────────────────────────────────────────────────────
+// â”€â”€ Root App â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type Page = "dashboard" | "inventory" | "warehouses" | "transfers" | "reports";
 
@@ -1320,35 +1321,30 @@ export default function App() {
   const [warehouses, setWarehouses] = useState<WH[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [seeding, setSeeding] = useState(false);
-  const [seedDone, setSeedDone] = useState(false);
+  const [globalError, setGlobalError] = useState<string | null>(null);
   const initialized = useRef(false);
 
   const loadGlobal = useCallback(async () => {
     try {
+      setGlobalError(null);
       const [whs, inv, st] = await Promise.all([api.warehouses.list(), api.inventory.list(), api.dashboard()]);
       setWarehouses(whs);
       setInventory(inv);
       setStats(st);
-    } catch { toast("error", "Failed to load data"); }
+    } catch (e: any) {
+      const msg = e?.message ?? "Failed to load data";
+      setGlobalError(msg);
+      toast("error", msg);
+    }
   }, []);
+
 
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
+    initializeSeedData();
     loadGlobal();
   }, [loadGlobal]);
-
-  async function handleSeed() {
-    setSeeding(true);
-    try {
-      await api.seed();
-      await loadGlobal();
-      setSeedDone(true);
-      toast("success", "Database seeded with sample data");
-    } catch { toast("error", "Seed failed"); }
-    finally { setSeeding(false); }
-  }
 
   const alertCount = (stats?.lowStock ?? 0) + (stats?.outOfStock ?? 0);
 
@@ -1395,13 +1391,6 @@ export default function App() {
         </nav>
 
         <div className="p-3 border-t border-sidebar-border shrink-0">
-          {!seedDone && (
-            <button onClick={handleSeed} disabled={seeding}
-              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 mb-2 text-xs border border-dashed border-border rounded-lg text-muted-foreground hover:text-foreground hover:border-white/15 disabled:opacity-50 transition-colors">
-              {seeding ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-              {seeding ? "Seeding…" : "Seed Sample Data"}
-            </button>
-          )}
           <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-sidebar-accent/60 cursor-pointer transition-colors">
             <div className="w-7 h-7 rounded-full bg-blue-500/20 flex items-center justify-center text-xs font-semibold text-blue-400">SC</div>
             <div className="flex-1 min-w-0">
@@ -1423,7 +1412,7 @@ export default function App() {
           <div className="flex-1" />
           <div className="relative hidden sm:block">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <input placeholder="Quick search…" className={`${inputCls} pl-9 w-48`} />
+            <input placeholder="Quick searchâ€¦" className={`${inputCls} pl-9 w-48`} />
           </div>
           <button onClick={loadGlobal} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-white/15 transition-colors">
             <RefreshCw size={14} />
@@ -1444,12 +1433,33 @@ export default function App() {
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
-          {page === "dashboard" && <Dashboard stats={stats} onNavigate={setPage} />}
-          {page === "inventory" && <InventoryPage warehouses={warehouses} />}
-          {page === "warehouses" && <WarehousesPage warehouses={warehouses} setWarehouses={setWarehouses} />}
-          {page === "transfers" && <TransfersPage warehouses={warehouses} inventory={inventory} />}
-          {page === "reports" && <ReportsPage inventory={inventory} warehouses={warehouses} />}
+          {globalError ? (
+            <div className="flex flex-col gap-3 bg-card border border-red-500/30 rounded-lg p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-red-300">Failed to load data</p>
+                  <p className="text-xs text-red-200/80 mt-1">{globalError}</p>
+                </div>
+                <button
+                  onClick={loadGlobal}
+                  className="px-3 py-2 text-xs bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors whitespace-nowrap"
+                >
+                  Retry
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">Please check the API connection and database configuration.</p>
+            </div>
+          ) : (
+            <>
+              {page === "dashboard" && <Dashboard stats={stats} onNavigate={setPage} />}
+              {page === "inventory" && <InventoryPage warehouses={warehouses} />}
+              {page === "warehouses" && <WarehousesPage warehouses={warehouses} setWarehouses={setWarehouses} />}
+              {page === "transfers" && <TransfersPage warehouses={warehouses} inventory={inventory} />}
+              {page === "reports" && <ReportsPage inventory={inventory} warehouses={warehouses} />}
+            </>
+          )}
         </main>
+
       </div>
     </div>
   );

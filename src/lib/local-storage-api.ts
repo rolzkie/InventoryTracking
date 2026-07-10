@@ -1,0 +1,308 @@
+import type { InventoryItem, Warehouse, Transfer, DashboardStats } from "./api";
+
+const STORAGE_KEYS = {
+  warehouses: "inventory_warehouses",
+  inventory: "inventory_items",
+  transfers: "inventory_transfers",
+};
+
+function genId(prefix: string): string {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 7).toUpperCase();
+  return `${prefix}-${timestamp}-${random}`;
+}
+
+function itemStatus(
+  quantity: number,
+  reorderPoint: number
+): "out_of_stock" | "low_stock" | "in_stock" {
+  if (quantity === 0) return "out_of_stock";
+  if (quantity < reorderPoint) return "low_stock";
+  return "in_stock";
+}
+
+function getList<T>(key: string): T[] {
+  try {
+    const data = localStorage.getItem(key);
+    return data ? JSON.parse(data) : [];
+  } catch (error) {
+    console.error(`Failed to get ${key} from localStorage:`, error);
+    return [];
+  }
+}
+
+function saveList<T>(key: string, items: T[]): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(items));
+  } catch (error) {
+    console.error(`Failed to save ${key} to localStorage:`, error);
+  }
+}
+
+export const localStorageAPI = {
+  dashboard: async (): Promise<DashboardStats> => {
+    const inventory = getList<InventoryItem>(STORAGE_KEYS.inventory);
+    const warehouses = getList<Warehouse>(STORAGE_KEYS.warehouses);
+    const transfers = getList<Transfer>(STORAGE_KEYS.transfers);
+
+    const totalSkus = inventory.length;
+    const outOfStock = inventory.filter((i) => i.quantity === 0).length;
+    const lowStock = inventory.filter(
+      (i) => i.quantity > 0 && i.quantity < i.reorderPoint
+    ).length;
+    const totalValue = inventory.reduce(
+      (sum, i) => sum + (i.quantity * i.unitPrice || 0),
+      0
+    );
+
+    const today = new Date().toISOString().slice(0, 10);
+    const todayTransfers = transfers.filter(
+      (t) => t.createdAt.slice(0, 10) === today
+    ).length;
+
+    const alerts = inventory
+      .filter((i) => i.quantity === 0 || i.quantity < i.reorderPoint)
+      .map((i) => ({
+        ...i,
+        alertType:
+          i.quantity === 0
+            ? ("out_of_stock" as const)
+            : ("low_stock" as const),
+      }));
+
+    return {
+      totalSkus,
+      outOfStock,
+      lowStock,
+      totalValue,
+      warehouseCount: warehouses.length,
+      todayTransfers,
+      alerts,
+    };
+  },
+
+  warehouses: {
+    list: async () => getList<Warehouse>(STORAGE_KEYS.warehouses),
+    create: async (data: Partial<Warehouse>) => {
+      const list = getList<Warehouse>(STORAGE_KEYS.warehouses);
+      const wh: Warehouse = {
+        id: genId("WH"),
+        name: data.name ?? "",
+        location: data.location ?? "",
+        capacity: Number(data.capacity) || 0,
+        used: 0,
+        manager: data.manager ?? "",
+      };
+      list.push(wh);
+      saveList(STORAGE_KEYS.warehouses, list);
+      return wh;
+    },
+    update: async (id: string, data: Partial<Warehouse>) => {
+      const list = getList<Warehouse>(STORAGE_KEYS.warehouses);
+      const idx = list.findIndex((w) => w.id === id);
+      if (idx === -1) throw new Error("Not found");
+      list[idx] = { ...list[idx], ...data, id };
+      saveList(STORAGE_KEYS.warehouses, list);
+      return list[idx];
+    },
+    delete: async (id: string) => {
+      let list = getList<Warehouse>(STORAGE_KEYS.warehouses);
+      const idx = list.findIndex((w) => w.id === id);
+      if (idx === -1) throw new Error("Not found");
+      list = list.filter((w) => w.id !== id);
+      saveList(STORAGE_KEYS.warehouses, list);
+      return { ok: true };
+    },
+  },
+
+  inventory: {
+    list: async () => {
+      const list = getList<InventoryItem>(STORAGE_KEYS.inventory);
+      return list.map((item) => ({
+        ...item,
+        status: itemStatus(item.quantity, item.reorderPoint),
+      }));
+    },
+    create: async (data: Partial<InventoryItem>) => {
+      const list = getList<InventoryItem>(STORAGE_KEYS.inventory);
+
+      if (list.some((i) => i.sku === data.sku)) {
+        throw new Error("SKU already exists");
+      }
+
+      const item: InventoryItem = {
+        id: genId("INV"),
+        sku: data.sku ?? "",
+        name: data.name ?? "",
+        description: data.description ?? "",
+        category: data.category ?? "",
+        quantity: Number(data.quantity) || 0,
+        reorderPoint: Number(data.reorderPoint) || 0,
+        warehouseId: data.warehouseId ?? "",
+        unitPrice: Number(data.unitPrice) || 0,
+        lastRestocked: new Date().toISOString().slice(0, 10),
+        status: itemStatus(
+          Number(data.quantity) || 0,
+          Number(data.reorderPoint) || 0
+        ),
+      };
+      list.push(item);
+      saveList(STORAGE_KEYS.inventory, list);
+      return item;
+    },
+    update: async (id: string, data: Partial<InventoryItem>) => {
+      const list = getList<InventoryItem>(STORAGE_KEYS.inventory);
+      const idx = list.findIndex((i) => i.id === id);
+      if (idx === -1) throw new Error("Not found");
+
+      if (data.sku && list.some((i) => i.sku === data.sku && i.id !== id)) {
+        throw new Error("SKU already exists");
+      }
+
+      list[idx] = {
+        ...list[idx],
+        sku: data.sku ?? list[idx].sku,
+        name: data.name ?? list[idx].name,
+        description: data.description ?? list[idx].description,
+        category: data.category ?? list[idx].category,
+        quantity:
+          data.quantity !== undefined ? Number(data.quantity) : list[idx].quantity,
+        reorderPoint:
+          data.reorderPoint !== undefined
+            ? Number(data.reorderPoint)
+            : list[idx].reorderPoint,
+        warehouseId: data.warehouseId ?? list[idx].warehouseId,
+        unitPrice:
+          data.unitPrice !== undefined ? Number(data.unitPrice) : list[idx].unitPrice,
+        lastRestocked: data.lastRestocked ?? list[idx].lastRestocked,
+        status: itemStatus(
+          data.quantity !== undefined ? Number(data.quantity) : list[idx].quantity,
+          data.reorderPoint !== undefined
+            ? Number(data.reorderPoint)
+            : list[idx].reorderPoint
+        ),
+      };
+      saveList(STORAGE_KEYS.inventory, list);
+      return list[idx];
+    },
+    delete: async (id: string) => {
+      let list = getList<InventoryItem>(STORAGE_KEYS.inventory);
+      if (!list.some((i) => i.id === id)) throw new Error("Not found");
+      list = list.filter((i) => i.id !== id);
+      saveList(STORAGE_KEYS.inventory, list);
+      return { ok: true };
+    },
+    adjust: async (id: string, delta: number) => {
+      const list = getList<InventoryItem>(STORAGE_KEYS.inventory);
+      const idx = list.findIndex((i) => i.id === id);
+      if (idx === -1) throw new Error("Not found");
+      list[idx].quantity = Math.max(0, list[idx].quantity + delta);
+      list[idx].status = itemStatus(list[idx].quantity, list[idx].reorderPoint);
+      saveList(STORAGE_KEYS.inventory, list);
+      return list[idx];
+    },
+  },
+
+  transfers: {
+    list: async () => {
+      const list = getList<Transfer>(STORAGE_KEYS.transfers);
+      return [...list].sort((a, b) =>
+        b.createdAt.localeCompare(a.createdAt)
+      );
+    },
+    create: async (data: Partial<Transfer>) => {
+      const inventory = getList<InventoryItem>(STORAGE_KEYS.inventory);
+      const itemIdx = inventory.findIndex((i) => i.id === data.itemId);
+      if (itemIdx === -1) throw new Error("Inventory item not found");
+
+      const item = inventory[itemIdx];
+      if (item.warehouseId !== data.sourceWarehouse) {
+        throw new Error("Item is not stored in the source warehouse");
+      }
+
+      if (item.quantity < Number(data.quantity || 0)) {
+        throw new Error(`Insufficient stock. Available: ${item.quantity}`);
+      }
+
+      const transfers = getList<Transfer>(STORAGE_KEYS.transfers);
+      const trf: Transfer = {
+        id: genId("TRN"),
+        sourceWarehouse: data.sourceWarehouse ?? "",
+        destinationWarehouse: data.destinationWarehouse ?? "",
+        itemId: data.itemId ?? "",
+        itemName: item.name,
+        quantity: Number(data.quantity) || 0,
+        status: data.status ?? "pending",
+        createdAt: new Date().toISOString(),
+        completedAt: data.completedAt,
+        notes: data.notes ?? "",
+      };
+
+      if (trf.status === "in_transit" || trf.status === "completed") {
+        inventory[itemIdx].quantity -= trf.quantity;
+        inventory[itemIdx].status = itemStatus(
+          inventory[itemIdx].quantity,
+          inventory[itemIdx].reorderPoint
+        );
+      }
+
+      transfers.push(trf);
+      saveList(STORAGE_KEYS.transfers, transfers);
+      saveList(STORAGE_KEYS.inventory, inventory);
+      return trf;
+    },
+    update: async (id: string, data: Partial<Transfer>) => {
+      const transfers = getList<Transfer>(STORAGE_KEYS.transfers);
+      const idx = transfers.findIndex((t) => t.id === id);
+      if (idx === -1) throw new Error("Not found");
+
+      const oldTransfer = transfers[idx];
+      transfers[idx] = { ...transfers[idx], ...data };
+
+      if (
+        data.status === "completed" &&
+        oldTransfer.status !== "completed"
+      ) {
+        const inventory = getList<InventoryItem>(STORAGE_KEYS.inventory);
+        const itemIdx = inventory.findIndex(
+          (i) => i.id === oldTransfer.itemId
+        );
+        if (itemIdx !== -1) {
+          inventory[itemIdx].quantity += oldTransfer.quantity;
+          inventory[itemIdx].warehouseId = oldTransfer.destinationWarehouse;
+          inventory[itemIdx].status = itemStatus(
+            inventory[itemIdx].quantity,
+            inventory[itemIdx].reorderPoint
+          );
+          saveList(STORAGE_KEYS.inventory, inventory);
+        }
+      }
+
+      saveList(STORAGE_KEYS.transfers, transfers);
+      return transfers[idx];
+    },
+    delete: async (id: string) => {
+      let transfers = getList<Transfer>(STORAGE_KEYS.transfers);
+      const idx = transfers.findIndex((t) => t.id === id);
+      if (idx === -1) throw new Error("Not found");
+
+      const transfer = transfers[idx];
+      if (transfer.status === "in_transit" || transfer.status === "completed") {
+        const inventory = getList<InventoryItem>(STORAGE_KEYS.inventory);
+        const itemIdx = inventory.findIndex((i) => i.id === transfer.itemId);
+        if (itemIdx !== -1) {
+          inventory[itemIdx].quantity += transfer.quantity;
+          inventory[itemIdx].status = itemStatus(
+            inventory[itemIdx].quantity,
+            inventory[itemIdx].reorderPoint
+          );
+          saveList(STORAGE_KEYS.inventory, inventory);
+        }
+      }
+
+      transfers = transfers.filter((t) => t.id !== id);
+      saveList(STORAGE_KEYS.transfers, transfers);
+      return { ok: true };
+    },
+  },
+};

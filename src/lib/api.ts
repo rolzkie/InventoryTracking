@@ -1,4 +1,5 @@
 import { projectId, publicAnonKey } from "../../utils/supabase/info";
+import { localStorageAPI } from "./local-storage-api";
 
 const BASE = `https://${projectId}.supabase.co/functions/v1/server/make-server-3c7e7389`;
 
@@ -7,10 +8,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     ...options,
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${publicAnonKey}`,
+      // Edge Function in this repo does not require auth; keeping this off avoids 401/403.
       ...(options.headers ?? {}),
     },
   });
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(err.error ?? "Request failed");
@@ -18,34 +20,84 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export const api = {
-  seed: () => request<{ ok: boolean }>("/seed", { method: "POST" }),
+// Wrapper that tries remote API first, falls back to localStorage
+async function apiCall<T>(fn: () => Promise<T>, fallback: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (e) {
+    console.log("Remote API failed, using local storage:", (e as any).message);
+    return await fallback();
+  }
+}
 
-  dashboard: () => request<DashboardStats>("/dashboard"),
+export const api = {
+  dashboard: () => apiCall(
+    () => request<DashboardStats>("/dashboard"),
+    () => localStorageAPI.dashboard()
+  ),
 
   // Warehouses
   warehouses: {
-    list: () => request<Warehouse[]>("/warehouses"),
-    create: (data: Partial<Warehouse>) => request<Warehouse>("/warehouses", { method: "POST", body: JSON.stringify(data) }),
-    update: (id: string, data: Partial<Warehouse>) => request<Warehouse>(`/warehouses/${id}`, { method: "PUT", body: JSON.stringify(data) }),
-    delete: (id: string) => request<{ ok: boolean }>(`/warehouses/${id}`, { method: "DELETE" }),
+    list: () => apiCall(
+      () => request<Warehouse[]>("/warehouses"),
+      () => localStorageAPI.warehouses.list()
+    ),
+    create: (data: Partial<Warehouse>) => apiCall(
+      () => request<Warehouse>("/warehouses", { method: "POST", body: JSON.stringify(data) }),
+      () => localStorageAPI.warehouses.create(data)
+    ),
+    update: (id: string, data: Partial<Warehouse>) => apiCall(
+      () => request<Warehouse>(`/warehouses/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+      () => localStorageAPI.warehouses.update(id, data)
+    ),
+    delete: (id: string) => apiCall(
+      () => request<{ ok: boolean }>(`/warehouses/${id}`, { method: "DELETE" }),
+      () => localStorageAPI.warehouses.delete(id)
+    ),
   },
 
   // Inventory
   inventory: {
-    list: () => request<InventoryItem[]>("/inventory"),
-    create: (data: Partial<InventoryItem>) => request<InventoryItem>("/inventory", { method: "POST", body: JSON.stringify(data) }),
-    update: (id: string, data: Partial<InventoryItem>) => request<InventoryItem>(`/inventory/${id}`, { method: "PUT", body: JSON.stringify(data) }),
-    delete: (id: string) => request<{ ok: boolean }>(`/inventory/${id}`, { method: "DELETE" }),
-    adjust: (id: string, delta: number) => request<InventoryItem>(`/inventory/${id}/adjust`, { method: "POST", body: JSON.stringify({ delta }) }),
+    list: () => apiCall(
+      () => request<InventoryItem[]>("/inventory"),
+      () => localStorageAPI.inventory.list()
+    ),
+    create: (data: Partial<InventoryItem>) => apiCall(
+      () => request<InventoryItem>("/inventory", { method: "POST", body: JSON.stringify(data) }),
+      () => localStorageAPI.inventory.create(data)
+    ),
+    update: (id: string, data: Partial<InventoryItem>) => apiCall(
+      () => request<InventoryItem>(`/inventory/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+      () => localStorageAPI.inventory.update(id, data)
+    ),
+    delete: (id: string) => apiCall(
+      () => request<{ ok: boolean }>(`/inventory/${id}`, { method: "DELETE" }),
+      () => localStorageAPI.inventory.delete(id)
+    ),
+    adjust: (id: string, delta: number) => apiCall(
+      () => request<InventoryItem>(`/inventory/${id}/adjust`, { method: "POST", body: JSON.stringify({ delta }) }),
+      () => localStorageAPI.inventory.adjust(id, delta)
+    ),
   },
 
   // Transfers
   transfers: {
-    list: () => request<Transfer[]>("/transfers"),
-    create: (data: Partial<Transfer>) => request<Transfer>("/transfers", { method: "POST", body: JSON.stringify(data) }),
-    update: (id: string, data: Partial<Transfer>) => request<Transfer>(`/transfers/${id}`, { method: "PUT", body: JSON.stringify(data) }),
-    delete: (id: string) => request<{ ok: boolean }>(`/transfers/${id}`, { method: "DELETE" }),
+    list: () => apiCall(
+      () => request<Transfer[]>("/transfers"),
+      () => localStorageAPI.transfers.list()
+    ),
+    create: (data: Partial<Transfer>) => apiCall(
+      () => request<Transfer>("/transfers", { method: "POST", body: JSON.stringify(data) }),
+      () => localStorageAPI.transfers.create(data)
+    ),
+    update: (id: string, data: Partial<Transfer>) => apiCall(
+      () => request<Transfer>(`/transfers/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+      () => localStorageAPI.transfers.update(id, data)
+    ),
+    delete: (id: string) => apiCall(
+      () => request<{ ok: boolean }>(`/transfers/${id}`, { method: "DELETE" }),
+      () => localStorageAPI.transfers.delete(id)
+    ),
   },
 };
 
@@ -64,33 +116,29 @@ export interface Warehouse {
 
 export interface InventoryItem {
   id: string;
-  name: string;
   sku: string;
+  name: string;
+  description: string;
   category: string;
-  warehouseId: string;
-  warehouseName?: string;
-  qty: number;
+  quantity: number;
   reorderPoint: number;
-  unit: string;
-  cost: number;
-  notes: string;
-  status: string;
-  createdAt: string;
-  updatedAt?: string;
+  warehouseId: string;
+  unitPrice: number;
+  lastRestocked: string;
+  status: "in_stock" | "low_stock" | "out_of_stock";
 }
 
 export interface Transfer {
   id: string;
+  sourceWarehouse: string;
+  destinationWarehouse: string;
   itemId: string;
   itemName: string;
-  fromWarehouseId: string;
-  toWarehouseId: string;
-  qty: number;
-  date: string;
-  status: string;
-  initiator: string;
-  notes: string;
+  quantity: number;
+  status: "completed" | "in_transit" | "pending";
   createdAt: string;
+  completedAt?: string;
+  notes: string;
 }
 
 export interface DashboardStats {
