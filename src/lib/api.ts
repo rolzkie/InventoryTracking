@@ -1,14 +1,12 @@
-import { projectId, publicAnonKey } from "../../utils/supabase/info";
 import { localStorageAPI } from "./local-storage-api";
 
-const BASE = `https://${projectId}.supabase.co/functions/v1/server/make-server-3c7e7389`;
+const BASE = `http://localhost:8000/api`;
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
-      // Edge Function in this repo does not require auth; keeping this off avoids 401/403.
       ...(options.headers ?? {}),
     },
   });
