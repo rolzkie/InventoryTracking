@@ -28,6 +28,11 @@ async function apiCall<T>(fn: () => Promise<T>, fallback: () => Promise<T>): Pro
   }
 }
 
+function isNumericResourceId(value: unknown): boolean {
+  if (typeof value === "number") return Number.isFinite(value);
+  return /^\d+$/.test(String(value ?? "").trim());
+}
+
 function normalizeInventoryItem(item: Partial<InventoryItem> & Record<string, any>): InventoryItem {
   const quantity = Number(item.quantity ?? item.qty ?? 0);
   const unitPrice = Number(item.unitPrice ?? item.cost ?? 0);
@@ -57,15 +62,20 @@ function normalizeInventoryItem(item: Partial<InventoryItem> & Record<string, an
 }
 
 function toInventoryPayload(data: Partial<InventoryItem>): Partial<InventoryItem> {
+  const warehouseId = Number(data.warehouseId ?? 0);
+  const quantity = Number(data.quantity ?? data.qty ?? 0);
+  const reorderPoint = Number(data.reorderPoint ?? 0);
+  const unitPrice = Number(data.unitPrice ?? data.cost ?? 0);
+
   return {
     sku: data.sku,
     name: data.name,
     description: data.description ?? data.notes ?? "",
     category: data.category,
-    quantity: Number(data.quantity ?? data.qty ?? 0),
-    reorderPoint: Number(data.reorderPoint ?? 0),
-    warehouseId: Number(data.warehouseId ?? 0),
-    unitPrice: Number(data.unitPrice ?? data.cost ?? 0),
+    quantity: Number.isFinite(quantity) ? quantity : 0,
+    reorderPoint: Number.isFinite(reorderPoint) ? reorderPoint : 0,
+    warehouseId: Number.isFinite(warehouseId) ? warehouseId : 0,
+    unitPrice: Number.isFinite(unitPrice) ? unitPrice : 0,
   };
 }
 
@@ -105,18 +115,36 @@ export const api = {
       () => request<InventoryItem>("/inventory", { method: "POST", body: JSON.stringify(toInventoryPayload(data)) }).then(normalizeInventoryItem),
       () => localStorageAPI.inventory.create(data)
     ),
-    update: (id: string, data: Partial<InventoryItem>) => apiCall(
-      () => request<InventoryItem>(`/inventory/${id}`, { method: "PUT", body: JSON.stringify(toInventoryPayload(data)) }).then(normalizeInventoryItem),
-      () => localStorageAPI.inventory.update(id, data)
-    ),
-    delete: (id: string) => apiCall(
-      () => request<{ ok: boolean }>(`/inventory/${id}`, { method: "DELETE" }),
-      () => localStorageAPI.inventory.delete(id)
-    ),
-    adjust: (id: string, delta: number) => apiCall(
-      () => request<InventoryItem>(`/inventory/${id}/adjust`, { method: "POST", body: JSON.stringify({ delta }) }).then(normalizeInventoryItem),
-      () => localStorageAPI.inventory.adjust(id, delta)
-    ),
+    update: (id: string, data: Partial<InventoryItem>) => {
+      if (!isNumericResourceId(id)) {
+        return localStorageAPI.inventory.update(id, data);
+      }
+
+      return apiCall(
+        () => request<InventoryItem>(`/inventory/${id}`, { method: "PUT", body: JSON.stringify(toInventoryPayload(data)) }).then(normalizeInventoryItem),
+        () => localStorageAPI.inventory.update(id, data)
+      );
+    },
+    delete: (id: string) => {
+      if (!isNumericResourceId(id)) {
+        return localStorageAPI.inventory.delete(id);
+      }
+
+      return apiCall(
+        () => request<{ ok: boolean }>(`/inventory/${id}`, { method: "DELETE" }),
+        () => localStorageAPI.inventory.delete(id)
+      );
+    },
+    adjust: (id: string, delta: number) => {
+      if (!isNumericResourceId(id)) {
+        return localStorageAPI.inventory.adjust(id, delta);
+      }
+
+      return apiCall(
+        () => request<InventoryItem>(`/inventory/${id}/adjust`, { method: "POST", body: JSON.stringify({ delta }) }).then(normalizeInventoryItem),
+        () => localStorageAPI.inventory.adjust(id, delta)
+      );
+    },
   },
 
   // Transfers

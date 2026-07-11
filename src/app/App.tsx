@@ -172,6 +172,63 @@ function EmptyRow({ cols, message }: { cols: number; message: string }) {
   );
 }
 
+function NotificationSummaryCard({ label, value, icon: Icon, tone }: {
+  label: string; value: string | number; icon: any; tone: string;
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-muted/40 p-3">
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <p className="text-[11px] text-muted-foreground">{label}</p>
+        <div className={`w-7 h-7 rounded-md flex items-center justify-center ${tone}`}><Icon size={13} /></div>
+      </div>
+      <p className="text-lg font-bold text-foreground" style={{ fontFamily: "JetBrains Mono, monospace" }}>{value}</p>
+    </div>
+  );
+}
+
+function DeveloperCard({ title, subtitle, description, badge, icon: Icon, tone }: {
+  title: string; subtitle: string; description: string; badge: string; icon: any; tone: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-4 shadow-sm shadow-black/10">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${tone}`}><Icon size={15} /></div>
+        <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">{badge}</span>
+      </div>
+      <p className="text-[11px] text-muted-foreground mb-1">{subtitle}</p>
+      <p className="text-sm font-semibold text-foreground mb-1">{title}</p>
+      <p className="text-[11px] leading-relaxed text-muted-foreground">{description}</p>
+    </div>
+  );
+}
+
+function NotificationsPanel({ reportCount, alertCount, onNavigate, onClose }: {
+  reportCount: number; alertCount: number; onNavigate: (page: Page) => void; onClose: () => void;
+}) {
+  return (
+    <div className="absolute right-0 top-11 z-40 w-[19rem] rounded-xl border border-border bg-card shadow-2xl backdrop-blur-sm">
+      <div className="border-b border-border px-4 py-3">
+        <p className="text-sm font-semibold text-foreground">Reports & Alerts</p>
+        <p className="text-[11px] text-muted-foreground mt-0.5">Live summary for operations and reviews</p>
+      </div>
+      <div className="grid grid-cols-2 gap-2 p-3">
+        <NotificationSummaryCard label="Reports" value={reportCount} icon={BarChart3} tone="bg-blue-500/15 text-blue-400" />
+        <NotificationSummaryCard label="Alerts" value={alertCount} icon={AlertTriangle} tone="bg-amber-500/15 text-amber-400" />
+      </div>
+      <div className="px-3 pb-3 flex flex-col gap-2">
+        <button onClick={() => { onNavigate("reports"); onClose(); }} className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-xs text-foreground hover:border-white/15 hover:bg-white/5 transition-colors">
+          <span>Open Reports</span>
+          <BarChart3 size={13} className="text-muted-foreground" />
+        </button>
+        <button onClick={() => { onNavigate("inventory"); onClose(); }} className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-xs text-foreground hover:border-white/15 hover:bg-white/5 transition-colors">
+          <span>Review Alerts</span>
+          <AlertTriangle size={13} className="text-muted-foreground" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 type InvForm = { name: string; sku: string; category: string; warehouseId: string; quantity: string; reorderPoint: string; unit: string; unitPrice: string; description: string };
 
 function InventoryModal({ item, warehouses, onClose, onSaved }: {
@@ -694,6 +751,51 @@ function Dashboard({ stats, onNavigate }: { stats: DashboardStats | null; onNavi
           </div>
         </div>
       )}
+
+      <div className="bg-card border border-border rounded-lg p-5">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">Developer Section</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">Build and handoff summary</p>
+          </div>
+          <span className="text-[11px] text-muted-foreground border border-border rounded-full px-2.5 py-1" style={{ fontFamily: "JetBrains Mono, monospace" }}>ERP v2.4</span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+          <DeveloperCard
+            title="React + TypeScript"
+            subtitle="Frontend"
+            description="Dashboard shell, filters, and analytics views."
+            badge="Active"
+            icon={Package}
+            tone="bg-blue-500/15 text-blue-400"
+          />
+          <DeveloperCard
+            title="Laravel API"
+            subtitle="Backend"
+            description="Inventory, warehouse, and transfer service endpoints."
+            badge="Online"
+            icon={Warehouse}
+            tone="bg-emerald-500/15 text-emerald-400"
+          />
+          <DeveloperCard
+            title="Alerts & Analytics"
+            subtitle="Reports"
+            description="Operational summaries, stock thresholds, and sign-off views."
+            badge="Review"
+            icon={BarChart3}
+            tone="bg-amber-500/15 text-amber-400"
+          />
+          <DeveloperCard
+            title="Developer Handoff"
+            subtitle="Support"
+            description="UI components, extension points, and release notes ready."
+            badge="Ready"
+            icon={Settings}
+            tone="bg-purple-500/15 text-purple-400"
+          />
+        </div>
+      </div>
     </div>
   );
 }
@@ -1325,7 +1427,9 @@ export default function App() {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [globalError, setGlobalError] = useState<string | null>(null);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const initialized = useRef(false);
+  const notificationRef = useRef<HTMLDivElement | null>(null);
 
   const loadGlobal = useCallback(async () => {
     try {
@@ -1350,6 +1454,18 @@ export default function App() {
   }, [loadGlobal]);
 
   const alertCount = (stats?.lowStock ?? 0) + (stats?.outOfStock ?? 0);
+  const reportCount = Math.max(1, Math.min(4, Math.ceil((stats?.totalSkus ?? inventory.length) / 10)));
+
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setNotificationsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, []);
 
   return (
     <div className="flex min-h-screen bg-background overflow-hidden lg:h-screen" style={{ fontFamily: "Plus Jakarta Sans, system-ui, sans-serif" }}>
@@ -1421,13 +1537,16 @@ export default function App() {
             <button onClick={loadGlobal} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-white/15 transition-colors">
               <RefreshCw size={14} />
             </button>
-            <div className="relative">
-              <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-white/15 transition-colors">
+            <div ref={notificationRef} className="relative">
+              <button onClick={() => setNotificationsOpen(open => !open)} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-white/15 transition-colors">
                 <Bell size={15} />
               </button>
               {alertCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 text-white text-xs rounded-full flex items-center justify-center"
                   style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10 }}>{alertCount}</span>
+              )}
+              {notificationsOpen && (
+                <NotificationsPanel reportCount={reportCount} alertCount={alertCount} onNavigate={setPage} onClose={() => setNotificationsOpen(false)} />
               )}
             </div>
             <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
