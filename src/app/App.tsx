@@ -14,7 +14,7 @@ import {
 import { api, type InventoryItem, type Warehouse as WH, type Transfer, type DashboardStats, CATEGORIES, UNITS } from "../lib/api";
 import { initializeSeedData } from "../lib/seed-data";
 
-// â”€â”€ Toast â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Toast helpers
 
 type Toast = { id: string; type: "success" | "error" | "info"; message: string };
 let toastSetter: ((fn: (t: Toast[]) => Toast[]) => void) | null = null;
@@ -45,7 +45,7 @@ function Toaster() {
   );
 }
 
-// â”€â”€ Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Modal helper
 
 function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
   useEffect(() => {
@@ -81,7 +81,7 @@ function FormField({ label, error, required, children }: { label: string; error?
 const inputCls = "w-full bg-secondary border border-border rounded-lg px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/30";
 const selectCls = `${inputCls} cursor-pointer`;
 
-// â”€â”€ Confirm Dialog â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Confirm dialog
 
 function ConfirmDialog({ title, message, onConfirm, onCancel, danger }: {
   title: string; message: string; onConfirm: () => void; onCancel: () => void; danger?: boolean;
@@ -101,7 +101,7 @@ function ConfirmDialog({ title, message, onConfirm, onCancel, danger }: {
   );
 }
 
-// â”€â”€ Status Badge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Status badge
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
@@ -121,8 +121,6 @@ function StatusBadge({ status }: { status: string }) {
       style={{ fontFamily: "JetBrains Mono, monospace" }}>{label}</span>
   );
 }
-
-// â”€â”€ KPI Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function KpiCard({ icon: Icon, label, value, delta, sub, color }: {
   icon: any; label: string; value: string | number; delta?: number; sub?: string; color: string;
@@ -147,8 +145,6 @@ function KpiCard({ icon: Icon, label, value, delta, sub, color }: {
     </div>
   );
 }
-
-// â”€â”€ Loading â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function LoadingRow({ cols }: { cols: number }) {
   return (
@@ -176,9 +172,7 @@ function EmptyRow({ cols, message }: { cols: number; message: string }) {
   );
 }
 
-// â”€â”€ Inventory Item Modal (Add / Edit) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-type InvForm = { name: string; sku: string; category: string; warehouseId: string; qty: string; reorderPoint: string; unit: string; cost: string; notes: string };
+type InvForm = { name: string; sku: string; category: string; warehouseId: string; quantity: string; reorderPoint: string; unit: string; unitPrice: string; description: string };
 
 function InventoryModal({ item, warehouses, onClose, onSaved }: {
   item?: InventoryItem; warehouses: WH[]; onClose: () => void; onSaved: (item: InventoryItem) => void;
@@ -189,11 +183,11 @@ function InventoryModal({ item, warehouses, onClose, onSaved }: {
     sku: item?.sku ?? "",
     category: item?.category ?? CATEGORIES[0],
     warehouseId: item?.warehouseId ?? (warehouses[0]?.id ?? ""),
-    qty: String(item?.qty ?? 0),
+    quantity: String(item?.quantity ?? item?.qty ?? 0),
     reorderPoint: String(item?.reorderPoint ?? 50),
     unit: item?.unit ?? UNITS[0],
-    cost: String(item?.cost ?? ""),
-    notes: item?.notes ?? "",
+    unitPrice: String(item?.unitPrice ?? item?.cost ?? ""),
+    description: item?.description ?? item?.notes ?? "",
   });
   const [errors, setErrors] = useState<Partial<InvForm>>({});
   const [saving, setSaving] = useState(false);
@@ -206,9 +200,9 @@ function InventoryModal({ item, warehouses, onClose, onSaved }: {
     if (!form.name.trim()) e.name = "Required";
     if (!form.sku.trim()) e.sku = "Required";
     if (!form.warehouseId) e.warehouseId = "Required";
-    if (isNaN(Number(form.qty)) || Number(form.qty) < 0) e.qty = "Must be â‰¥ 0";
-    if (isNaN(Number(form.reorderPoint)) || Number(form.reorderPoint) < 0) e.reorderPoint = "Must be â‰¥ 0";
-    if (!form.cost || isNaN(Number(form.cost)) || Number(form.cost) < 0) e.cost = "Must be a valid positive number";
+    if (isNaN(Number(form.quantity)) || Number(form.quantity) < 0) e.quantity = "Must be ≥ 0";
+    if (isNaN(Number(form.reorderPoint)) || Number(form.reorderPoint) < 0) e.reorderPoint = "Must be ≥ 0";
+    if (!form.unitPrice || isNaN(Number(form.unitPrice)) || Number(form.unitPrice) < 0) e.unitPrice = "Must be a valid positive number";
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -218,7 +212,16 @@ function InventoryModal({ item, warehouses, onClose, onSaved }: {
     if (!validate()) return;
     setSaving(true);
     try {
-      const payload = { ...form, qty: Number(form.qty), reorderPoint: Number(form.reorderPoint), cost: parseFloat(form.cost) };
+      const payload = {
+        name: form.name.trim(),
+        sku: form.sku.trim(),
+        category: form.category,
+        warehouseId: Number(form.warehouseId),
+        quantity: Number(form.quantity),
+        reorderPoint: Number(form.reorderPoint),
+        unitPrice: Number(form.unitPrice),
+        description: form.description.trim(),
+      };
       const saved = editing
         ? await api.inventory.update(item!.id, payload)
         : await api.inventory.create(payload);
@@ -256,8 +259,8 @@ function InventoryModal({ item, warehouses, onClose, onSaved }: {
           </FormField>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <FormField label="Quantity" required error={errors.qty}>
-            <input className={inputCls} type="number" min="0" value={form.qty} onChange={set("qty")} style={{ fontFamily: "JetBrains Mono, monospace" }} />
+          <FormField label="Quantity" required error={errors.quantity}>
+            <input className={inputCls} type="number" min="0" value={form.quantity} onChange={set("quantity")} style={{ fontFamily: "JetBrains Mono, monospace" }} />
           </FormField>
           <FormField label="Reorder Point" required error={errors.reorderPoint}>
             <input className={inputCls} type="number" min="0" value={form.reorderPoint} onChange={set("reorderPoint")} style={{ fontFamily: "JetBrains Mono, monospace" }} />
@@ -268,11 +271,11 @@ function InventoryModal({ item, warehouses, onClose, onSaved }: {
             </select>
           </FormField>
         </div>
-        <FormField label="Unit Cost (USD)" required error={errors.cost}>
-          <input className={inputCls} type="number" step="0.01" min="0" value={form.cost} onChange={set("cost")} placeholder="0.00" style={{ fontFamily: "JetBrains Mono, monospace" }} />
+        <FormField label="Unit Price (USD)" required error={errors.unitPrice}>
+          <input className={inputCls} type="number" step="0.01" min="0" value={form.unitPrice} onChange={set("unitPrice")} placeholder="0.00" style={{ fontFamily: "JetBrains Mono, monospace" }} />
         </FormField>
-        <FormField label="Notes">
-          <textarea className={`${inputCls} resize-none`} rows={2} value={form.notes} onChange={set("notes")} placeholder="Optional notes..." />
+        <FormField label="Description">
+          <textarea className={`${inputCls} resize-none`} rows={2} value={form.description} onChange={set("description")} placeholder="Optional description..." />
         </FormField>
         <div className="flex justify-end gap-2 pt-2 border-t border-border">
           <button type="button" onClick={onClose} className="px-4 py-2 text-xs border border-border rounded-lg text-muted-foreground hover:text-foreground transition-colors">Cancel</button>
@@ -286,12 +289,15 @@ function InventoryModal({ item, warehouses, onClose, onSaved }: {
   );
 }
 
-// â”€â”€ Adjust Qty Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Adjust quantity modal
 
 function AdjustModal({ item, onClose, onAdjusted }: { item: InventoryItem; onClose: () => void; onAdjusted: (item: InventoryItem) => void }) {
   const [delta, setDelta] = useState("");
   const [type, setType] = useState<"add" | "remove">("add");
   const [saving, setSaving] = useState(false);
+
+  const currentQuantity = Number(item.quantity ?? item.qty ?? 0);
+  const unitLabel = item.unit ?? "pcs";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -310,7 +316,7 @@ function AdjustModal({ item, onClose, onAdjusted }: { item: InventoryItem; onClo
     }
   }
 
-  const preview = type === "add" ? item.qty + Number(delta || 0) : Math.max(0, item.qty - Number(delta || 0));
+  const preview = type === "add" ? currentQuantity + Number(delta || 0) : Math.max(0, currentQuantity - Number(delta || 0));
 
   return (
     <Modal title="Adjust Stock Quantity" onClose={onClose}>
@@ -322,7 +328,7 @@ function AdjustModal({ item, onClose, onAdjusted }: { item: InventoryItem; onClo
           </div>
           <div className="text-right">
             <p className="text-xs text-muted-foreground">Current</p>
-            <p className="text-lg font-bold text-foreground" style={{ fontFamily: "JetBrains Mono, monospace" }}>{item.qty} <span className="text-xs text-muted-foreground">{item.unit}</span></p>
+            <p className="text-lg font-bold text-foreground" style={{ fontFamily: "JetBrains Mono, monospace" }}>{currentQuantity} <span className="text-xs text-muted-foreground">{unitLabel}</span></p>
           </div>
         </div>
 
@@ -345,7 +351,7 @@ function AdjustModal({ item, onClose, onAdjusted }: { item: InventoryItem; onClo
             <span className="text-muted-foreground">New quantity</span>
             <span className={`font-bold ${type === "add" ? "text-emerald-400" : "text-red-400"}`}
               style={{ fontFamily: "JetBrains Mono, monospace" }}>
-              {preview} {item.unit}
+              {preview} {unitLabel}
             </span>
           </div>
         )}
@@ -362,14 +368,19 @@ function AdjustModal({ item, onClose, onAdjusted }: { item: InventoryItem; onClo
   );
 }
 
-// â”€â”€ View Item Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// View item modal
 
 function ViewItemModal({ item, warehouse, onClose, onEdit }: { item: InventoryItem; warehouse?: WH; onClose: () => void; onEdit: () => void }) {
+  const quantity = Number(item.quantity ?? item.qty ?? 0);
+  const unitPrice = Number(item.unitPrice ?? item.cost ?? 0);
+  const unitLabel = item.unit ?? "pcs";
+  const createdDate = item.createdAt ?? item.lastRestocked ?? new Date().toISOString();
+
   const fields = [
     ["SKU", item.sku], ["Category", item.category], ["Warehouse", item.warehouseName ?? item.warehouseId],
-    ["Quantity", `${item.qty} ${item.unit}`], ["Reorder Point", `${item.reorderPoint} ${item.unit}`],
-    ["Unit Cost", `$${item.cost.toFixed(2)}`], ["Total Value", `$${(item.qty * item.cost).toLocaleString(undefined, { minimumFractionDigits: 2 })}`],
-    ["Created", new Date(item.createdAt).toLocaleDateString()],
+    ["Quantity", `${quantity} ${unitLabel}`], ["Reorder Point", `${item.reorderPoint} ${unitLabel}`],
+    ["Unit Cost", `$${unitPrice.toFixed(2)}`], ["Total Value", `$${(quantity * unitPrice).toLocaleString(undefined, { minimumFractionDigits: 2 })}`],
+    ["Created", new Date(createdDate).toLocaleDateString()],
   ];
   return (
     <Modal title="Item Details" onClose={onClose}>
@@ -391,10 +402,10 @@ function ViewItemModal({ item, warehouse, onClose, onEdit }: { item: InventoryIt
             </div>
           ))}
         </div>
-        {item.notes && (
+        {(item.description ?? item.notes) && (
           <div className="bg-muted/50 rounded-lg px-3 py-2.5">
-            <p className="text-xs text-muted-foreground">Notes</p>
-            <p className="text-xs text-foreground mt-0.5">{item.notes}</p>
+            <p className="text-xs text-muted-foreground">Description</p>
+            <p className="text-xs text-foreground mt-0.5">{item.description ?? item.notes}</p>
           </div>
         )}
         <div className="flex justify-end gap-2 pt-2 border-t border-border">
@@ -407,8 +418,6 @@ function ViewItemModal({ item, warehouse, onClose, onEdit }: { item: InventoryIt
     </Modal>
   );
 }
-
-// â”€â”€ Warehouse Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type WHForm = { name: string; location: string; capacity: string; manager: string };
 
@@ -474,7 +483,7 @@ function WarehouseModal({ wh, onClose, onSaved }: { wh?: WH; onClose: () => void
   );
 }
 
-// â”€â”€ Transfer Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Transfer modal
 
 function TransferModal({ warehouses, inventory, onClose, onSaved }: {
   warehouses: WH[]; inventory: InventoryItem[]; onClose: () => void; onSaved: (t: Transfer) => void;
@@ -566,8 +575,6 @@ function TransferModal({ warehouses, inventory, onClose, onSaved }: {
   );
 }
 
-// â”€â”€ Dashboard Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
 const CHART_DATA = [
   { month: "Jan", inbound: 1800, outbound: 1200 },
   { month: "Feb", inbound: 2100, outbound: 1600 },
@@ -585,7 +592,7 @@ function Dashboard({ stats, onNavigate }: { stats: DashboardStats | null; onNavi
     <div className="flex items-center justify-center h-64 text-muted-foreground">
       <div className="flex flex-col items-center gap-3">
         <Loader2 size={22} className="animate-spin" />
-        <span className="text-xs">Loading dashboardâ€¦</span>
+        <span className="text-xs">Loading dashboard...</span>
       </div>
     </div>
   );
@@ -600,11 +607,11 @@ function Dashboard({ stats, onNavigate }: { stats: DashboardStats | null; onNavi
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <KpiCard icon={Package} label="Total SKUs" value={stats.totalSkus} sub="Active items" color="bg-blue-500/15 text-blue-400" />
         <KpiCard icon={Warehouse} label="Warehouses" value={stats.warehouseCount} sub="All operational" color="bg-purple-500/15 text-purple-400" />
         <KpiCard icon={AlertTriangle} label="Stock Alerts" value={stats.lowStock + stats.outOfStock}
-          sub={`${stats.outOfStock} out Â· ${stats.lowStock} low`} color="bg-amber-500/15 text-amber-400" />
+          sub={`${stats.outOfStock} out • ${stats.lowStock} low`} color="bg-amber-500/15 text-amber-400" />
         <KpiCard icon={TrendingUp} label="Total Value" value={`$${(stats.totalValue / 1000).toFixed(0)}k`}
           sub="Inventory value" color="bg-emerald-500/15 text-emerald-400" />
       </div>
@@ -614,7 +621,7 @@ function Dashboard({ stats, onNavigate }: { stats: DashboardStats | null; onNavi
           <div className="flex items-center justify-between mb-5">
             <div>
               <h3 className="text-sm font-semibold text-foreground">Stock Movement</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">Inbound vs outbound â€” last 7 months</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Inbound vs outbound — last 7 months</p>
             </div>
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-500" />Inbound</span>
@@ -668,18 +675,18 @@ function Dashboard({ stats, onNavigate }: { stats: DashboardStats | null; onNavi
 
       {stats.alerts.length > 0 && (
         <div className="bg-card border border-border rounded-lg p-5">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 gap-2">
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
               <AlertTriangle size={14} className="text-amber-400" /> Stock Alerts
             </h3>
-            <button onClick={() => onNavigate("inventory")} className="text-xs text-primary hover:underline">View all â†’</button>
+            <button onClick={() => onNavigate("inventory")} className="text-xs text-primary hover:underline">View all →</button>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
             {stats.alerts.map((a, i) => (
               <div key={i} className={`flex items-center justify-between p-3 rounded-lg border ${a.alertType === "out_of_stock" ? "border-red-500/20 bg-red-500/5" : "border-amber-500/20 bg-amber-500/5"}`}>
                 <div>
                   <p className="text-xs font-medium text-foreground">{a.name}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5" style={{ fontFamily: "JetBrains Mono, monospace" }}>{a.sku} Â· {a.warehouseId}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5" style={{ fontFamily: "JetBrains Mono, monospace" }}>{a.sku} • {a.warehouseId}</p>
                 </div>
                 <StatusBadge status={a.alertType} />
               </div>
@@ -690,8 +697,6 @@ function Dashboard({ stats, onNavigate }: { stats: DashboardStats | null; onNavi
     </div>
   );
 }
-
-// â”€â”€ Inventory Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const PAGE_SIZE = 8;
 type InvModal = { type: "add" } | { type: "edit"; item: InventoryItem } | { type: "view"; item: InventoryItem } | { type: "adjust"; item: InventoryItem } | { type: "delete"; item: InventoryItem };
@@ -924,8 +929,6 @@ function InventoryPage({ warehouses }: { warehouses: WH[] }) {
   );
 }
 
-// â”€â”€ Warehouses Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
 function WarehousesPage({ warehouses, setWarehouses }: { warehouses: WH[]; setWarehouses: (w: WH[]) => void }) {
   const [modal, setModal] = useState<{ type: "add" } | { type: "edit"; wh: WH } | { type: "delete"; wh: WH } | null>(null);
 
@@ -945,7 +948,7 @@ function WarehousesPage({ warehouses, setWarehouses }: { warehouses: WH[]; setWa
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-muted-foreground">{warehouses.length} warehouses registered</p>
         <button onClick={() => setModal({ type: "add" })} className="flex items-center gap-1.5 px-3 py-2 text-xs bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
           <Plus size={13} /> Add Warehouse
@@ -1016,8 +1019,6 @@ function WarehousesPage({ warehouses, setWarehouses }: { warehouses: WH[]; setWa
     </div>
   );
 }
-
-// â”€â”€ Transfers Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function TransfersPage({ warehouses, inventory }: { warehouses: WH[]; inventory: InventoryItem[] }) {
   const [transfers, setTransfers] = useState<Transfer[]>([]);
@@ -1171,8 +1172,6 @@ function TransfersPage({ warehouses, inventory }: { warehouses: WH[]; inventory:
   );
 }
 
-// â”€â”€ Reports Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
 function ReportsPage({ inventory, warehouses }: { inventory: InventoryItem[]; warehouses: WH[] }) {
   const byWarehouse = warehouses.map(w => ({
     name: w.name.split(" ")[0],
@@ -1308,8 +1307,6 @@ function ReportsPage({ inventory, warehouses }: { inventory: InventoryItem[]; wa
     </div>
   );
 }
-
-// â”€â”€ Root App â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type Page = "dashboard" | "inventory" | "warehouses" | "transfers" | "reports";
 

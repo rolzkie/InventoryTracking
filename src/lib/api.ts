@@ -28,6 +28,47 @@ async function apiCall<T>(fn: () => Promise<T>, fallback: () => Promise<T>): Pro
   }
 }
 
+function normalizeInventoryItem(item: Partial<InventoryItem> & Record<string, any>): InventoryItem {
+  const quantity = Number(item.quantity ?? item.qty ?? 0);
+  const unitPrice = Number(item.unitPrice ?? item.cost ?? 0);
+  const description = item.description ?? item.notes ?? "";
+  const status = item.status ?? (quantity === 0 ? "out_of_stock" : quantity < Number(item.reorderPoint ?? 0) ? "low_stock" : "in_stock");
+
+  return {
+    ...item,
+    id: String(item.id ?? ""),
+    sku: item.sku ?? "",
+    name: item.name ?? "",
+    description,
+    category: item.category ?? "",
+    quantity,
+    reorderPoint: Number(item.reorderPoint ?? 0),
+    warehouseId: String(item.warehouseId ?? ""),
+    unitPrice,
+    lastRestocked: item.lastRestocked ?? "",
+    status,
+    qty: quantity,
+    cost: unitPrice,
+    unit: item.unit ?? "pcs",
+    notes: description,
+    createdAt: item.createdAt ?? item.lastRestocked ?? new Date().toISOString(),
+    warehouseName: item.warehouseName ?? "",
+  } as InventoryItem;
+}
+
+function toInventoryPayload(data: Partial<InventoryItem>): Partial<InventoryItem> {
+  return {
+    sku: data.sku,
+    name: data.name,
+    description: data.description ?? data.notes ?? "",
+    category: data.category,
+    quantity: Number(data.quantity ?? data.qty ?? 0),
+    reorderPoint: Number(data.reorderPoint ?? 0),
+    warehouseId: Number(data.warehouseId ?? 0),
+    unitPrice: Number(data.unitPrice ?? data.cost ?? 0),
+  };
+}
+
 export const api = {
   dashboard: () => apiCall(
     () => request<DashboardStats>("/dashboard"),
@@ -57,15 +98,15 @@ export const api = {
   // Inventory
   inventory: {
     list: () => apiCall(
-      () => request<InventoryItem[]>("/inventory"),
-      () => localStorageAPI.inventory.list()
+      () => request<InventoryItem[]>("/inventory").then(items => items.map(normalizeInventoryItem)),
+      () => localStorageAPI.inventory.list().then(items => items.map(normalizeInventoryItem))
     ),
     create: (data: Partial<InventoryItem>) => apiCall(
-      () => request<InventoryItem>("/inventory", { method: "POST", body: JSON.stringify(data) }),
+      () => request<InventoryItem>("/inventory", { method: "POST", body: JSON.stringify(toInventoryPayload(data)) }).then(normalizeInventoryItem),
       () => localStorageAPI.inventory.create(data)
     ),
     update: (id: string, data: Partial<InventoryItem>) => apiCall(
-      () => request<InventoryItem>(`/inventory/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+      () => request<InventoryItem>(`/inventory/${id}`, { method: "PUT", body: JSON.stringify(toInventoryPayload(data)) }).then(normalizeInventoryItem),
       () => localStorageAPI.inventory.update(id, data)
     ),
     delete: (id: string) => apiCall(
@@ -73,7 +114,7 @@ export const api = {
       () => localStorageAPI.inventory.delete(id)
     ),
     adjust: (id: string, delta: number) => apiCall(
-      () => request<InventoryItem>(`/inventory/${id}/adjust`, { method: "POST", body: JSON.stringify({ delta }) }),
+      () => request<InventoryItem>(`/inventory/${id}/adjust`, { method: "POST", body: JSON.stringify({ delta }) }).then(normalizeInventoryItem),
       () => localStorageAPI.inventory.adjust(id, delta)
     ),
   },
@@ -124,6 +165,12 @@ export interface InventoryItem {
   unitPrice: number;
   lastRestocked: string;
   status: "in_stock" | "low_stock" | "out_of_stock";
+  qty?: number;
+  cost?: number;
+  unit?: string;
+  notes?: string;
+  createdAt?: string;
+  warehouseName?: string;
 }
 
 export interface Transfer {
