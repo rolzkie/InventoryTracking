@@ -156,7 +156,7 @@ function LoadingRow({ cols }: { cols: number }) {
       <td colSpan={cols} className="py-16 text-center">
         <div className="flex flex-col items-center gap-3 text-muted-foreground">
           <Loader2 size={20} className="animate-spin" />
-          <span className="text-xs">Loading dataâ€¦</span>
+          <span className="text-xs">Loading data...</span>
         </div>
       </td>
     </tr>
@@ -235,7 +235,7 @@ function InventoryModal({ item, warehouses, onClose, onSaved }: {
   return (
     <Modal title={editing ? "Edit Inventory Item" : "Add Inventory Item"} onClose={onClose} wide>
       <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-4">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField label="Item Name" required error={errors.name}>
             <input className={inputCls} value={form.name} onChange={set("name")} placeholder="e.g. Circuit Board v3.2" />
           </FormField>
@@ -243,7 +243,7 @@ function InventoryModal({ item, warehouses, onClose, onSaved }: {
             <input className={inputCls} value={form.sku} onChange={set("sku")} placeholder="e.g. CB-3200" style={{ fontFamily: "JetBrains Mono, monospace" }} />
           </FormField>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField label="Category" required>
             <select className={selectCls} value={form.category} onChange={set("category")}>
               {CATEGORIES.map(c => <option key={c}>{c}</option>)}
@@ -255,7 +255,7 @@ function InventoryModal({ item, warehouses, onClose, onSaved }: {
             </select>
           </FormField>
         </div>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <FormField label="Quantity" required error={errors.qty}>
             <input className={inputCls} type="number" min="0" value={form.qty} onChange={set("qty")} style={{ fontFamily: "JetBrains Mono, monospace" }} />
           </FormField>
@@ -278,7 +278,7 @@ function InventoryModal({ item, warehouses, onClose, onSaved }: {
           <button type="button" onClick={onClose} className="px-4 py-2 text-xs border border-border rounded-lg text-muted-foreground hover:text-foreground transition-colors">Cancel</button>
           <button type="submit" disabled={saving} className="flex items-center gap-1.5 px-4 py-2 text-xs bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors">
             {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-            {saving ? "Savingâ€¦" : editing ? "Save Changes" : "Add Item"}
+            {saving ? "Saving..." : editing ? "Save Changes" : "Add Item"}
           </button>
         </div>
       </form>
@@ -354,7 +354,7 @@ function AdjustModal({ item, onClose, onAdjusted }: { item: InventoryItem; onClo
           <button type="button" onClick={onClose} className="px-4 py-2 text-xs border border-border rounded-lg text-muted-foreground hover:text-foreground transition-colors">Cancel</button>
           <button type="submit" disabled={saving} className={`flex items-center gap-1.5 px-4 py-2 text-xs rounded-lg text-white disabled:opacity-50 transition-colors ${type === "add" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-red-600 hover:bg-red-700"}`}>
             {saving ? <Loader2 size={12} className="animate-spin" /> : (type === "add" ? <Plus size={12} /> : <Minus size={12} />)}
-            {saving ? "Savingâ€¦" : "Apply"}
+            {saving ? "Saving..." : "Apply"}
           </button>
         </div>
       </form>
@@ -466,7 +466,7 @@ function WarehouseModal({ wh, onClose, onSaved }: { wh?: WH; onClose: () => void
           <button type="button" onClick={onClose} className="px-4 py-2 text-xs border border-border rounded-lg text-muted-foreground hover:text-foreground transition-colors">Cancel</button>
           <button type="submit" disabled={saving} className="flex items-center gap-1.5 px-4 py-2 text-xs bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors">
             {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-            {saving ? "Savingâ€¦" : editing ? "Save Changes" : "Add Warehouse"}
+            {saving ? "Saving..." : editing ? "Save Changes" : "Add Warehouse"}
           </button>
         </div>
       </form>
@@ -517,23 +517,23 @@ function TransferModal({ warehouses, inventory, onClose, onSaved }: {
   return (
     <Modal title="New Transfer" onClose={onClose} wide>
       <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-4">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField label="From Warehouse" required error={errors.fromWarehouseId}>
             <select className={selectCls} value={form.fromWarehouseId} onChange={e => setForm(f => ({ ...f, fromWarehouseId: e.target.value, itemId: "" }))}>
-              <option value="">â€” Select â€”</option>
+              <option value="">Select</option>
               {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
           </FormField>
           <FormField label="To Warehouse" required error={errors.toWarehouseId}>
             <select className={selectCls} value={form.toWarehouseId} onChange={e => setForm(f => ({ ...f, toWarehouseId: e.target.value }))}>
-              <option value="">â€” Select â€”</option>
+              <option value="">Select</option>
               {warehouses.filter(w => w.id !== form.fromWarehouseId).map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
           </FormField>
         </div>
         <FormField label="Item" required error={errors.itemId}>
           <select className={selectCls} value={form.itemId} onChange={e => setForm(f => ({ ...f, itemId: e.target.value }))}>
-            <option value="">â€” Select item â€”</option>
+            <option value="">Select item</option>
             {filteredItems.map(i => <option key={i.id} value={i.id}>{i.name} ({i.qty} {i.unit} available)</option>)}
           </select>
         </FormField>
@@ -543,7 +543,7 @@ function TransferModal({ warehouses, inventory, onClose, onSaved }: {
             <span className="font-bold text-foreground" style={{ fontFamily: "JetBrains Mono, monospace" }}>{selectedItem.qty} {selectedItem.unit}</span>
           </div>
         )}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField label="Quantity" required error={errors.qty}>
             <input className={inputCls} type="number" min="1" max={selectedItem?.qty} value={form.qty} onChange={e => setForm(f => ({ ...f, qty: e.target.value }))} style={{ fontFamily: "JetBrains Mono, monospace" }} />
           </FormField>
@@ -552,13 +552,13 @@ function TransferModal({ warehouses, inventory, onClose, onSaved }: {
           </FormField>
         </div>
         <FormField label="Notes">
-          <textarea className={`${inputCls} resize-none`} rows={2} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Optional notesâ€¦" />
+          <textarea className={`${inputCls} resize-none`} rows={2} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Optional notes..." />
         </FormField>
         <div className="flex justify-end gap-2 pt-2 border-t border-border">
           <button type="button" onClick={onClose} className="px-4 py-2 text-xs border border-border rounded-lg text-muted-foreground hover:text-foreground transition-colors">Cancel</button>
           <button type="submit" disabled={saving} className="flex items-center gap-1.5 px-4 py-2 text-xs bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors">
             {saving ? <Loader2 size={12} className="animate-spin" /> : <ArrowLeftRight size={12} />}
-            {saving ? "Creatingâ€¦" : "Create Transfer"}
+            {saving ? "Creating..." : "Create Transfer"}
           </button>
         </div>
       </form>
@@ -762,32 +762,36 @@ function InventoryPage({ warehouses }: { warehouses: WH[] }) {
   return (
     <div className="flex flex-col gap-4">
       {/* Controls */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <div className="relative flex-1 min-w-48 max-w-xs">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:flex-wrap">
+        <div className="relative w-full sm:flex-1 sm:min-w-[12rem] sm:max-w-xs">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name, SKU, categoryâ€¦"
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name, SKU, or category..."
             className={`${inputCls} pl-9`} />
         </div>
-        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className={`${selectCls} w-auto`}>
-          <option value="all">All Status</option>
-          <option value="in_stock">In Stock</option>
-          <option value="low_stock">Low Stock</option>
-          <option value="out_of_stock">Out of Stock</option>
-        </select>
-        <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} className={`${selectCls} w-auto`}>
-          <option value="all">All Categories</option>
-          {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-        </select>
+        <div className="flex flex-wrap items-center gap-2">
+          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className={`${selectCls} w-auto`}>
+            <option value="all">All Status</option>
+            <option value="in_stock">In Stock</option>
+            <option value="low_stock">Low Stock</option>
+            <option value="out_of_stock">Out of Stock</option>
+          </select>
+          <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} className={`${selectCls} w-auto`}>
+            <option value="all">All Categories</option>
+            {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+          </select>
+        </div>
         <div className="flex-1" />
-        <button onClick={() => load(true)} disabled={refreshing} className="flex items-center gap-1.5 px-3 py-2 text-xs border border-border rounded-lg text-muted-foreground hover:text-foreground transition-colors">
-          <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} />
-        </button>
-        <button onClick={exportCsv} className="flex items-center gap-1.5 px-3 py-2 text-xs border border-border rounded-lg text-muted-foreground hover:text-foreground transition-colors">
-          <Download size={13} /> Export
-        </button>
-        <button onClick={() => setModal({ type: "add" })} className="flex items-center gap-1.5 px-3 py-2 text-xs bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
-          <Plus size={13} /> Add Item
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={() => load(true)} disabled={refreshing} className="flex items-center gap-1.5 px-3 py-2 text-xs border border-border rounded-lg text-muted-foreground hover:text-foreground transition-colors">
+            <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} />
+          </button>
+          <button onClick={exportCsv} className="flex items-center gap-1.5 px-3 py-2 text-xs border border-border rounded-lg text-muted-foreground hover:text-foreground transition-colors">
+            <Download size={13} /> Export
+          </button>
+          <button onClick={() => setModal({ type: "add" })} className="flex items-center gap-1.5 px-3 py-2 text-xs bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
+            <Plus size={13} /> Add Item
+          </button>
+        </div>
       </div>
 
       {/* Summary pills */}
@@ -871,7 +875,7 @@ function InventoryPage({ warehouses }: { warehouses: WH[] }) {
         {!loading && filtered.length > PAGE_SIZE && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-muted/20">
             <p className="text-xs text-muted-foreground">
-              Showing {(page - 1) * PAGE_SIZE + 1}â€“{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
+              Showing {(page - 1) * PAGE_SIZE + 1}-{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
             </p>
             <div className="flex items-center gap-1">
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
@@ -896,7 +900,7 @@ function InventoryPage({ warehouses }: { warehouses: WH[] }) {
         )}
         {!loading && (
           <div className="px-4 py-2.5 border-t border-border bg-muted/10 flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">{filtered.length} items Â· Total value: <span className="text-foreground font-medium" style={{ fontFamily: "JetBrains Mono, monospace" }}>
+            <p className="text-xs text-muted-foreground">{filtered.length} items • Total value: <span className="text-foreground font-medium" style={{ fontFamily: "JetBrains Mono, monospace" }}>
               ${filtered.reduce((s, i) => s + i.qty * i.cost, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span></p>
           </div>
@@ -1073,10 +1077,10 @@ function TransfersPage({ warehouses, inventory }: { warehouses: WH[]; inventory:
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-2 flex-wrap">
-        <div className="relative flex-1 min-w-48 max-w-xs">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:flex-wrap">
+        <div className="relative w-full sm:flex-1 sm:min-w-[12rem] sm:max-w-xs">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search ID or itemâ€¦" className={`${inputCls} pl-9`} />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search transfer ID or item..." className={`${inputCls} pl-9`} />
         </div>
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className={`${selectCls} w-auto`}>
           <option value="all">All Status</option>
@@ -1086,12 +1090,14 @@ function TransfersPage({ warehouses, inventory }: { warehouses: WH[]; inventory:
           <option value="cancelled">Cancelled</option>
         </select>
         <div className="flex-1" />
-        <button onClick={load} className="flex items-center gap-1.5 px-3 py-2 text-xs border border-border rounded-lg text-muted-foreground hover:text-foreground transition-colors">
-          <RefreshCw size={13} />
-        </button>
-        <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 px-3 py-2 text-xs bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
-          <Plus size={13} /> New Transfer
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={load} className="flex items-center gap-1.5 px-3 py-2 text-xs border border-border rounded-lg text-muted-foreground hover:text-foreground transition-colors">
+            <RefreshCw size={13} />
+          </button>
+          <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 px-3 py-2 text-xs bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
+            <Plus size={13} /> New Transfer
+          </button>
+        </div>
       </div>
 
       <div className="bg-card border border-border rounded-lg overflow-hidden">
@@ -1118,7 +1124,7 @@ function TransfersPage({ warehouses, inventory }: { warehouses: WH[]; inventory:
                     <td className="px-4 py-3 text-xs text-muted-foreground" style={{ fontFamily: "JetBrains Mono, monospace" }}>
                       {whMap[t.toWarehouseId]?.split(" ")[0] ?? t.toWarehouseId}
                     </td>
-                    <td className="px-4 py-3 text-xs font-semibold text-foreground" style={{ fontFamily: "JetBrains Mono, monospace" }}>Ã—{t.qty}</td>
+                    <td className="px-4 py-3 text-xs font-semibold text-foreground" style={{ fontFamily: "JetBrains Mono, monospace" }}>×{t.qty}</td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">{t.initiator}</td>
                     <td className="px-4 py-3 text-xs text-muted-foreground" style={{ fontFamily: "JetBrains Mono, monospace" }}>{t.date}</td>
                     <td className="px-4 py-3">
@@ -1147,7 +1153,7 @@ function TransfersPage({ warehouses, inventory }: { warehouses: WH[]; inventory:
         </div>
         {!loading && (
           <div className="px-4 py-2.5 border-t border-border bg-muted/10">
-            <p className="text-xs text-muted-foreground">{filtered.length} transfers Â· {transfers.filter(t => t.status === "in_transit").length} in transit</p>
+            <p className="text-xs text-muted-foreground">{filtered.length} transfers • {transfers.filter(t => t.status === "in_transit").length} in transit</p>
           </div>
         )}
       </div>
@@ -1349,7 +1355,7 @@ export default function App() {
   const alertCount = (stats?.lowStock ?? 0) + (stats?.outOfStock ?? 0);
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden" style={{ fontFamily: "Plus Jakarta Sans, system-ui, sans-serif" }}>
+    <div className="flex min-h-screen bg-background overflow-hidden lg:h-screen" style={{ fontFamily: "Plus Jakarta Sans, system-ui, sans-serif" }}>
       <Toaster />
 
       {sidebarOpen && <div className="fixed inset-0 bg-black/60 z-20 lg:hidden" onClick={() => setSidebarOpen(false)} />}
@@ -1404,7 +1410,7 @@ export default function App() {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-        <header className="h-14 flex items-center gap-3 px-4 lg:px-6 border-b border-border bg-background/80 backdrop-blur-sm shrink-0">
+        <header className="min-h-14 flex flex-wrap items-center gap-3 px-4 lg:px-6 py-2 border-b border-border bg-background/80 backdrop-blur-sm shrink-0">
           <button onClick={() => setSidebarOpen(true)} className="lg:hidden w-8 h-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground transition-colors">
             <Menu size={18} />
           </button>
@@ -1412,24 +1418,26 @@ export default function App() {
           <div className="flex-1" />
           <div className="relative hidden sm:block">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <input placeholder="Quick searchâ€¦" className={`${inputCls} pl-9 w-48`} />
+            <input placeholder="Quick search..." className={`${inputCls} pl-9 w-full sm:w-48`} />
           </div>
-          <button onClick={loadGlobal} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-white/15 transition-colors">
-            <RefreshCw size={14} />
-          </button>
-          <div className="relative">
-            <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-white/15 transition-colors">
-              <Bell size={15} />
+          <div className="flex items-center gap-2 ml-auto sm:ml-0">
+            <button onClick={loadGlobal} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-white/15 transition-colors">
+              <RefreshCw size={14} />
             </button>
-            {alertCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 text-white text-xs rounded-full flex items-center justify-center"
-                style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10 }}>{alertCount}</span>
-            )}
+            <div className="relative">
+              <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-white/15 transition-colors">
+                <Bell size={15} />
+              </button>
+              {alertCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 text-white text-xs rounded-full flex items-center justify-center"
+                  style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10 }}>{alertCount}</span>
+              )}
+            </div>
+            <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+              <div className="w-7 h-7 rounded-full bg-blue-500/20 flex items-center justify-center text-xs font-semibold text-blue-400">SC</div>
+              <ChevronDown size={12} />
+            </button>
           </div>
-          <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-            <div className="w-7 h-7 rounded-full bg-blue-500/20 flex items-center justify-center text-xs font-semibold text-blue-400">SC</div>
-            <ChevronDown size={12} />
-          </button>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
