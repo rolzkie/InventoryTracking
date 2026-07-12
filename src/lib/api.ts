@@ -125,10 +125,16 @@ function toTransferPayload(data: Partial<Transfer>): Partial<Transfer> {
   return {
     sourceWarehouse: data.sourceWarehouse ?? data.fromWarehouseId ?? "",
     destinationWarehouse: data.destinationWarehouse ?? data.toWarehouseId ?? "",
+    fromWarehouseId: data.fromWarehouseId ?? data.sourceWarehouse ?? "",
+    toWarehouseId: data.toWarehouseId ?? data.destinationWarehouse ?? "",
     itemId: data.itemId ?? "",
     quantity: Number.isFinite(quantity) ? quantity : 0,
+    qty: Number.isFinite(quantity) ? quantity : 0,
     status: data.status ?? "pending",
     notes: data.notes ?? "",
+    initiator: data.initiator ?? "Sarah Chen",
+    createdAt: data.createdAt ?? data.date ?? new Date().toISOString(),
+    date: data.date ?? data.createdAt ?? new Date().toISOString().slice(0, 10),
   };
 }
 

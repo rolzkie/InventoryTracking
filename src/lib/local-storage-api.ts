@@ -216,30 +216,40 @@ export const localStorageAPI = {
       if (itemIdx === -1) throw new Error("Inventory item not found");
 
       const item = inventory[itemIdx];
-      if (item.warehouseId !== data.sourceWarehouse) {
+      const sourceWarehouse = data.sourceWarehouse ?? data.fromWarehouseId ?? "";
+      const destinationWarehouse = data.destinationWarehouse ?? data.toWarehouseId ?? "";
+      const quantity = Number(data.quantity ?? data.qty ?? 0) || 0;
+      const status = data.status ?? "pending";
+
+      if (item.warehouseId !== sourceWarehouse) {
         throw new Error("Item is not stored in the source warehouse");
       }
 
-      if (item.quantity < Number(data.quantity || 0)) {
+      if (item.quantity < quantity) {
         throw new Error(`Insufficient stock. Available: ${item.quantity}`);
       }
 
       const transfers = getList<Transfer>(STORAGE_KEYS.transfers);
       const trf: Transfer = {
         id: genId("TRN"),
-        sourceWarehouse: data.sourceWarehouse ?? "",
-        destinationWarehouse: data.destinationWarehouse ?? "",
+        sourceWarehouse,
+        destinationWarehouse,
+        fromWarehouseId: sourceWarehouse,
+        toWarehouseId: destinationWarehouse,
         itemId: data.itemId ?? "",
         itemName: item.name,
-        quantity: Number(data.quantity) || 0,
-        status: data.status ?? "pending",
-        createdAt: new Date().toISOString(),
+        quantity,
+        qty: quantity,
+        status,
+        createdAt: data.createdAt ?? new Date().toISOString(),
+        date: data.date ?? new Date().toISOString().slice(0, 10),
         completedAt: data.completedAt,
         notes: data.notes ?? "",
+        initiator: data.initiator ?? "Sarah Chen",
       };
 
-      if (trf.status === "in_transit" || trf.status === "completed") {
-        inventory[itemIdx].quantity -= trf.quantity;
+      if (status === "in_transit" || status === "completed") {
+        inventory[itemIdx].quantity -= quantity;
         inventory[itemIdx].status = itemStatus(
           inventory[itemIdx].quantity,
           inventory[itemIdx].reorderPoint
@@ -257,25 +267,48 @@ export const localStorageAPI = {
       if (idx === -1) throw new Error("Not found");
 
       const oldTransfer = transfers[idx];
-      transfers[idx] = { ...transfers[idx], ...data };
+      const nextStatus = data.status ?? oldTransfer.status;
+      const quantity = Number(data.quantity ?? data.qty ?? oldTransfer.quantity) || 0;
+      const sourceWarehouse = data.sourceWarehouse ?? data.fromWarehouseId ?? oldTransfer.sourceWarehouse;
+      const destinationWarehouse = data.destinationWarehouse ?? data.toWarehouseId ?? oldTransfer.destinationWarehouse;
 
-      if (
-        data.status === "completed" &&
-        oldTransfer.status !== "completed"
-      ) {
-        const inventory = getList<InventoryItem>(STORAGE_KEYS.inventory);
-        const itemIdx = inventory.findIndex(
-          (i) => i.id === oldTransfer.itemId
-        );
-        if (itemIdx !== -1) {
-          inventory[itemIdx].quantity += oldTransfer.quantity;
-          inventory[itemIdx].warehouseId = oldTransfer.destinationWarehouse;
-          inventory[itemIdx].status = itemStatus(
-            inventory[itemIdx].quantity,
-            inventory[itemIdx].reorderPoint
-          );
-          saveList(STORAGE_KEYS.inventory, inventory);
+      transfers[idx] = {
+        ...transfers[idx],
+        ...data,
+        sourceWarehouse,
+        destinationWarehouse,
+        fromWarehouseId: sourceWarehouse,
+        toWarehouseId: destinationWarehouse,
+        quantity,
+        qty: quantity,
+        status: nextStatus,
+      };
+
+      const inventory = getList<InventoryItem>(STORAGE_KEYS.inventory);
+      const itemIdx = inventory.findIndex((i) => i.id === oldTransfer.itemId);
+
+      if (itemIdx !== -1) {
+        const item = inventory[itemIdx];
+        if (oldTransfer.status === "in_transit" && nextStatus === "cancelled") {
+          item.quantity += oldTransfer.quantity;
+          item.status = itemStatus(item.quantity, item.reorderPoint);
+        } else if (oldTransfer.status === "in_transit" && nextStatus === "completed") {
+          item.quantity += oldTransfer.quantity;
+          item.warehouseId = destinationWarehouse;
+          item.status = itemStatus(item.quantity, item.reorderPoint);
+        } else if (oldTransfer.status !== "completed" && nextStatus === "completed") {
+          item.quantity += quantity;
+          item.warehouseId = destinationWarehouse;
+          item.status = itemStatus(item.quantity, item.reorderPoint);
+        } else if (oldTransfer.status === "pending" && nextStatus === "in_transit") {
+          item.quantity -= quantity;
+          item.status = itemStatus(item.quantity, item.reorderPoint);
+        } else if (oldTransfer.status === "in_transit" && nextStatus === "pending") {
+          item.quantity += oldTransfer.quantity;
+          item.status = itemStatus(item.quantity, item.reorderPoint);
         }
+
+        saveList(STORAGE_KEYS.inventory, inventory);
       }
 
       saveList(STORAGE_KEYS.transfers, transfers);

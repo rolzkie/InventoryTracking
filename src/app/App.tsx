@@ -1178,6 +1178,9 @@ function TransfersPage({ warehouses, inventory }: { warehouses: WH[]; inventory:
   useEffect(() => { load(); }, [load]);
 
   const whMap = Object.fromEntries(warehouses.map(w => [w.id, w]));
+  const availableInventory = [...inventory]
+    .filter(item => item.quantity > 0)
+    .sort((a, b) => b.quantity - a.quantity || a.name.localeCompare(b.name));
 
   const filtered = transfers.filter(t => {
     const q = search.toLowerCase();
@@ -1238,6 +1241,41 @@ function TransfersPage({ warehouses, inventory }: { warehouses: WH[]; inventory:
           <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 px-3 py-2 text-xs bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
             <Plus size={13} /> New Transfer
           </button>
+        </div>
+      </div>
+
+      <div className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">Available to transfer</h3>
+            <p className="mt-0.5 text-xs text-muted-foreground">Current stock ready for a new transfer request.</p>
+          </div>
+          <span className="text-[11px] text-muted-foreground">{availableInventory.length} items</span>
+        </div>
+
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+          {availableInventory.length === 0 ? (
+            <div className="text-xs text-muted-foreground">No stock is currently available for transfer.</div>
+          ) : availableInventory.map(item => (
+            <div key={item.id} className="rounded-lg border border-border bg-muted/30 px-3 py-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-foreground truncate">{item.name}</p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground truncate" title={whMap[item.warehouseId]?.location ?? ""}>
+                    {whMap[item.warehouseId]?.name ?? item.warehouseId}
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-xs font-semibold text-foreground" style={{ fontFamily: "JetBrains Mono, monospace" }}>{item.quantity}</p>
+                  <p className="text-[11px] text-muted-foreground">{item.unit}</p>
+                </div>
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <StatusBadge status={item.status} />
+                <span className="text-[11px] text-muted-foreground">SKU {item.sku}</span>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

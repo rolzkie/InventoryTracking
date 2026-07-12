@@ -17,6 +17,7 @@ return new class extends Migration
             $table->integer('quantity');
             $table->string('status')->default('pending');
             $table->text('notes')->nullable();
+            $table->dateTime('createdAt')->nullable();
             $table->dateTime('completedAt')->nullable();
             $table->timestamps();
 
