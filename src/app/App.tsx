@@ -3,9 +3,9 @@ import {
   LayoutDashboard, Package, Warehouse, ArrowLeftRight, BarChart3,
   Bell, Search, ChevronDown, AlertTriangle, Plus, Download,
   Eye, Edit, Trash2, Menu, CheckCircle, Clock, XCircle, Box,
-  Users, Settings, LogOut, ArrowUp, ArrowDown, X, RefreshCw,
-  Save, Loader2, TrendingUp, Filter, ChevronLeft, ChevronRight,
-  Minus, AlertCircle, Check
+  Users, Settings, LogOut, ArrowUp, ArrowDown, X, Save,
+  Loader2, TrendingUp, Filter, ChevronLeft, ChevronRight,
+  Minus, AlertCircle, Check, Moon, Sun
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -13,6 +13,8 @@ import {
 } from "recharts";
 import { api, type InventoryItem, type Warehouse as WH, type Transfer, type DashboardStats, CATEGORIES, UNITS } from "../lib/api";
 import { initializeSeedData } from "../lib/seed-data";
+import { TeamMemberCard } from "./components/TeamMemberCard";
+import { developmentTeam } from "./components/development-team-data";
 
 // Toast helpers
 
@@ -273,7 +275,7 @@ function InventoryModal({ item, warehouses, onClose, onSaved }: {
         name: form.name.trim(),
         sku: form.sku.trim(),
         category: form.category,
-        warehouseId: Number(form.warehouseId),
+        warehouseId: form.warehouseId,
         quantity: Number(form.quantity),
         reorderPoint: Number(form.reorderPoint),
         unitPrice: Number(form.unitPrice),
@@ -644,6 +646,28 @@ const CHART_DATA = [
 
 const PIE_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ef4444"];
 
+function DevelopmentTeamSection() {
+  return (
+    <div className="rounded-lg border border-border bg-card p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">Development Team</h3>
+          <p className="mt-0.5 text-xs text-muted-foreground">The engineers and designers building and maintaining StockOS</p>
+        </div>
+        <span className="rounded-full border border-border px-2.5 py-1 text-[11px] text-muted-foreground" style={{ fontFamily: "JetBrains Mono, monospace" }}>
+          Team
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {developmentTeam.map((person) => (
+          <TeamMemberCard key={person.name} member={person} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Dashboard({ stats, onNavigate }: { stats: DashboardStats | null; onNavigate: (p: Page) => void }) {
   if (!stats) return (
     <div className="flex items-center justify-center h-64 text-muted-foreground">
@@ -796,6 +820,8 @@ function Dashboard({ stats, onNavigate }: { stats: DashboardStats | null; onNavi
           />
         </div>
       </div>
+
+      <DevelopmentTeamSection />
     </div>
   );
 }
@@ -890,7 +916,7 @@ function InventoryPage({ warehouses }: { warehouses: WH[] }) {
         <div className="flex-1" />
         <div className="flex flex-wrap items-center gap-2">
           <button onClick={() => load(true)} disabled={refreshing} className="flex items-center gap-1.5 px-3 py-2 text-xs border border-border rounded-lg text-muted-foreground hover:text-foreground transition-colors">
-            <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} />
+            <Loader2 size={13} className={refreshing ? "animate-spin" : ""} />
           </button>
           <button onClick={exportCsv} className="flex items-center gap-1.5 px-3 py-2 text-xs border border-border rounded-lg text-muted-foreground hover:text-foreground transition-colors">
             <Download size={13} /> Export
@@ -1128,7 +1154,7 @@ function TransfersPage({ warehouses, inventory }: { warehouses: WH[]; inventory:
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [confirm, setConfirm] = useState<{ transfer: Transfer; newStatus: string } | null>(null);
+  const [confirm, setConfirm] = useState<{ transfer: Transfer; newStatus: Transfer["status"] } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1147,7 +1173,7 @@ function TransfersPage({ warehouses, inventory }: { warehouses: WH[]; inventory:
     return match && (filterStatus === "all" || t.status === filterStatus);
   });
 
-  async function updateStatus(t: Transfer, status: string) {
+  async function updateStatus(t: Transfer, status: Transfer["status"] | "cancelled") {
     try {
       const updated = await api.transfers.update(t.id, { status });
       setTransfers(prev => prev.map(x => x.id === t.id ? updated : x));
@@ -1171,7 +1197,7 @@ function TransfersPage({ warehouses, inventory }: { warehouses: WH[]; inventory:
     cancelled: <XCircle size={12} className="text-red-400" />,
   };
 
-  const nextStatuses: Record<string, string[]> = {
+  const nextStatuses: Record<Transfer["status"], Transfer["status"][]> = {
     pending: ["in_transit", "cancelled"],
     in_transit: ["completed", "cancelled"],
     completed: [],
@@ -1195,7 +1221,7 @@ function TransfersPage({ warehouses, inventory }: { warehouses: WH[]; inventory:
         <div className="flex-1" />
         <div className="flex flex-wrap items-center gap-2">
           <button onClick={load} className="flex items-center gap-1.5 px-3 py-2 text-xs border border-border rounded-lg text-muted-foreground hover:text-foreground transition-colors">
-            <RefreshCw size={13} />
+            <Loader2 size={13} />
           </button>
           <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 px-3 py-2 text-xs bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
             <Plus size={13} /> New Transfer
@@ -1428,6 +1454,9 @@ export default function App() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const initialized = useRef(false);
   const notificationRef = useRef<HTMLDivElement | null>(null);
 
@@ -1449,12 +1478,47 @@ export default function App() {
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
+    const savedTheme = window.localStorage.getItem("stockos-theme") as "dark" | "light" | null;
+    if (savedTheme === "light" || savedTheme === "dark") {
+      setTheme(savedTheme);
+    }
     initializeSeedData();
     loadGlobal();
   }, [loadGlobal]);
 
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", theme === "dark");
+    document.documentElement.style.colorScheme = theme;
+    window.localStorage.setItem("stockos-theme", theme);
+  }, [theme]);
+
   const alertCount = (stats?.lowStock ?? 0) + (stats?.outOfStock ?? 0);
   const reportCount = Math.max(1, Math.min(4, Math.ceil((stats?.totalSkus ?? inventory.length) / 10)));
+
+  const normalizedSearch = searchQuery.trim().toLowerCase();
+  const searchResults = !normalizedSearch
+    ? []
+    : [
+        ...inventory
+          .filter(item => [item.name, item.sku, item.category].some(value => value?.toLowerCase().includes(normalizedSearch)))
+          .slice(0, 4)
+          .map(item => ({ id: item.id, label: `${item.name} (${item.sku})`, detail: "Inventory item", page: "inventory" as Page })),
+        ...warehouses
+          .filter(warehouse => [warehouse.name, warehouse.location, warehouse.manager].some(value => value?.toLowerCase().includes(normalizedSearch)))
+          .slice(0, 3)
+          .map(warehouse => ({ id: warehouse.id, label: `${warehouse.name} · ${warehouse.location}`, detail: "Warehouse", page: "warehouses" as Page })),
+        ...inventory
+          .filter(item => [item.name, item.sku, item.category].some(value => value?.toLowerCase().includes(normalizedSearch)))
+          .slice(0, 2)
+          .map(item => ({ id: item.id, label: `${item.name} · ${item.status}`, detail: "Inventory alert", page: "inventory" as Page })),
+      ].slice(0, 6);
+
+  function openSearchResult(result: { page: Page; id: string }) {
+    setPage(result.page);
+    setSearchQuery("");
+    setSearchOpen(false);
+    setSidebarOpen(false);
+  }
 
   useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
@@ -1530,12 +1594,39 @@ export default function App() {
           <h1 className="text-sm font-semibold text-foreground capitalize">{page}</h1>
           <div className="flex-1" />
           <div className="relative hidden sm:block">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <input placeholder="Quick search..." className={`${inputCls} pl-9 w-full sm:w-48`} />
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setSearchOpen(Boolean(e.target.value.trim())); }}
+                onFocus={() => setSearchOpen(Boolean(searchQuery.trim()))}
+                placeholder="Quick search..."
+                className={`${inputCls} pl-9 w-full sm:w-56`}
+              />
+            </div>
+            {searchOpen && (
+              <div className="absolute left-0 right-0 top-full mt-2 z-40 rounded-xl border border-border bg-card shadow-2xl">
+                {searchResults.length > 0 ? (
+                  <div className="max-h-72 overflow-auto p-2">
+                    {searchResults.map((result) => (
+                      <button key={`${result.page}-${result.id}`} onClick={() => openSearchResult(result)} className="flex w-full items-start justify-between rounded-lg px-3 py-2 text-left text-xs text-foreground hover:bg-white/5">
+                        <span>
+                          <span className="block font-medium">{result.label}</span>
+                          <span className="mt-0.5 block text-[11px] text-muted-foreground">{result.detail}</span>
+                        </span>
+                        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{result.page}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="px-3 py-3 text-xs text-muted-foreground">No matching inventory, warehouse, or transfer results.</div>
+                )}
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2 ml-auto sm:ml-0">
-            <button onClick={loadGlobal} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-white/15 transition-colors">
-              <RefreshCw size={14} />
+            <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-white/15 transition-colors" aria-label="Toggle color mode">
+              {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
             </button>
             <div ref={notificationRef} className="relative">
               <button onClick={() => setNotificationsOpen(open => !open)} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-white/15 transition-colors">

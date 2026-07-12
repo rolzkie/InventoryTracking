@@ -10,7 +10,7 @@ class TransferController extends Controller
 {
     public function index()
     {
-        return response()->json(Transfer::orderByDesc('created_at')->get());
+        return response()->json(Transfer::with(['item', 'sourceWh', 'destinationWh'])->orderByDesc('created_at')->get());
     }
 
     public function store(Request $request)
@@ -53,12 +53,12 @@ class TransferController extends Controller
             $item->save();
         }
 
-        return response()->json($transfer, 201);
+        return response()->json($transfer->fresh(['item', 'sourceWh', 'destinationWh']), 201);
     }
 
     public function show(Transfer $transfer)
     {
-        return response()->json($transfer);
+        return response()->json($transfer->load(['item', 'sourceWh', 'destinationWh']));
     }
 
     public function update(Request $request, Transfer $transfer)
@@ -80,7 +80,7 @@ class TransferController extends Controller
             $transfer->save();
         }
 
-        return response()->json($transfer);
+        return response()->json($transfer->fresh(['item', 'sourceWh', 'destinationWh']));
     }
 
     public function destroy(Transfer $transfer)

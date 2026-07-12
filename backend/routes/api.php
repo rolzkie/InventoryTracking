@@ -6,6 +6,7 @@ use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\TransferController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ReportController;
 
 Route::middleware('api')->group(function () {
     // Dashboard
@@ -20,4 +21,8 @@ Route::middleware('api')->group(function () {
 
     // Transfers
     Route::apiResource('transfers', TransferController::class);
+
+    // Reports
+    Route::get('/reports/summary', [ReportController::class, 'summary']);
+    Route::get('/reports/low-stock', [ReportController::class, 'lowStock']);
 });

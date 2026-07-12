@@ -9,7 +9,11 @@ class InventoryController extends Controller
 {
     public function index()
     {
-        return response()->json(InventoryItem::all());
+        return response()->json(
+            InventoryItem::with('warehouse')->get()->map(function ($item) {
+                return $item->toArray() + ['warehouseName' => $item->warehouse?->name];
+            })
+        );
     }
 
     public function store(Request $request)
@@ -27,18 +31,19 @@ class InventoryController extends Controller
 
         $validated['lastRestocked'] = now()->toDateString();
         $item = InventoryItem::create($validated);
-        return response()->json($item, 201);
+
+        return response()->json($item->fresh('warehouse')->toArray() + ['warehouseName' => $item->warehouse?->name], 201);
     }
 
-    public function show(InventoryItem $inventoryItem)
+    public function show(InventoryItem $inventory)
     {
-        return response()->json($inventoryItem);
+        return response()->json($inventory->load('warehouse')->toArray() + ['warehouseName' => $inventory->warehouse?->name]);
     }
 
-    public function update(Request $request, InventoryItem $inventoryItem)
+    public function update(Request $request, InventoryItem $inventory)
     {
         $validated = $request->validate([
-            'sku' => 'sometimes|string|unique:inventory_items,sku,' . $inventoryItem->id . '|max:100',
+            'sku' => 'sometimes|string|unique:inventory_items,sku,' . $inventory->id . '|max:100',
             'name' => 'sometimes|string|max:255',
             'description' => 'nullable|string',
             'category' => 'sometimes|string|max:100',
@@ -48,13 +53,14 @@ class InventoryController extends Controller
             'unitPrice' => 'sometimes|numeric|min:0',
         ]);
 
-        $inventoryItem->update($validated);
-        return response()->json($inventoryItem);
+        $inventory->update($validated);
+
+        return response()->json($inventory->fresh('warehouse')->toArray() + ['warehouseName' => $inventory->warehouse?->name]);
     }
 
-    public function destroy(InventoryItem $inventoryItem)
+    public function destroy(InventoryItem $inventory)
     {
-        $inventoryItem->delete();
+        $inventory->delete();
         return response()->json(['ok' => true]);
     }
 
@@ -68,6 +74,6 @@ class InventoryController extends Controller
         $item->quantity = max(0, $item->quantity + $validated['delta']);
         $item->save();
 
-        return response()->json($item);
+        return response()->json($item->fresh('warehouse')->toArray() + ['warehouseName' => $item->warehouse?->name]);
     }
 }

@@ -1,6 +1,6 @@
 import { localStorageAPI } from "./local-storage-api";
 
-const BASE = `http://localhost:8000/api`;
+const BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
@@ -61,6 +61,46 @@ function normalizeInventoryItem(item: Partial<InventoryItem> & Record<string, an
   } as InventoryItem;
 }
 
+function normalizeWarehouse(warehouse: Partial<Warehouse> & Record<string, any>): Warehouse {
+  const capacity = Number(warehouse.capacity ?? 0);
+  const used = Number(warehouse.used ?? warehouse.capacityUsed ?? warehouse.usedQty ?? 0);
+  const status = warehouse.status ?? (capacity > 0 && used >= capacity ? "near_full" : "active");
+
+  return {
+    ...warehouse,
+    id: String(warehouse.id ?? ""),
+    name: warehouse.name ?? "",
+    location: warehouse.location ?? "",
+    capacity,
+    used,
+    manager: warehouse.manager ?? "",
+    status,
+    createdAt: warehouse.createdAt ?? "",
+  } as Warehouse;
+}
+
+function normalizeTransfer(transfer: Partial<Transfer> & Record<string, any>): Transfer {
+  const quantity = Number(transfer.quantity ?? transfer.qty ?? 0);
+
+  return {
+    ...transfer,
+    id: String(transfer.id ?? ""),
+    sourceWarehouse: String(transfer.sourceWarehouse ?? transfer.fromWarehouseId ?? ""),
+    destinationWarehouse: String(transfer.destinationWarehouse ?? transfer.toWarehouseId ?? ""),
+    fromWarehouseId: String(transfer.fromWarehouseId ?? transfer.sourceWarehouse ?? ""),
+    toWarehouseId: String(transfer.toWarehouseId ?? transfer.destinationWarehouse ?? ""),
+    itemId: String(transfer.itemId ?? ""),
+    itemName: transfer.itemName ?? transfer.name ?? "",
+    quantity,
+    qty: quantity,
+    status: transfer.status ?? "pending",
+    createdAt: transfer.createdAt ?? transfer.date ?? "",
+    date: transfer.date ?? transfer.createdAt ?? "",
+    notes: transfer.notes ?? "",
+    initiator: transfer.initiator ?? "Sarah Chen",
+  } as Transfer;
+}
+
 function toInventoryPayload(data: Partial<InventoryItem>): Partial<InventoryItem> {
   const warehouseId = Number(data.warehouseId ?? 0);
   const quantity = Number(data.quantity ?? data.qty ?? 0);
@@ -79,6 +119,19 @@ function toInventoryPayload(data: Partial<InventoryItem>): Partial<InventoryItem
   };
 }
 
+function toTransferPayload(data: Partial<Transfer>): Partial<Transfer> {
+  const quantity = Number(data.quantity ?? data.qty ?? 0);
+
+  return {
+    sourceWarehouse: data.sourceWarehouse ?? data.fromWarehouseId ?? "",
+    destinationWarehouse: data.destinationWarehouse ?? data.toWarehouseId ?? "",
+    itemId: data.itemId ?? "",
+    quantity: Number.isFinite(quantity) ? quantity : 0,
+    status: data.status ?? "pending",
+    notes: data.notes ?? "",
+  };
+}
+
 export const api = {
   dashboard: () => apiCall(
     () => request<DashboardStats>("/dashboard"),
@@ -88,16 +141,16 @@ export const api = {
   // Warehouses
   warehouses: {
     list: () => apiCall(
-      () => request<Warehouse[]>("/warehouses"),
-      () => localStorageAPI.warehouses.list()
+      () => request<Warehouse[]>('/warehouses').then(items => items.map(normalizeWarehouse)),
+      () => localStorageAPI.warehouses.list().then(items => items.map(normalizeWarehouse))
     ),
     create: (data: Partial<Warehouse>) => apiCall(
-      () => request<Warehouse>("/warehouses", { method: "POST", body: JSON.stringify(data) }),
-      () => localStorageAPI.warehouses.create(data)
+      () => request<Warehouse>('/warehouses', { method: 'POST', body: JSON.stringify(data) }).then(normalizeWarehouse),
+      () => localStorageAPI.warehouses.create(data).then(normalizeWarehouse)
     ),
     update: (id: string, data: Partial<Warehouse>) => apiCall(
-      () => request<Warehouse>(`/warehouses/${id}`, { method: "PUT", body: JSON.stringify(data) }),
-      () => localStorageAPI.warehouses.update(id, data)
+      () => request<Warehouse>(`/warehouses/${id}`, { method: 'PUT', body: JSON.stringify(data) }).then(normalizeWarehouse),
+      () => localStorageAPI.warehouses.update(id, data).then(normalizeWarehouse)
     ),
     delete: (id: string) => apiCall(
       () => request<{ ok: boolean }>(`/warehouses/${id}`, { method: "DELETE" }),
@@ -193,25 +246,30 @@ export interface InventoryItem {
   unitPrice: number;
   lastRestocked: string;
   status: "in_stock" | "low_stock" | "out_of_stock";
-  qty?: number;
-  cost?: number;
-  unit?: string;
-  notes?: string;
-  createdAt?: string;
-  warehouseName?: string;
+  qty: number;
+  cost: number;
+  unit: string;
+  notes: string;
+  createdAt: string;
+  warehouseName: string;
 }
 
 export interface Transfer {
   id: string;
   sourceWarehouse: string;
   destinationWarehouse: string;
+  fromWarehouseId: string;
+  toWarehouseId: string;
   itemId: string;
   itemName: string;
   quantity: number;
-  status: "completed" | "in_transit" | "pending";
+  qty: number;
+  status: "completed" | "in_transit" | "pending" | "cancelled";
   createdAt: string;
+  date: string;
   completedAt?: string;
   notes: string;
+  initiator: string;
 }
 
 export interface DashboardStats {

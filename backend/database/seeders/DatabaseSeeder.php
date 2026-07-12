@@ -22,7 +22,10 @@ class DatabaseSeeder extends Seeder
 
         $warehouseIds = [];
         foreach ($warehouses as $wh) {
-            $warehouse = Warehouse::create($wh);
+            $warehouse = Warehouse::firstOrCreate(
+                ['name' => $wh['name']],
+                $wh
+            );
             $warehouseIds[] = $warehouse->id;
         }
 
@@ -53,7 +56,10 @@ class DatabaseSeeder extends Seeder
         ];
 
         foreach ($items as $item) {
-            InventoryItem::create($item);
+            InventoryItem::firstOrCreate(
+                ['sku' => $item['sku']],
+                $item
+            );
         }
 
         // Transfers
@@ -64,7 +70,15 @@ class DatabaseSeeder extends Seeder
         ];
 
         foreach ($transfers as $transfer) {
-            Transfer::create($transfer);
+            Transfer::firstOrCreate(
+                [
+                    'sourceWarehouse' => $transfer['sourceWarehouse'],
+                    'destinationWarehouse' => $transfer['destinationWarehouse'],
+                    'itemId' => $transfer['itemId'],
+                    'quantity' => $transfer['quantity'],
+                ],
+                $transfer
+            );
         }
     }
 }
