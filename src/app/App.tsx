@@ -435,8 +435,11 @@ function ViewItemModal({ item, warehouse, onClose, onEdit }: { item: InventoryIt
   const unitLabel = item.unit ?? "pcs";
   const createdDate = item.createdAt ?? item.lastRestocked ?? new Date().toISOString();
 
+  const warehouseLabel = warehouse
+    ? (warehouse.location ? `${warehouse.name} — ${warehouse.location}` : warehouse.name)
+    : (item.warehouseName ?? item.warehouseId);
   const fields = [
-    ["SKU", item.sku], ["Category", item.category], ["Warehouse", item.warehouseName ?? item.warehouseId],
+    ["SKU", item.sku], ["Category", item.category], ["Warehouse", warehouseLabel],
     ["Quantity", `${quantity} ${unitLabel}`], ["Reorder Point", `${item.reorderPoint} ${unitLabel}`],
     ["Unit Cost", `$${unitPrice.toFixed(2)}`], ["Total Value", `$${(quantity * unitPrice).toLocaleString(undefined, { minimumFractionDigits: 2 })}`],
     ["Created", new Date(createdDate).toLocaleDateString()],
@@ -962,8 +965,17 @@ function InventoryPage({ warehouses }: { warehouses: WH[] }) {
                       <p className="text-xs text-muted-foreground mt-0.5" style={{ fontFamily: "JetBrains Mono, monospace" }}>{item.sku}</p>
                     </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">{item.category}</td>
-                    <td className="px-4 py-3 text-xs text-foreground" style={{ fontFamily: "JetBrains Mono, monospace" }}>
-                      {whMap[item.warehouseId]?.name?.split(" ")[0] ?? item.warehouseId}
+                    <td className="px-4 py-3" title={whMap[item.warehouseId] ? `${whMap[item.warehouseId].name} — ${whMap[item.warehouseId].location}` : (item.warehouseName ?? item.warehouseId)}>
+                      <div className="max-w-[180px]">
+                        <p className="text-xs font-medium text-foreground truncate" style={{ fontFamily: "JetBrains Mono, monospace" }}>
+                          {whMap[item.warehouseId]?.name ?? item.warehouseName ?? item.warehouseId}
+                        </p>
+                        {whMap[item.warehouseId]?.location && (
+                          <p className="text-[11px] text-muted-foreground truncate" title={whMap[item.warehouseId].location}>
+                            {whMap[item.warehouseId].location}
+                          </p>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <span className={`text-xs font-semibold ${item.qty === 0 ? "text-red-400" : item.qty < item.reorderPoint ? "text-amber-400" : "text-foreground"}`}
@@ -1165,7 +1177,7 @@ function TransfersPage({ warehouses, inventory }: { warehouses: WH[]; inventory:
 
   useEffect(() => { load(); }, [load]);
 
-  const whMap = Object.fromEntries(warehouses.map(w => [w.id, w.name]));
+  const whMap = Object.fromEntries(warehouses.map(w => [w.id, w]));
 
   const filtered = transfers.filter(t => {
     const q = search.toLowerCase();
@@ -1247,11 +1259,25 @@ function TransfersPage({ warehouses, inventory }: { warehouses: WH[]; inventory:
                       <span className="text-xs font-medium text-primary" style={{ fontFamily: "JetBrains Mono, monospace" }}>{t.id}</span>
                     </td>
                     <td className="px-4 py-3 text-xs text-foreground max-w-[140px] truncate">{t.itemName}</td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground" style={{ fontFamily: "JetBrains Mono, monospace" }}>
-                      {whMap[t.fromWarehouseId]?.split(" ")[0] ?? t.fromWarehouseId}
+                    <td className="px-4 py-3" title={whMap[t.fromWarehouseId] ? `${whMap[t.fromWarehouseId].name} — ${whMap[t.fromWarehouseId].location}` : t.fromWarehouseId}>
+                      <div className="max-w-[160px]">
+                        <p className="text-xs text-muted-foreground truncate" style={{ fontFamily: "JetBrains Mono, monospace" }}>
+                          {whMap[t.fromWarehouseId]?.name ?? t.fromWarehouseId}
+                        </p>
+                        {whMap[t.fromWarehouseId]?.location && (
+                          <p className="text-[11px] text-muted-foreground truncate">{whMap[t.fromWarehouseId].location}</p>
+                        )}
+                      </div>
                     </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground" style={{ fontFamily: "JetBrains Mono, monospace" }}>
-                      {whMap[t.toWarehouseId]?.split(" ")[0] ?? t.toWarehouseId}
+                    <td className="px-4 py-3" title={whMap[t.toWarehouseId] ? `${whMap[t.toWarehouseId].name} — ${whMap[t.toWarehouseId].location}` : t.toWarehouseId}>
+                      <div className="max-w-[160px]">
+                        <p className="text-xs text-muted-foreground truncate" style={{ fontFamily: "JetBrains Mono, monospace" }}>
+                          {whMap[t.toWarehouseId]?.name ?? t.toWarehouseId}
+                        </p>
+                        {whMap[t.toWarehouseId]?.location && (
+                          <p className="text-[11px] text-muted-foreground truncate">{whMap[t.toWarehouseId].location}</p>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-xs font-semibold text-foreground" style={{ fontFamily: "JetBrains Mono, monospace" }}>×{t.qty}</td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">{t.initiator}</td>

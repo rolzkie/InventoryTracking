@@ -203,16 +203,16 @@ export const api = {
   // Transfers
   transfers: {
     list: () => apiCall(
-      () => request<Transfer[]>("/transfers"),
-      () => localStorageAPI.transfers.list()
+      () => request<Transfer[]>('/transfers').then(items => items.map(normalizeTransfer)),
+      () => localStorageAPI.transfers.list().then(items => items.map(normalizeTransfer))
     ),
     create: (data: Partial<Transfer>) => apiCall(
-      () => request<Transfer>("/transfers", { method: "POST", body: JSON.stringify(data) }),
-      () => localStorageAPI.transfers.create(data)
+      () => request<Transfer>('/transfers', { method: 'POST', body: JSON.stringify(toTransferPayload(data)) }).then(normalizeTransfer),
+      () => localStorageAPI.transfers.create(data).then(normalizeTransfer)
     ),
     update: (id: string, data: Partial<Transfer>) => apiCall(
-      () => request<Transfer>(`/transfers/${id}`, { method: "PUT", body: JSON.stringify(data) }),
-      () => localStorageAPI.transfers.update(id, data)
+      () => request<Transfer>(`/transfers/${id}`, { method: 'PUT', body: JSON.stringify(toTransferPayload(data)) }).then(normalizeTransfer),
+      () => localStorageAPI.transfers.update(id, data).then(normalizeTransfer)
     ),
     delete: (id: string) => apiCall(
       () => request<{ ok: boolean }>(`/transfers/${id}`, { method: "DELETE" }),
