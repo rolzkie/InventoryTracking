@@ -13,9 +13,9 @@ class ReportController extends Controller
     {
         $warehouseCount = Warehouse::count();
         $inventoryCount = InventoryItem::count();
-        $lowStockCount = InventoryItem::whereColumn('quantity', '<=', 'reorder_point')->count();
+        $lowStockCount = InventoryItem::whereColumn('quantity', '<=', 'reorderPoint')->count();
         $transferCount = Transfer::count();
-        $totalValue = InventoryItem::sum('unit_price');
+        $totalValue = InventoryItem::sum('unitPrice');
 
         return response()->json([
             'warehouseCount' => $warehouseCount,
@@ -30,7 +30,7 @@ class ReportController extends Controller
     public function lowStock()
     {
         $items = InventoryItem::with('warehouse')
-            ->whereColumn('quantity', '<=', 'reorder_point')
+            ->whereColumn('quantity', '<=', 'reorderPoint')
             ->orderBy('quantity', 'asc')
             ->get();
 
@@ -40,7 +40,7 @@ class ReportController extends Controller
                 'sku' => $item->sku,
                 'name' => $item->name,
                 'quantity' => $item->quantity,
-                'reorderPoint' => $item->reorder_point,
+                'reorderPoint' => $item->reorderPoint,
                 'warehouseName' => $item->warehouse?->name ?? 'Unassigned',
             ];
         }));

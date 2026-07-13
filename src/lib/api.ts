@@ -1,6 +1,21 @@
 import { localStorageAPI } from "./local-storage-api";
 
-const BASE = import.meta.env.VITE_API_BASE_URL || "/api";
+function getApiBase(): string {
+  const configured = import.meta.env.VITE_API_BASE_URL?.trim();
+  if (configured) return configured.replace(/\/$/, "");
+
+  if (typeof window === "undefined") return "/api";
+
+  const { hostname, port } = window.location;
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    if (port === "8000") return "/api";
+    return "http://127.0.0.1:8000/api";
+  }
+
+  return "/api";
+}
+
+const BASE = getApiBase();
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
@@ -11,11 +26,22 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     },
   });
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error ?? "Request failed");
+  const text = await res.text();
+  let data: any = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = text;
+    }
   }
-  return res.json() as Promise<T>;
+
+  if (!res.ok) {
+    const message = data?.error ?? data?.message ?? res.statusText ?? "Request failed";
+    throw new Error(message);
+  }
+
+  return data as T;
 }
 
 // Wrapper that tries remote API first, falls back to localStorage
