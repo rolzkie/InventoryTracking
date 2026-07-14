@@ -23,14 +23,25 @@ class InventoryController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'category' => 'required|string|max:100',
-            'quantity' => 'required|integer|min:0',
+            'unit' => 'required|string|max:50',
             'reorderPoint' => 'required|integer|min:0',
-            'warehouseId' => 'required|exists:warehouses,id',
             'unitPrice' => 'required|numeric|min:0',
         ]);
 
-        $validated['lastRestocked'] = now()->toDateString();
-        $item = InventoryItem::create($validated);
+        $item = InventoryItem::create([
+            'sku' => $validated['sku'],
+            'name' => $validated['name'],
+            'description' => $validated['description'] ?? '',
+            'category' => $validated['category'],
+            'unit' => $validated['unit'],
+            'reorderPoint' => $validated['reorderPoint'],
+            'unitPrice' => $validated['unitPrice'],
+            'quantity' => 0,
+            'warehouseId' => null,
+            'storageLocation' => null,
+            'status' => 'unassigned',
+            'lastRestocked' => null,
+        ]);
 
         return response()->json($item->fresh('warehouse')->toArray() + ['warehouseName' => $item->warehouse?->name], 201);
     }
@@ -47,9 +58,8 @@ class InventoryController extends Controller
             'name' => 'sometimes|string|max:255',
             'description' => 'nullable|string',
             'category' => 'sometimes|string|max:100',
-            'quantity' => 'sometimes|integer|min:0',
+            'unit' => 'sometimes|string|max:50',
             'reorderPoint' => 'sometimes|integer|min:0',
-            'warehouseId' => 'sometimes|exists:warehouses,id',
             'unitPrice' => 'sometimes|numeric|min:0',
         ]);
 
@@ -71,7 +81,34 @@ class InventoryController extends Controller
         ]);
 
         $item = InventoryItem::findOrFail($id);
+
+        if (!$item->warehouseId) {
+            return response()->json(['error' => 'Cannot adjust stock for an unassigned item. Assign a warehouse first.'], 422);
+        }
+
         $item->quantity = max(0, $item->quantity + $validated['delta']);
+        $item->save();
+
+        return response()->json($item->fresh('warehouse')->toArray() + ['warehouseName' => $item->warehouse?->name]);
+    }
+
+    public function assign(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'warehouseId' => 'required|exists:warehouses,id',
+            'storageLocation' => 'nullable|string|max:255',
+        ]);
+
+        $item = InventoryItem::findOrFail($id);
+        $item->warehouseId = $validated['warehouseId'];
+        $item->storageLocation = $validated['storageLocation'] ?? null;
+        if ($item->quantity === 0) {
+            $item->status = 'out_of_stock';
+        } elseif ($item->quantity < $item->reorderPoint) {
+            $item->status = 'low_stock';
+        } else {
+            $item->status = 'in_stock';
+        }
         $item->save();
 
         return response()->json($item->fresh('warehouse')->toArray() + ['warehouseName' => $item->warehouse?->name]);

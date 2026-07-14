@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\TransferController;
+use App\Http\Controllers\StockTransactionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ReportController;
 
@@ -18,9 +19,13 @@ Route::middleware('api')->group(function () {
     // Inventory
     Route::apiResource('inventory', InventoryController::class);
     Route::post('/inventory/{id}/adjust', [InventoryController::class, 'adjust']);
+    Route::post('/inventory/{inventory}/assign', [InventoryController::class, 'assign']);
 
     // Transfers
     Route::apiResource('transfers', TransferController::class);
+
+    // Stock transactions
+    Route::apiResource('transactions', StockTransactionController::class);
 
     // Reports
     Route::get('/reports/summary', [ReportController::class, 'summary']);

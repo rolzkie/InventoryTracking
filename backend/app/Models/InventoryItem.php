@@ -13,9 +13,11 @@ class InventoryItem extends Model
         'name',
         'description',
         'category',
+        'unit',
         'quantity',
         'reorderPoint',
         'warehouseId',
+        'storageLocation',
         'unitPrice',
         'lastRestocked',
         'status',
@@ -24,6 +26,7 @@ class InventoryItem extends Model
     protected $casts = [
         'quantity' => 'integer',
         'reorderPoint' => 'integer',
+        'warehouseId' => 'integer',
         'unitPrice' => 'decimal:2',
         'lastRestocked' => 'date',
     ];
@@ -41,7 +44,9 @@ class InventoryItem extends Model
     protected static function booted()
     {
         static::saving(function ($model) {
-            if ($model->quantity === 0) {
+            if (!$model->warehouseId) {
+                $model->status = 'unassigned';
+            } elseif ($model->quantity === 0) {
                 $model->status = 'out_of_stock';
             } elseif ($model->quantity < $model->reorderPoint) {
                 $model->status = 'low_stock';

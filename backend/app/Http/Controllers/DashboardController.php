@@ -27,9 +27,11 @@ class DashboardController extends Controller
             return $t->created_at->toDateString() === now()->toDateString();
         })->count();
 
+        $unassigned = $inventory->where('status', 'unassigned')->count();
+
         $alerts = $inventory
             ->filter(function ($i) {
-                return $i->status === 'out_of_stock' || $i->status === 'low_stock';
+                return in_array($i->status, ['out_of_stock', 'low_stock'], true);
             })
             ->map(function ($i) {
                 return [
@@ -45,6 +47,7 @@ class DashboardController extends Controller
 
         return response()->json([
             'totalSkus' => $totalSkus,
+            'unassigned' => $unassigned,
             'outOfStock' => $outOfStock,
             'lowStock' => $lowStock,
             'totalValue' => $totalValue,

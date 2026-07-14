@@ -9,9 +9,10 @@ class WarehouseController extends Controller
 {
     public function index()
     {
-        return response()->json(Warehouse::withCount('inventoryItems')->get()->map(function ($warehouse) {
+        return response()->json(Warehouse::with('inventoryItems')->get()->map(function ($warehouse) {
             $warehouse->status = $warehouse->computeStatus();
             $warehouse->capacityUsed = $warehouse->inventoryItems->sum('quantity');
+            $warehouse->used = $warehouse->capacityUsed;
             return $warehouse->toArray();
         }));
     }
@@ -28,6 +29,7 @@ class WarehouseController extends Controller
         $warehouse = Warehouse::create($validated);
         $warehouse->status = $warehouse->computeStatus();
         $warehouse->capacityUsed = 0;
+        $warehouse->used = 0;
 
         return response()->json($warehouse, 201);
     }
@@ -36,6 +38,7 @@ class WarehouseController extends Controller
     {
         $warehouse->status = $warehouse->computeStatus();
         $warehouse->capacityUsed = $warehouse->inventoryItems()->sum('quantity');
+        $warehouse->used = $warehouse->capacityUsed;
 
         return response()->json($warehouse);
     }
@@ -53,6 +56,7 @@ class WarehouseController extends Controller
         $warehouse->update($validated);
         $warehouse->status = $warehouse->computeStatus();
         $warehouse->capacityUsed = $warehouse->inventoryItems()->sum('quantity');
+        $warehouse->used = $warehouse->capacityUsed;
 
         return response()->json($warehouse);
     }

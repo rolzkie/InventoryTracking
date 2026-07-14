@@ -4,14 +4,6 @@ function getApiBase(): string {
   const configured = import.meta.env.VITE_API_BASE_URL?.trim();
   if (configured) return configured.replace(/\/$/, "");
 
-  if (typeof window === "undefined") return "/api";
-
-  const { hostname, port } = window.location;
-  if (hostname === "localhost" || hostname === "127.0.0.1") {
-    if (port === "8000") return "/api";
-    return "http://127.0.0.1:8000/api";
-  }
-
   return "/api";
 }
 
@@ -63,7 +55,7 @@ function normalizeInventoryItem(item: Partial<InventoryItem> & Record<string, an
   const quantity = Number(item.quantity ?? item.qty ?? 0);
   const unitPrice = Number(item.unitPrice ?? item.cost ?? 0);
   const description = item.description ?? item.notes ?? "";
-  const status = item.status ?? (quantity === 0 ? "out_of_stock" : quantity < Number(item.reorderPoint ?? 0) ? "low_stock" : "in_stock");
+  const status = item.status ?? (!item.warehouseId ? "unassigned" : quantity === 0 ? "out_of_stock" : quantity < Number(item.reorderPoint ?? 0) ? "low_stock" : "in_stock");
 
   return {
     ...item,
@@ -75,6 +67,7 @@ function normalizeInventoryItem(item: Partial<InventoryItem> & Record<string, an
     quantity,
     reorderPoint: Number(item.reorderPoint ?? 0),
     warehouseId: String(item.warehouseId ?? ""),
+    storageLocation: item.storageLocation ?? "",
     unitPrice,
     lastRestocked: item.lastRestocked ?? "",
     status,
@@ -89,7 +82,7 @@ function normalizeInventoryItem(item: Partial<InventoryItem> & Record<string, an
 
 function normalizeWarehouse(warehouse: Partial<Warehouse> & Record<string, any>): Warehouse {
   const capacity = Number(warehouse.capacity ?? 0);
-  const used = Number(warehouse.used ?? warehouse.capacityUsed ?? warehouse.usedQty ?? 0);
+  const used = Number(warehouse.capacityUsed ?? warehouse.used ?? warehouse.usedQty ?? 0);
   const status = warehouse.status ?? (capacity > 0 && used >= capacity ? "near_full" : "active");
 
   return {
@@ -128,8 +121,6 @@ function normalizeTransfer(transfer: Partial<Transfer> & Record<string, any>): T
 }
 
 function toInventoryPayload(data: Partial<InventoryItem>): Partial<InventoryItem> {
-  const warehouseId = Number(data.warehouseId ?? 0);
-  const quantity = Number(data.quantity ?? data.qty ?? 0);
   const reorderPoint = Number(data.reorderPoint ?? 0);
   const unitPrice = Number(data.unitPrice ?? data.cost ?? 0);
 
@@ -138,9 +129,8 @@ function toInventoryPayload(data: Partial<InventoryItem>): Partial<InventoryItem
     name: data.name,
     description: data.description ?? data.notes ?? "",
     category: data.category,
-    quantity: Number.isFinite(quantity) ? quantity : 0,
+    unit: data.unit,
     reorderPoint: Number.isFinite(reorderPoint) ? reorderPoint : 0,
-    warehouseId: Number.isFinite(warehouseId) ? warehouseId : 0,
     unitPrice: Number.isFinite(unitPrice) ? unitPrice : 0,
   };
 }
@@ -220,6 +210,16 @@ export const api = {
         () => localStorageAPI.inventory.delete(id)
       );
     },
+    assign: (id: string, data: { warehouseId: string; storageLocation?: string }) => {
+      if (!isNumericResourceId(id)) {
+        return localStorageAPI.inventory.update(id, data as Partial<InventoryItem>);
+      }
+
+      return apiCall(
+        () => request<InventoryItem>(`/inventory/${id}/assign`, { method: "POST", body: JSON.stringify({ warehouseId: Number(data.warehouseId), storageLocation: data.storageLocation ?? null }) }).then(normalizeInventoryItem),
+        () => localStorageAPI.inventory.update(id, data as Partial<InventoryItem>)
+      );
+    },
     adjust: (id: string, delta: number) => {
       if (!isNumericResourceId(id)) {
         return localStorageAPI.inventory.adjust(id, delta);
@@ -251,6 +251,37 @@ export const api = {
       () => localStorageAPI.transfers.delete(id)
     ),
   },
+
+  transactions: {
+    list: () => apiCall(
+      () => request<StockTransaction[]>('/transactions').then((items) => items.map((item) => ({
+        ...item,
+        itemName: item.itemName ?? item.item?.name ?? "",
+        warehouseName: item.warehouseName ?? item.warehouse?.name ?? "",
+      }))),
+      () => localStorageAPI.transactions.list()
+    ),
+    create: (data: Partial<StockTransaction>) => apiCall(
+      () => request<StockTransaction>('/transactions', { method: 'POST', body: JSON.stringify(data) }).then((item) => ({
+        ...item,
+        itemName: item.itemName ?? item.item?.name ?? "",
+        warehouseName: item.warehouseName ?? item.warehouse?.name ?? "",
+      })),
+      () => localStorageAPI.transactions.create(data)
+    ),
+    update: (id: string, data: Partial<StockTransaction>) => apiCall(
+      () => request<StockTransaction>(`/transactions/${id}`, { method: 'PUT', body: JSON.stringify(data) }).then((item) => ({
+        ...item,
+        itemName: item.itemName ?? item.item?.name ?? "",
+        warehouseName: item.warehouseName ?? item.warehouse?.name ?? "",
+      })),
+      () => localStorageAPI.transactions.update(id, data)
+    ),
+    delete: (id: string) => apiCall(
+      () => request<{ ok: boolean }>(`/transactions/${id}`, { method: 'DELETE' }),
+      () => localStorageAPI.transactions.delete(id)
+    ),
+  },
 };
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -275,9 +306,10 @@ export interface InventoryItem {
   quantity: number;
   reorderPoint: number;
   warehouseId: string;
+  storageLocation: string;
   unitPrice: number;
   lastRestocked: string;
-  status: "in_stock" | "low_stock" | "out_of_stock";
+  status: "unassigned" | "in_stock" | "low_stock" | "out_of_stock";
   qty: number;
   cost: number;
   unit: string;
@@ -304,8 +336,23 @@ export interface Transfer {
   initiator: string;
 }
 
+export interface StockTransaction {
+  id: string;
+  itemId: string;
+  warehouseId: string;
+  transactionType: "stock_in" | "stock_out";
+  quantity: number;
+  expirationDate?: string;
+  notes: string;
+  createdAt: string;
+  updatedAt?: string;
+  itemName: string;
+  warehouseName: string;
+}
+
 export interface DashboardStats {
   totalSkus: number;
+  unassigned: number;
   outOfStock: number;
   lowStock: number;
   totalValue: number;

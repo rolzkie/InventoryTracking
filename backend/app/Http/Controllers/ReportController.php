@@ -6,6 +6,7 @@ use App\Models\InventoryItem;
 use App\Models\Transfer;
 use App\Models\Warehouse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ReportController extends Controller
 {
@@ -15,13 +16,15 @@ class ReportController extends Controller
         $inventoryCount = InventoryItem::count();
         $lowStockCount = InventoryItem::whereColumn('quantity', '<=', 'reorderPoint')->count();
         $transferCount = Transfer::count();
-        $totalValue = InventoryItem::sum('unitPrice');
+        $totalValue = InventoryItem::sum(DB::raw('quantity * unitPrice'));
+        $unassignedCount = InventoryItem::whereNull('warehouseId')->count();
 
         return response()->json([
             'warehouseCount' => $warehouseCount,
             'inventoryCount' => $inventoryCount,
             'lowStockCount' => $lowStockCount,
             'transferCount' => $transferCount,
+            'unassignedCount' => $unassignedCount,
             'totalValue' => round((float) $totalValue, 2),
             'generatedAt' => now()->toISOString(),
         ]);

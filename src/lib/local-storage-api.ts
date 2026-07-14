@@ -1,9 +1,10 @@
-import type { InventoryItem, Warehouse, Transfer, DashboardStats } from "./api";
+import type { InventoryItem, Warehouse, Transfer, StockTransaction, DashboardStats } from "./api";
 
 const STORAGE_KEYS = {
   warehouses: "inventory_warehouses",
   inventory: "inventory_items",
   transfers: "inventory_transfers",
+  transactions: "inventory_transactions",
 };
 
 function genId(prefix: string): string {
@@ -72,6 +73,7 @@ export const localStorageAPI = {
 
     return {
       totalSkus,
+      unassigned: inventory.filter((i) => !i.warehouseId || i.warehouseId === "").length,
       outOfStock,
       lowStock,
       totalValue,
@@ -92,6 +94,8 @@ export const localStorageAPI = {
         capacity: Number(data.capacity) || 0,
         used: 0,
         manager: data.manager ?? "",
+        status: "active",
+        createdAt: new Date().toISOString(),
       };
       list.push(wh);
       saveList(STORAGE_KEYS.warehouses, list);
@@ -139,12 +143,19 @@ export const localStorageAPI = {
         quantity: Number(data.quantity) || 0,
         reorderPoint: Number(data.reorderPoint) || 0,
         warehouseId: data.warehouseId ?? "",
+        storageLocation: data.storageLocation ?? "",
         unitPrice: Number(data.unitPrice) || 0,
         lastRestocked: new Date().toISOString().slice(0, 10),
         status: itemStatus(
           Number(data.quantity) || 0,
           Number(data.reorderPoint) || 0
         ),
+        qty: Number(data.quantity) || 0,
+        cost: Number(data.unitPrice) || 0,
+        unit: data.unit ?? "pcs",
+        notes: data.description ?? "",
+        createdAt: new Date().toISOString(),
+        warehouseName: "",
       };
       list.push(item);
       saveList(STORAGE_KEYS.inventory, list);
@@ -335,6 +346,51 @@ export const localStorageAPI = {
 
       transfers = transfers.filter((t) => t.id !== id);
       saveList(STORAGE_KEYS.transfers, transfers);
+      return { ok: true };
+    },
+  },
+
+  transactions: {
+    list: async () => {
+      const list = getList<StockTransaction>(STORAGE_KEYS.transactions);
+      return [...list].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    },
+    create: async (data: Partial<StockTransaction>) => {
+      const list = getList<StockTransaction>(STORAGE_KEYS.transactions);
+      const transaction: StockTransaction = {
+        id: genId("TX"),
+        itemId: data.itemId ?? "",
+        warehouseId: data.warehouseId ?? "",
+        transactionType: data.transactionType ?? "stock_in",
+        quantity: Number(data.quantity ?? 0),
+        expirationDate: data.expirationDate,
+        notes: data.notes ?? "",
+        createdAt: data.createdAt ?? new Date().toISOString(),
+        updatedAt: data.updatedAt,
+        itemName: data.itemName ?? "",
+        warehouseName: data.warehouseName ?? "",
+      };
+      list.push(transaction);
+      saveList(STORAGE_KEYS.transactions, list);
+      return transaction;
+    },
+    update: async (id: string, data: Partial<StockTransaction>) => {
+      const list = getList<StockTransaction>(STORAGE_KEYS.transactions);
+      const idx = list.findIndex((t) => t.id === id);
+      if (idx === -1) throw new Error("Not found");
+      list[idx] = {
+        ...list[idx],
+        ...data,
+        updatedAt: new Date().toISOString(),
+      };
+      saveList(STORAGE_KEYS.transactions, list);
+      return list[idx];
+    },
+    delete: async (id: string) => {
+      let list = getList<StockTransaction>(STORAGE_KEYS.transactions);
+      if (!list.some((t) => t.id === id)) throw new Error("Not found");
+      list = list.filter((t) => t.id !== id);
+      saveList(STORAGE_KEYS.transactions, list);
       return { ok: true };
     },
   },

@@ -8,6 +8,73 @@ use Illuminate\Http\Request;
 
 class TransferController extends Controller
 {
+    protected function findItem(int $itemId): InventoryItem
+    {
+        return InventoryItem::findOrFail($itemId);
+    }
+
+    protected function decrementSourceQuantity(InventoryItem $item, int $quantity): void
+    {
+        $item->quantity = max(0, $item->quantity - $quantity);
+        $item->save();
+    }
+
+    protected function restoreSourceQuantity(InventoryItem $item, int $quantity): void
+    {
+        $item->quantity += $quantity;
+        $item->save();
+    }
+
+    protected function createOrUpdateDestinationItem(InventoryItem $sourceItem, int $destinationWarehouseId, int $quantity): void
+    {
+        if ($quantity <= 0) {
+            return;
+        }
+
+        $destinationItem = InventoryItem::where('sku', $sourceItem->sku)
+            ->where('warehouseId', $destinationWarehouseId)
+            ->first();
+
+        if ($destinationItem) {
+            $destinationItem->quantity += $quantity;
+            $destinationItem->save();
+            return;
+        }
+
+        InventoryItem::create([
+            'sku' => $sourceItem->sku,
+            'name' => $sourceItem->name,
+            'description' => $sourceItem->description,
+            'category' => $sourceItem->category,
+            'quantity' => $quantity,
+            'reorderPoint' => $sourceItem->reorderPoint,
+            'warehouseId' => $destinationWarehouseId,
+            'unitPrice' => $sourceItem->unitPrice,
+            'lastRestocked' => now()->toDateString(),
+        ]);
+    }
+
+    protected function applyStatusTransition(Transfer $transfer, string $oldStatus, string $newStatus): void
+    {
+        $item = $this->findItem($transfer->itemId);
+
+        if ($oldStatus !== 'in_transit' && $newStatus === 'in_transit') {
+            $this->decrementSourceQuantity($item, $transfer->quantity);
+        }
+
+        if ($oldStatus !== 'completed' && $newStatus === 'completed') {
+            if ($oldStatus !== 'in_transit') {
+                $this->decrementSourceQuantity($item, $transfer->quantity);
+            }
+
+            $this->createOrUpdateDestinationItem($item, $transfer->destinationWarehouse, $transfer->quantity);
+        }
+
+        if ($oldStatus === 'in_transit' && $newStatus === 'cancelled') {
+            $this->restoreSourceQuantity($item, $transfer->quantity);
+        }
+    }
+
     public function index()
     {
         return response()->json(Transfer::with(['item', 'sourceWh', 'destinationWh'])->orderByDesc('created_at')->get());
@@ -20,11 +87,11 @@ class TransferController extends Controller
             'destinationWarehouse' => 'required|exists:warehouses,id|different:sourceWarehouse',
             'itemId' => 'required|exists:inventory_items,id',
             'quantity' => 'required|integer|min:1',
-            'status' => 'required|in:pending,in_transit,completed',
+            'status' => 'required|in:pending,in_transit,completed,cancelled',
             'notes' => 'nullable|string',
         ]);
 
-        $item = InventoryItem::findOrFail($validated['itemId']);
+        $item = $this->findItem($validated['itemId']);
 
         if ($item->warehouseId != $validated['sourceWarehouse']) {
             return response()->json(['error' => 'Item not in source warehouse'], 422);
@@ -48,9 +115,11 @@ class TransferController extends Controller
             'createdAt' => now(),
         ]);
 
-        if ($transfer->status === 'in_transit' || $transfer->status === 'completed') {
-            $item->quantity -= $transfer->quantity;
-            $item->save();
+        $this->applyStatusTransition($transfer, 'pending', $transfer->status);
+
+        if ($transfer->status === 'completed') {
+            $transfer->completedAt = now();
+            $transfer->save();
         }
 
         return response()->json($transfer->fresh(['item', 'sourceWh', 'destinationWh']), 201);
@@ -64,18 +133,15 @@ class TransferController extends Controller
     public function update(Request $request, Transfer $transfer)
     {
         $validated = $request->validate([
-            'status' => 'sometimes|in:pending,in_transit,completed',
+            'status' => 'sometimes|in:pending,in_transit,completed,cancelled',
             'notes' => 'nullable|string',
         ]);
 
         $oldStatus = $transfer->status;
         $transfer->update($validated);
+        $this->applyStatusTransition($transfer, $oldStatus, $transfer->status);
 
-        if ($validated['status'] === 'completed' && $oldStatus !== 'completed') {
-            $item = InventoryItem::findOrFail($transfer->itemId);
-            $item->warehouseId = $transfer->destinationWarehouse;
-            $item->quantity += $transfer->quantity;
-            $item->save();
+        if ($transfer->status === 'completed' && !$transfer->completedAt) {
             $transfer->completedAt = now();
             $transfer->save();
         }
@@ -85,10 +151,9 @@ class TransferController extends Controller
 
     public function destroy(Transfer $transfer)
     {
-        if ($transfer->status === 'in_transit' || $transfer->status === 'completed') {
-            $item = InventoryItem::findOrFail($transfer->itemId);
-            $item->quantity += $transfer->quantity;
-            $item->save();
+        if ($transfer->status === 'in_transit') {
+            $item = $this->findItem($transfer->itemId);
+            $this->restoreSourceQuantity($item, $transfer->quantity);
         }
 
         $transfer->delete();
