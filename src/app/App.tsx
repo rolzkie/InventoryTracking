@@ -264,7 +264,7 @@ export default function App() {
             <>
               {page === "dashboard" && <DashboardPage stats={stats} onNavigate={setPage} />}
               {page === "inventory" && <InventoryPage warehouses={warehouses} />}
-              {page === "warehouses" && <WarehousesPage warehouses={warehouses} setWarehouses={setWarehouses} />}
+              {page === "warehouses" && <WarehousesPage warehouses={warehouses} setWarehouses={setWarehouses} inventory={inventory} onAssigned={() => void loadGlobal()} onClearAssign={() => undefined} />}
               {page === "transfers" && <TransfersPage warehouses={warehouses} inventory={inventory} />}
               {page === "transactions" && <TransactionsPage inventory={inventory} warehouses={warehouses} />}
               {page === "reports" && <ReportsPage inventory={inventory} warehouses={warehouses} />}

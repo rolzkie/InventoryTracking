@@ -16,6 +16,12 @@ class Transfer extends Model
         'createdAt',
         'completedAt',
         'notes',
+        'fromZone',
+        'fromRack',
+        'fromShelf',
+        'toZone',
+        'toRack',
+        'toShelf',
     ];
 
     protected $casts = [

@@ -97,11 +97,23 @@ class InventoryController extends Controller
         $validated = $request->validate([
             'warehouseId' => 'required|exists:warehouses,id',
             'storageLocation' => 'nullable|string|max:255',
+            'zone' => 'nullable|string|max:100',
+            'rack' => 'nullable|string|max:100',
+            'shelf' => 'nullable|string|max:100',
         ]);
 
         $item = InventoryItem::findOrFail($id);
+
+        if ($item->warehouseId && $item->warehouseId != $validated['warehouseId']) {
+            return response()->json(['error' => 'Item already assigned to another warehouse. Use transfer instead.'], 422);
+        }
+
         $item->warehouseId = $validated['warehouseId'];
         $item->storageLocation = $validated['storageLocation'] ?? null;
+        $item->zone = $validated['zone'] ?? null;
+        $item->rack = $validated['rack'] ?? null;
+        $item->shelf = $validated['shelf'] ?? null;
+        $item->assignedAt = now();
         if ($item->quantity === 0) {
             $item->status = 'out_of_stock';
         } elseif ($item->quantity < $item->reorderPoint) {
