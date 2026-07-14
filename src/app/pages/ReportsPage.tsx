@@ -1,7 +1,8 @@
+import { useEffect, useMemo, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Download } from "lucide-react";
-import type { InventoryItem, Warehouse as WH } from "../../lib/api";
-import { toast } from "../components/ui";
+import { Download, Printer, FileText, ArrowDownSquare } from "lucide-react";
+import { api, type InventoryItem, type LowStockSummaryItem, type ReportSummary, type StockTransaction, type Warehouse as WH } from "../../lib/api";
+import { inputCls, toast } from "../components/ui";
 
 const CHART_DATA = [
   { month: "Jan", inbound: 1800, outbound: 1200 },
@@ -14,14 +15,90 @@ const CHART_DATA = [
 ];
 
 export function ReportsPage({ inventory, warehouses }: { inventory: InventoryItem[]; warehouses: WH[] }) {
-  const byWarehouse = warehouses.map((w) => ({
-    name: w.name.split(" ")[0],
-    value: inventory.filter((i) => i.warehouseId === w.id).reduce((s, i) => s + i.qty * i.cost, 0),
-  }))
+  const [summary, setSummary] = useState<ReportSummary | null>(null);
+  const [lowStockItems, setLowStockItems] = useState<LowStockSummaryItem[]>([]);
+  const [transactions, setTransactions] = useState<StockTransaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [minThreshold, setMinThreshold] = useState(50);
+  const [maxThreshold, setMaxThreshold] = useState(500);
+  const [reorderRequests, setReorderRequests] = useState<Array<{ id: string; sku: string; name: string; warehouse: string; currentQty: number; suggestedQty: number }>>([]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadReports() {
+      setLoading(true);
+      try {
+        const [summaryData, lowStockData, transactionsData] = await Promise.all([
+          api.reports.summary(),
+          api.reports.lowStock(),
+          api.transactions.list(),
+        ]);
+        if (!active) return;
+        setSummary(summaryData);
+        setLowStockItems(lowStockData);
+        setTransactions(transactionsData);
+      } catch (error: any) {
+        toast("error", error?.message ?? "Failed to load report data");
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    const savedMin = Number(window.localStorage.getItem("inventory-min-threshold") ?? 50);
+    const savedMax = Number(window.localStorage.getItem("inventory-max-threshold") ?? 500);
+    const minValue = savedMin || 50;
+    const maxValue = savedMax || 500;
+    setMinThreshold(minValue);
+    setMaxThreshold(maxValue);
+
+    loadReports().then(() => {
+      if (!active) return;
+      setReorderRequests(buildReorderRequests());
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const byWarehouse = warehouses
+    .map((w) => ({
+      name: w.name.split(" ")[0],
+      value: inventory.filter((i) => i.warehouseId === w.id).reduce((s, i) => s + i.qty * i.cost, 0),
+    }))
     .filter((x) => x.value > 0)
     .sort((a, b) => b.value - a.value);
 
-  const totalValue = inventory.reduce((s, i) => s + i.qty * i.cost, 0);
+  const maxWarehouseValue = Math.max(1, ...byWarehouse.map((x) => x.value));
+
+  const totalValue = summary?.totalValue ?? inventory.reduce((s, i) => s + i.qty * i.cost, 0);
+  const lowStockCount = summary?.lowStockCount ?? inventory.filter((i) => i.status !== "in_stock").length;
+  const outOfStockCount = summary?.outOfStockCount ?? inventory.filter((i) => i.quantity === 0).length;
+  const warehouseCount = summary?.warehouseCount ?? warehouses.length;
+  const inventoryCount = summary?.inventoryCount ?? inventory.length;
+  const transferCount = summary?.transferCount ?? 0;
+  const unassignedCount = summary?.unassignedCount ?? inventory.filter((i) => !i.warehouseId).length;
+
+  const belowMinCount = inventory.filter((item) => item.quantity <= Math.max(minThreshold, item.reorderPoint)).length;
+  const overMaxCount = inventory.filter((item) => maxThreshold > 0 && item.quantity >= maxThreshold).length;
+
+  const expiringSoonCount = transactions.filter((transaction) => transaction.expirationDate && new Date(transaction.expirationDate) <= new Date(Date.now() + 7 * 86400000)).length;
+
+  const expiringItems = useMemo(
+    () => transactions.filter((transaction) => transaction.expirationDate && new Date(transaction.expirationDate) <= new Date(Date.now() + 7 * 86400000)),
+    [transactions]
+  );
+
+  const reportCards = [
+    { label: "Warehouses", value: warehouseCount },
+    { label: "Inventory Items", value: inventoryCount },
+    { label: "Transfers", value: transferCount },
+    { label: "Unassigned", value: unassignedCount },
+    { label: "Low Stock", value: lowStockCount },
+    { label: "Expiring Soon", value: expiringSoonCount },
+    { label: "Out of Stock", value: outOfStockCount },
+  ];
 
   function exportInventory() {
     const rows = [["ID", "Name", "SKU", "Category", "Warehouse", "Qty", "Unit", "Cost", "Total Value", "Status"]];
@@ -35,15 +112,48 @@ export function ReportsPage({ inventory, warehouses }: { inventory: InventoryIte
   }
 
   function exportLowStock() {
-    const alerts = inventory.filter((i) => i.status !== "in_stock");
+    const alerts = lowStockItems.length ? lowStockItems : inventory.filter((i) => i.status !== "in_stock");
     const rows = [["ID", "Name", "SKU", "Qty", "Reorder Point", "Status", "Warehouse"]];
-    alerts.forEach((i) => rows.push([i.id, i.name, i.sku, String(i.qty), String(i.reorderPoint), i.status, i.warehouseName ?? i.warehouseId]));
+    alerts.forEach((i) => rows.push([i.id, i.name, i.sku, String(i.quantity), String(i.reorderPoint), i.status ?? "", i.warehouseName ?? ""]));
     const csv = rows.map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     a.download = `low-stock-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     toast("success", "Low stock report exported");
+  }
+
+  function saveThresholds() {
+    window.localStorage.setItem("inventory-min-threshold", String(minThreshold));
+    window.localStorage.setItem("inventory-max-threshold", String(maxThreshold));
+    toast("success", "Stock threshold settings saved");
+  }
+
+  function buildReorderRequests() {
+    return inventory
+      .filter((item) => item.quantity <= Math.max(minThreshold, item.reorderPoint))
+      .map((item) => ({
+        id: item.id,
+        sku: item.sku,
+        name: item.name,
+        warehouse: item.warehouseName ?? item.warehouseId,
+        currentQty: item.quantity,
+        suggestedQty: Math.max(Math.max(minThreshold, item.reorderPoint) * 2 - item.quantity, Math.max(minThreshold, item.reorderPoint)),
+      }));
+  }
+
+  function generateReorderRequests() {
+    const requests = buildReorderRequests();
+    setReorderRequests(requests);
+    toast("success", `${requests.length} reorder request${requests.length === 1 ? "" : "s"} generated`);
+  }
+
+  function exportPdf() {
+    window.print();
+  }
+
+  function printReport() {
+    window.print();
   }
 
   return (
@@ -86,12 +196,55 @@ export function ReportsPage({ inventory, warehouses }: { inventory: InventoryIte
       </div>
 
       <div className="bg-card border border-border rounded-lg p-5">
-        <h3 className="text-sm font-semibold text-foreground mb-4">Export Reports</h3>
+        <h3 className="text-sm font-semibold text-foreground mb-4">Inventory Thresholds</h3>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <label className="text-xs text-muted-foreground">Minimum Stock Threshold</label>
+            <input className={inputCls} type="number" min="0" value={minThreshold} onChange={(e) => setMinThreshold(Number(e.target.value))} />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs text-muted-foreground">Maximum Stock Threshold</label>
+            <input className={inputCls} type="number" min="0" value={maxThreshold} onChange={(e) => setMaxThreshold(Number(e.target.value))} />
+          </div>
+          <div className="flex flex-col justify-between gap-3">
+            <button onClick={saveThresholds} className="w-full px-4 py-3 text-xs bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">Save Settings</button>
+            <div className="rounded-lg border border-border p-3 bg-muted/50">
+              <p className="text-xs text-muted-foreground">Below min</p>
+              <p className="text-2xl font-semibold text-foreground">{belowMinCount}</p>
+              <p className="text-[11px] text-muted-foreground">Items at or below minimum</p>
+            </div>
+            <div className="rounded-lg border border-border p-3 bg-muted/50">
+              <p className="text-xs text-muted-foreground">Above max</p>
+              <p className="text-2xl font-semibold text-foreground">{overMaxCount}</p>
+              <p className="text-[11px] text-muted-foreground">Potential overstock items</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-card border border-border rounded-lg p-5">
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">Export Reports</h3>
+            <p className="text-xs text-muted-foreground mt-1">Export in Excel, PDF, or print the latest inventory insights.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button onClick={exportInventory} className="flex items-center gap-2 px-3 py-2 text-xs border border-border rounded-lg hover:border-white/15 hover:bg-white/[0.02] transition-colors">
+              <ArrowDownSquare size={14} /> Excel
+            </button>
+            <button onClick={exportPdf} className="flex items-center gap-2 px-3 py-2 text-xs border border-border rounded-lg hover:border-white/15 hover:bg-white/[0.02] transition-colors">
+              <FileText size={14} /> PDF
+            </button>
+            <button onClick={printReport} className="flex items-center gap-2 px-3 py-2 text-xs border border-border rounded-lg hover:border-white/15 hover:bg-white/[0.02] transition-colors">
+              <Printer size={14} /> Print
+            </button>
+          </div>
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
           {[
             { label: "Inventory Summary", desc: "Full stock snapshot with valuations", action: exportInventory },
             { label: "Low Stock Report", desc: "Items below reorder threshold", action: exportLowStock },
-            { label: "Warehouse Overview", desc: "Capacity and usage per facility", action: () => toast("info", "Coming soon") },
+            { label: "Reorder Requests", desc: "Generate purchase requisitions for restock", action: generateReorderRequests },
           ].map((r) => (
             <button key={r.label} onClick={r.action} className="border border-border rounded-lg p-4 flex items-center justify-between hover:border-white/15 hover:bg-white/[0.02] transition-colors group text-left">
               <div>
@@ -104,41 +257,94 @@ export function ReportsPage({ inventory, warehouses }: { inventory: InventoryIte
         </div>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {reportCards.map((card) => (
+          <div key={card.label} className="bg-card border border-border rounded-lg p-4">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-[0.18em]">{card.label}</p>
+            <p className="mt-3 text-2xl font-semibold text-foreground">{card.value}</p>
+          </div>
+        ))}
+      </div>
+
       <div className="bg-card border border-border rounded-lg overflow-hidden">
-        <div className="px-5 py-4 border-b border-border">
-          <h3 className="text-sm font-semibold text-foreground">Inventory Snapshot</h3>
+        <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">Low Stock Alerts</h3>
+            <p className="text-xs text-muted-foreground">{summary ? `Updated ${new Date(summary.generatedAt).toLocaleString()}` : "Loading latest report data..."}</p>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-muted/50">
-                { ["Category", "Items", "Total Qty", "Total Value", "Alerts"].map((h) => (
+                {["SKU", "Name", "Quantity", "Reorder Point", "Warehouse", "Status"].map((h) => (
                   <th key={h} className="text-left text-xs font-medium text-muted-foreground px-4 py-3">{h}</th>
-                )) }
+                ))}
               </tr>
             </thead>
             <tbody>
-              { ["Electronics", "Hardware", "Chemicals", "Packaging", "Raw Materials"].map((cat) => {
-                const catItems = inventory.filter((i) => i.category === cat);
-                if (!catItems.length) return null;
+              {(loading ? Array.from({ length: 3 }) : lowStockItems).map((item, idx) => {
+                if (loading) {
+                  return (
+                    <tr key={`loading-${idx}`} className="border-b border-border last:border-0 hover:bg-white/[0.02] transition-colors">
+                      <td className="px-4 py-3 text-xs text-muted-foreground" colSpan={6}>Loading low stock items…</td>
+                    </tr>
+                  );
+                }
+
                 return (
-                  <tr key={cat} className="border-b border-border last:border-0 hover:bg-white/[0.02] transition-colors">
-                    <td className="px-4 py-3 text-xs font-medium text-foreground">{cat}</td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground" style={{ fontFamily: "JetBrains Mono, monospace" }}>{catItems.length}</td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground" style={{ fontFamily: "JetBrains Mono, monospace" }}>{catItems.reduce((s, i) => s + i.qty, 0).toLocaleString()}</td>
-                    <td className="px-4 py-3 text-xs text-foreground" style={{ fontFamily: "JetBrains Mono, monospace" }}>${catItems.reduce((s, i) => s + i.qty * i.cost, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                    <td className="px-4 py-3">
-                      {catItems.filter((i) => i.status !== "in_stock").length > 0 ? (
-                        <span className="text-xs text-amber-400" style={{ fontFamily: "JetBrains Mono, monospace" }}>{catItems.filter((i) => i.status !== "in_stock").length} alert{catItems.filter((i) => i.status !== "in_stock").length > 1 ? "s" : ""}</span>
-                      ) : (
-                        <span className="text-xs text-emerald-400">OK</span>
-                      )}
-                    </td>
+                  <tr key={item.id} className="border-b border-border last:border-0 hover:bg-white/[0.02] transition-colors">
+                    <td className="px-4 py-3 text-xs text-foreground">{item.sku}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{item.name}</td>
+                    <td className="px-4 py-3 text-xs text-foreground">{item.quantity}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{item.reorderPoint}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{item.warehouseName}</td>
+                    <td className="px-4 py-3 text-xs text-amber-400">{item.status}</td>
                   </tr>
                 );
-              }) }
+              })}
+              {!loading && lowStockItems.length === 0 && (
+                <tr className="border-b border-border last:border-0 hover:bg-white/[0.02] transition-colors">
+                  <td className="px-4 py-3 text-xs text-muted-foreground" colSpan={6}>No low stock alerts at the moment.</td>
+                </tr>
+              )}
             </tbody>
           </table>
+        </div>
+        <div className="px-5 py-4 border-t border-border bg-slate-950/5">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <h4 className="text-xs font-semibold text-foreground">Reorder Requests</h4>
+              <p className="text-xs text-muted-foreground mt-1">Automatically generated purchase suggestions for low-stock items.</p>
+            </div>
+            <button onClick={generateReorderRequests} className="px-3 py-2 text-xs bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">Generate Reorder Requests</button>
+          </div>
+          {reorderRequests.length > 0 ? (
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border bg-muted/50">
+                    {["SKU", "Item", "Warehouse", "Current Qty", "Suggested Qty"].map((h) => (
+                      <th key={h} className="text-left text-xs font-medium text-muted-foreground px-4 py-3">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {reorderRequests.map((request) => (
+                    <tr key={request.id} className="border-b border-border last:border-0 hover:bg-white/[0.02] transition-colors">
+                      <td className="px-4 py-3 text-xs text-foreground">{request.sku}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">{request.name}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">{request.warehouse}</td>
+                      <td className="px-4 py-3 text-xs text-foreground">{request.currentQty}</td>
+                      <td className="px-4 py-3 text-xs text-foreground">{request.suggestedQty}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground mt-3">No reorder requests generated yet.</p>
+          )}
         </div>
       </div>
     </div>
