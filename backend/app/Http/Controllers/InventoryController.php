@@ -26,6 +26,7 @@ class InventoryController extends Controller
             'unit' => 'required|string|max:50',
             'reorderPoint' => 'required|integer|min:0',
             'unitPrice' => 'required|numeric|min:0',
+            'expiryDate' => 'nullable|date',
         ]);
 
         $item = InventoryItem::create([
@@ -41,7 +42,9 @@ class InventoryController extends Controller
             'storageLocation' => null,
             'status' => 'unassigned',
             'lastRestocked' => null,
+            'expiryDate' => $validated['expiryDate'] ?? null,
         ]);
+
 
         return response()->json($item->fresh('warehouse')->toArray() + ['warehouseName' => $item->warehouse?->name], 201);
     }
@@ -61,9 +64,15 @@ class InventoryController extends Controller
             'unit' => 'sometimes|string|max:50',
             'reorderPoint' => 'sometimes|integer|min:0',
             'unitPrice' => 'sometimes|numeric|min:0',
+            'expiryDate' => 'nullable|date',
         ]);
 
+
         $inventory->update($validated);
+
+        // Trigger model saving hooks to recompute status (including expiry-based status)
+        $inventory->refresh();
+
 
         return response()->json($inventory->fresh('warehouse')->toArray() + ['warehouseName' => $inventory->warehouse?->name]);
     }

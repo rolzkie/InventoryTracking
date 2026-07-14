@@ -19,8 +19,10 @@ type InvForm = {
   reorderPoint: string;
   unit: string;
   unitPrice: string;
+  expiryDate: string;
   description: string;
 };
+
 
 function InventoryModal({ item, onClose, onSaved }: { item?: InventoryItem; onClose: () => void; onSaved: (item: InventoryItem) => void }) {
   const editing = !!item;
@@ -31,8 +33,10 @@ function InventoryModal({ item, onClose, onSaved }: { item?: InventoryItem; onCl
     reorderPoint: String(item?.reorderPoint ?? 50),
     unit: item?.unit ?? "pcs",
     unitPrice: String(item?.unitPrice ?? item?.cost ?? ""),
+    expiryDate: item?.expiryDate ?? "",
     description: item?.description ?? item?.notes ?? "",
   });
+
   const [errors, setErrors] = useState<Partial<InvForm>>({});
   const [saving, setSaving] = useState(false);
 
@@ -61,6 +65,7 @@ function InventoryModal({ item, onClose, onSaved }: { item?: InventoryItem; onCl
         reorderPoint: Number(form.reorderPoint),
         unit: form.unit,
         unitPrice: Number(form.unitPrice),
+        expiryDate: form.expiryDate || undefined,
         description: form.description.trim(),
       };
       const saved = editing
@@ -103,9 +108,16 @@ function InventoryModal({ item, onClose, onSaved }: { item?: InventoryItem; onCl
             <input className={inputCls} type="number" step="0.01" min="0" value={form.unitPrice} onChange={set("unitPrice")} placeholder="0.00" style={{ fontFamily: "JetBrains Mono, monospace" }} />
           </FormField>
         </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <FormField label="Expiry Date">
+            <input className={inputCls} type="date" value={form.expiryDate} onChange={set("expiryDate")} />
+          </FormField>
+          <div />
+        </div>
         <FormField label="Description">
           <textarea className={`${inputCls} resize-none`} rows={2} value={form.description} onChange={set("description")} placeholder="Optional description..." />
         </FormField>
+
         <div className="flex justify-end gap-2 pt-2 border-t border-border">
           <button type="button" onClick={onClose} className="px-4 py-2 text-xs border border-border rounded-lg text-muted-foreground hover:text-foreground transition-colors">Cancel</button>
           <button type="submit" disabled={saving} className="flex items-center gap-1.5 px-4 py-2 text-xs bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors">
@@ -131,6 +143,8 @@ function ViewItemModal({ item, warehouse, onClose, onEdit }: { item: InventoryIt
     ["Warehouse", warehouseLabel],
     ["Quantity", `${quantity} ${unitLabel}`],
     ["Reorder Point", `${item.reorderPoint} ${unitLabel}`],
+    ["Expiry", item.expiryDate ? new Date(item.expiryDate).toLocaleDateString() : "—"],
+
     ["Unit Cost", `$${unitPrice.toFixed(2)}`],
     ["Total Value", `$${(quantity * unitPrice).toLocaleString(undefined, { minimumFractionDigits: 2 })}`],
     ["Created", new Date(createdDate).toLocaleDateString()],
@@ -272,9 +286,10 @@ export function InventoryPage({ warehouses }: { warehouses: WH[] }) {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-muted/50">
-                { ["Item / SKU", "Category", "Warehouse", "Qty on Hand", "Reorder Pt.", "Unit Cost", "Total Value", "Status", "Actions"].map((h) => (
+                { ["Item / SKU", "Category", "Warehouse", "Qty on Hand", "Reorder Pt.", "Expiry", "Unit Cost", "Total Value", "Status", "Actions"].map((h) => (
                   <th key={h} className="text-left text-xs font-medium text-muted-foreground px-4 py-3 whitespace-nowrap">{h}</th>
                 )) }
+
               </tr>
             </thead>
             <tbody>
@@ -299,9 +314,11 @@ export function InventoryPage({ warehouses }: { warehouses: WH[] }) {
                       <span className="text-xs text-muted-foreground ml-1">{item.unit}</span>
                     </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground" style={{ fontFamily: "JetBrains Mono, monospace" }}>{item.reorderPoint}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground" style={{ fontFamily: "JetBrains Mono, monospace" }}>{item.expiryDate ? new Date(item.expiryDate).toLocaleDateString() : "—"}</td>
                     <td className="px-4 py-3 text-xs text-foreground" style={{ fontFamily: "JetBrains Mono, monospace" }}>${item.unitPrice.toFixed(2)}</td>
                     <td className="px-4 py-3 text-xs text-foreground" style={{ fontFamily: "JetBrains Mono, monospace" }}>${(item.quantity * item.unitPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     <td className="px-4 py-3"><StatusBadge status={item.status} /></td>
+
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-0.5">
                         <button onClick={() => setModal({ type: "view", item })} title="View" className="w-7 h-7 flex items-center justify-center rounded hover:bg-white/5 text-muted-foreground hover:text-foreground transition-colors"><Eye size={13} /></button>

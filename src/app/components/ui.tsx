@@ -99,6 +99,7 @@ export function StatusBadge({ status }: { status: string }) {
     cancelled:    { label: "Cancelled",   cls: "bg-red-500/15 text-red-400 border-red-500/20" },
     active:       { label: "Active",      cls: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" },
     near_full:    { label: "Near Full",   cls: "bg-amber-500/15 text-amber-400 border-amber-500/20" },
+    Expiring:     { label: "Expiring",    cls: "bg-orange-500/15 text-orange-400 border-orange-500/20" },
   };
   const { label, cls } = map[status] ?? { label: status, cls: "bg-slate-500/15 text-slate-400" };
   return (

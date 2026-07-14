@@ -15,12 +15,29 @@ function genId(prefix: string): string {
 
 function itemStatus(
   quantity: number,
-  reorderPoint: number
-): "out_of_stock" | "low_stock" | "in_stock" {
-  if (quantity === 0) return "out_of_stock";
-  if (quantity < reorderPoint) return "low_stock";
-  return "in_stock";
+  reorderPoint: number,
+  expiryDate?: string
+): "out_of_stock" | "low_stock" | "in_stock" | "Expiring" {
+  const baseStatus =
+    quantity === 0
+      ? "out_of_stock"
+      : quantity < reorderPoint
+      ? "low_stock"
+      : "in_stock";
+
+  if (!expiryDate) return baseStatus;
+  const now = new Date();
+  const nowDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const expiry = new Date(expiryDate);
+  const expiryDay = new Date(expiry.getFullYear(), expiry.getMonth(), expiry.getDate());
+
+  const diffMs = expiryDay.getTime() - nowDay.getTime();
+  const diffDays = diffMs / 86400000;
+
+  const isExpiring = diffDays >= 0 && diffDays <= 7;
+  return isExpiring ? "Expiring" : baseStatus;
 }
+
 
 function getList<T>(key: string): T[] {
   try {
@@ -170,7 +187,7 @@ export const localStorageAPI = {
       const list = getList<InventoryItem>(STORAGE_KEYS.inventory);
       return list.map((item) => ({
         ...item,
-        status: itemStatus(item.quantity, item.reorderPoint),
+        status: itemStatus(item.quantity, item.reorderPoint, item.expiryDate),
       }));
     },
     create: async (data: Partial<InventoryItem>) => {
@@ -188,13 +205,20 @@ export const localStorageAPI = {
         category: data.category ?? "",
         quantity: Number(data.quantity) || 0,
         reorderPoint: Number(data.reorderPoint) || 0,
+        zone: data.zone ?? "",
+        rack: data.rack ?? "",
+        shelf: data.shelf ?? "",
+        assignedAt: data.assignedAt ?? "",
+
         warehouseId: data.warehouseId ?? "",
         storageLocation: data.storageLocation ?? "",
         unitPrice: Number(data.unitPrice) || 0,
         lastRestocked: new Date().toISOString().slice(0, 10),
+        expiryDate: data.expiryDate ?? "",
         status: itemStatus(
           Number(data.quantity) || 0,
-          Number(data.reorderPoint) || 0
+          Number(data.reorderPoint) || 0,
+          data.expiryDate
         ),
         qty: Number(data.quantity) || 0,
         cost: Number(data.unitPrice) || 0,
@@ -228,7 +252,9 @@ export const localStorageAPI = {
       const idx = list.findIndex((i) => i.id === id);
       if (idx === -1) throw new Error("Not found");
       list[idx].quantity = Math.max(0, list[idx].quantity + delta);
-      list[idx].status = itemStatus(list[idx].quantity, list[idx].reorderPoint);
+      list[idx].status = itemStatus(list[idx].quantity, list[idx].reorderPoint, (list[idx] as any).expiryDate);
+
+
       saveList(STORAGE_KEYS.inventory, list);
       return list[idx];
     },
@@ -263,6 +289,13 @@ export const localStorageAPI = {
       const transfers = getList<Transfer>(STORAGE_KEYS.transfers);
       const trf: Transfer = {
         id: genId("TRN"),
+        fromZone: (data as any).fromZone ?? "",
+        fromRack: (data as any).fromRack ?? "",
+        fromShelf: (data as any).fromShelf ?? "",
+        toZone: (data as any).toZone ?? "",
+        toRack: (data as any).toRack ?? "",
+        toShelf: (data as any).toShelf ?? "",
+
         sourceWarehouse,
         destinationWarehouse,
         fromWarehouseId: sourceWarehouse,
@@ -273,6 +306,7 @@ export const localStorageAPI = {
         qty: quantity,
         status,
         createdAt: data.createdAt ?? new Date().toISOString(),
+
         date: data.date ?? new Date().toISOString().slice(0, 10),
         completedAt: data.completedAt,
         notes: data.notes ?? "",

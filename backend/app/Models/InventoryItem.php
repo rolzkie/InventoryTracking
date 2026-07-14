@@ -24,6 +24,7 @@ class InventoryItem extends Model
         'assignedAt',
         'unitPrice',
         'lastRestocked',
+        'expiryDate',
         'status',
     ];
 
@@ -33,6 +34,7 @@ class InventoryItem extends Model
         'warehouseId' => 'integer',
         'unitPrice' => 'decimal:2',
         'lastRestocked' => 'date',
+        'expiryDate' => 'date',
     ];
 
     public function warehouse()
@@ -48,10 +50,25 @@ class InventoryItem extends Model
     protected static function booted()
     {
         static::saving(function ($model) {
+            // Preserve expiry-based status as "Expiring" when within the next 7 days (and not expired).
+            $now = now()->startOfDay();
+            $threshold = $now->copy()->addDays(7);
+            $isExpiring = false;
+
+            if (!empty($model->expiryDate)) {
+                $expiryDay = \Illuminate\Support\Carbon::parse($model->expiryDate)->startOfDay();
+                $isExpiring = $expiryDay >= $now && $expiryDay <= $threshold;
+            }
+
             if (!$model->warehouseId) {
                 $model->status = 'unassigned';
-            } elseif ($model->quantity === 0) {
+                return;
+            }
+
+            if ($model->quantity === 0) {
                 $model->status = 'out_of_stock';
+            } elseif ($isExpiring) {
+                $model->status = 'Expiring';
             } elseif ($model->quantity < $model->reorderPoint) {
                 $model->status = 'low_stock';
             } else {

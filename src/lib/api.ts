@@ -1,8 +1,9 @@
 import { localStorageAPI } from "./local-storage-api";
 
 function getApiBase(): string {
-  const configured = import.meta.env.VITE_API_BASE_URL?.trim();
+  const configured = (import.meta as any).env?.VITE_API_BASE_URL?.trim();
   if (configured) return configured.replace(/\/$/, "");
+
 
   return "/api";
 }
@@ -55,7 +56,11 @@ function normalizeInventoryItem(item: Partial<InventoryItem> & Record<string, an
   const quantity = Number(item.quantity ?? item.qty ?? 0);
   const unitPrice = Number(item.unitPrice ?? item.cost ?? 0);
   const description = item.description ?? item.notes ?? "";
-  const status = item.status ?? (!item.warehouseId ? "unassigned" : quantity === 0 ? "out_of_stock" : quantity < Number(item.reorderPoint ?? 0) ? "low_stock" : "in_stock");
+
+  // Prefer server-provided status; fallback for local/dev.
+  const status =
+    item.status ??
+    (!item.warehouseId ? "unassigned" : quantity === 0 ? "out_of_stock" : quantity < Number(item.reorderPoint ?? 0) ? "low_stock" : "in_stock");
 
   return {
     ...item,
@@ -74,6 +79,8 @@ function normalizeInventoryItem(item: Partial<InventoryItem> & Record<string, an
     assignedAt: item.assignedAt ?? "",
     unitPrice,
     lastRestocked: item.lastRestocked ?? "",
+    expiryDate: item.expiryDate,
+
     status,
     qty: quantity,
     cost: unitPrice,
@@ -83,6 +90,7 @@ function normalizeInventoryItem(item: Partial<InventoryItem> & Record<string, an
     warehouseName: item.warehouseName ?? "",
   } as InventoryItem;
 }
+
 
 function normalizeWarehouse(warehouse: Partial<Warehouse> & Record<string, any>): Warehouse {
   const capacity = Number(warehouse.capacity ?? 0);
@@ -283,27 +291,29 @@ export const api = {
     list: () => apiCall(
       () => request<StockTransaction[]>('/transactions').then((items) => items.map((item) => ({
         ...item,
-        itemName: item.itemName ?? item.item?.name ?? "",
-        warehouseName: item.warehouseName ?? item.warehouse?.name ?? "",
-      }))),
+        itemName: (item as any).itemName ?? (item as any).item?.name ?? "",
+        warehouseName: (item as any).warehouseName ?? (item as any).warehouse?.name ?? "",
+      })) ),
+
       () => localStorageAPI.transactions.list()
     ),
     create: (data: Partial<StockTransaction>) => apiCall(
       () => request<StockTransaction>('/transactions', { method: 'POST', body: JSON.stringify(data) }).then((item) => ({
         ...item,
-        itemName: item.itemName ?? item.item?.name ?? "",
-        warehouseName: item.warehouseName ?? item.warehouse?.name ?? "",
+        itemName: (item as any).itemName ?? (item as any).item?.name ?? "",
+        warehouseName: (item as any).warehouseName ?? (item as any).warehouse?.name ?? "",
       })),
       () => localStorageAPI.transactions.create(data)
     ),
     update: (id: string, data: Partial<StockTransaction>) => apiCall(
       () => request<StockTransaction>(`/transactions/${id}`, { method: 'PUT', body: JSON.stringify(data) }).then((item) => ({
         ...item,
-        itemName: item.itemName ?? item.item?.name ?? "",
-        warehouseName: item.warehouseName ?? item.warehouse?.name ?? "",
+        itemName: (item as any).itemName ?? (item as any).item?.name ?? "",
+        warehouseName: (item as any).warehouseName ?? (item as any).warehouse?.name ?? "",
       })),
       () => localStorageAPI.transactions.update(id, data)
     ),
+
     delete: (id: string) => apiCall(
       () => request<{ ok: boolean }>(`/transactions/${id}`, { method: 'DELETE' }),
       () => localStorageAPI.transactions.delete(id)
@@ -340,7 +350,8 @@ export interface InventoryItem {
   assignedAt: string;
   unitPrice: number;
   lastRestocked: string;
-  status: "unassigned" | "in_stock" | "low_stock" | "out_of_stock";
+  expiryDate?: string;
+  status: "unassigned" | "in_stock" | "low_stock" | "out_of_stock" | "Expiring" | string;
   qty: number;
   cost: number;
   unit: string;
@@ -348,6 +359,7 @@ export interface InventoryItem {
   createdAt: string;
   warehouseName: string;
 }
+
 
 export interface Transfer {
   id: string;

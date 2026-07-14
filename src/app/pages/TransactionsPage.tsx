@@ -177,9 +177,15 @@ function TransactionModal({ warehouses, inventory, onClose, onSaved }: { warehou
 
   useEffect(() => {
     if (!selectedItem && assignedItems.length > 0) {
-      setForm((prev) => ({ ...prev, itemId: assignedItems[0].id, warehouseId: assignedItems[0].warehouseId }));
+      setForm((prev) => ({
+        ...prev,
+        itemId: assignedItems[0].id,
+        warehouseId: assignedItems[0].warehouseId,
+        expirationDate: assignedItems[0].expiryDate ?? "",
+      }));
     }
   }, [assignedItems, selectedItem]);
+
 
   function validate() {
     const errs: Record<string, string> = {};
@@ -235,8 +241,14 @@ function TransactionModal({ warehouses, inventory, onClose, onSaved }: { warehou
           <FormField label="Item" required error={errors.itemId}>
             <select className={selectCls} value={form.itemId} onChange={(e) => {
               const item = assignedItems.find((i) => i.id === e.target.value);
-              setForm((f) => ({ ...f, itemId: e.target.value, warehouseId: item?.warehouseId ?? f.warehouseId }));
+              setForm((f) => ({
+                ...f,
+                itemId: e.target.value,
+                warehouseId: item?.warehouseId ?? f.warehouseId,
+                expirationDate: item?.expiryDate ?? "",
+              }));
             }}>
+
               <option value="">Select item</option>
               {assignedItems.map((item) => (
                 <option key={item.id} value={item.id}>{item.name} ({item.sku})</option>
