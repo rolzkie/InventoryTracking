@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Search, Plus, Download, Edit, Eye, Trash2, Loader2, ChevronLeft, ChevronRight, Save } from "lucide-react";
+import { Search, Plus, Edit, Eye, Trash2, Loader2, ChevronLeft, ChevronRight, Save } from "lucide-react";
 import type { InventoryItem, Warehouse as WH } from "../../lib/api";
 import { api } from "../../lib/api";
 import { ConfirmDialog, FormField, inputCls, LoadingRow, Modal, EmptyRow, selectCls, StatusBadge, toast } from "../components/ui";
@@ -234,17 +234,6 @@ export function InventoryPage({ warehouses }: { warehouses: WH[] }) {
     });
   }
 
-  async function exportCsv() {
-    const rows = [["ID", "Name", "SKU", "Category", "Warehouse", "Qty", "Reorder Point", "Unit", "Cost", "Status"]];
-    items.forEach((i) => rows.push([i.id, i.name, i.sku, i.category, i.warehouseName ?? i.warehouseId, String(i.qty), String(i.reorderPoint), i.unit, String(i.cost), i.status]));
-    const csv = rows.map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    a.download = `inventory-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    toast("success", "CSV exported");
-  }
-
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:flex-wrap">
@@ -272,27 +261,10 @@ export function InventoryPage({ warehouses }: { warehouses: WH[] }) {
           <button onClick={() => load(true)} disabled={refreshing} className="flex items-center gap-1.5 px-3 py-2 text-xs border border-border rounded-lg text-muted-foreground hover:text-foreground transition-colors">
             <Loader2 size={13} className={refreshing ? "animate-spin" : ""} />
           </button>
-          <button onClick={exportCsv} className="flex items-center gap-1.5 px-3 py-2 text-xs border border-border rounded-lg text-muted-foreground hover:text-foreground transition-colors">
-            <Download size={13} /> Export
-          </button>
           <button onClick={() => setModal({ type: "add" })} className="flex items-center gap-1.5 px-3 py-2 text-xs bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
             <Plus size={13} /> Add Item
           </button>
         </div>
-      </div>
-
-      <div className="flex items-center gap-2 flex-wrap">
-        {[
-          { label: "Total", value: items.length, cls: "text-foreground" },
-          { label: "In Stock", value: items.filter((i) => i.status === "in_stock").length, cls: "text-emerald-400" },
-          { label: "Low Stock", value: items.filter((i) => i.status === "low_stock").length, cls: "text-amber-400" },
-          { label: "Out of Stock", value: items.filter((i) => i.status === "out_of_stock").length, cls: "text-red-400" },
-        ].map((p) => (
-          <div key={p.label} className="bg-card border border-border rounded-lg px-3 py-1.5 flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">{p.label}</span>
-            <span className={`text-xs font-bold ${p.cls}`} style={{ fontFamily: "JetBrains Mono, monospace" }}>{p.value}</span>
-          </div>
-        ))}
       </div>
 
       <div className="bg-card border border-border rounded-lg overflow-hidden">

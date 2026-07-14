@@ -81,7 +81,7 @@ export function TransactionsPage({ inventory, warehouses }: { inventory: Invento
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="rounded-xl border border-border bg-card p-4">
           <p className="text-xs text-muted-foreground">Transactions</p>
           <p className="mt-2 text-2xl font-semibold text-foreground">{transactions.length}</p>
@@ -89,10 +89,6 @@ export function TransactionsPage({ inventory, warehouses }: { inventory: Invento
         <div className="rounded-xl border border-border bg-card p-4">
           <p className="text-xs text-muted-foreground">Last 24h</p>
           <p className="mt-2 text-2xl font-semibold text-foreground">{transactions.filter((transaction) => new Date(transaction.createdAt) >= new Date(Date.now() - 86400000)).length}</p>
-        </div>
-        <div className="rounded-xl border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground">Expiration Alerts</p>
-          <p className="mt-2 text-2xl font-semibold text-foreground">{transactions.filter((transaction) => transaction.expirationDate && new Date(transaction.expirationDate) <= new Date(Date.now() + 7 * 86400000)).length}</p>
         </div>
       </div>
 

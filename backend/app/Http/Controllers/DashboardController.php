@@ -5,15 +5,15 @@ namespace App\Http\Controllers;
 use App\Models\InventoryItem;
 use App\Models\Warehouse;
 use App\Models\Transfer;
+use App\Models\StockTransaction;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
     public function index()
     {
-        $inventory = InventoryItem::all();
+        $inventory = InventoryItem::with('warehouse')->get();
         $warehouses = Warehouse::all();
-        $transfers = Transfer::all();
 
         $totalSkus = $inventory->count();
         $outOfStock = $inventory->where('status', 'out_of_stock')->count();
@@ -23,9 +23,9 @@ class DashboardController extends Controller
         });
 
         $today = now()->toDateString();
-        $todayTransfers = $transfers->filter(function ($t) {
-            return $t->created_at->toDateString() === now()->toDateString();
-        })->count();
+        $todayTransfers = Transfer::whereDate('createdAt', $today)->count();
+        $recentStockIn = StockTransaction::where('transactionType', 'stock_in')->whereDate('createdAt', $today)->count();
+        $recentStockOut = StockTransaction::where('transactionType', 'stock_out')->whereDate('createdAt', $today)->count();
 
         $unassigned = $inventory->where('status', 'unassigned')->count();
 
@@ -41,6 +41,7 @@ class DashboardController extends Controller
                     'quantity' => $i->quantity,
                     'status' => $i->status,
                     'alertType' => $i->status === 'out_of_stock' ? 'out_of_stock' : 'low_stock',
+                    'warehouseName' => $i->warehouse?->name ?? 'Unassigned',
                 ];
             })
             ->values();
@@ -53,6 +54,8 @@ class DashboardController extends Controller
             'totalValue' => $totalValue,
             'warehouseCount' => $warehouses->count(),
             'todayTransfers' => $todayTransfers,
+            'recentStockIn' => $recentStockIn,
+            'recentStockOut' => $recentStockOut,
             'alerts' => $alerts,
         ]);
     }

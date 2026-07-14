@@ -176,6 +176,17 @@ export const api = {
     () => localStorageAPI.dashboard()
   ),
 
+  reports: {
+    summary: () => apiCall(
+      () => request<ReportSummary>("/reports/summary"),
+      () => localStorageAPI.reports.summary()
+    ),
+    lowStock: () => apiCall(
+      () => request<LowStockSummaryItem[]>("/reports/low-stock"),
+      () => localStorageAPI.reports.lowStock()
+    ),
+  },
+
   // Warehouses
   warehouses: {
     list: () => apiCall(
@@ -374,6 +385,28 @@ export interface StockTransaction {
   updatedAt?: string;
   itemName: string;
   warehouseName: string;
+}
+
+export interface ReportSummary {
+  warehouseCount: number;
+  inventoryCount: number;
+  lowStockCount: number;
+  outOfStockCount: number;
+  transferCount: number;
+  unassignedCount: number;
+  totalValue: number;
+  alerts: Array<{ id: string; sku: string; name: string; quantity: number; reorderPoint: number; status: string; warehouseName: string }>;
+  generatedAt: string;
+}
+
+export interface LowStockSummaryItem {
+  id: string;
+  sku: string;
+  name: string;
+  quantity: number;
+  reorderPoint: number;
+  warehouseName: string;
+  status?: string;
 }
 
 export interface DashboardStats {

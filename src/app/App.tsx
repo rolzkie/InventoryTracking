@@ -17,7 +17,7 @@ const NAV: { id: Page; label: string; icon: LucideIcon }[] = [
   { id: "inventory", label: "Inventory", icon: Package },
   { id: "warehouses", label: "Warehouses", icon: Warehouse },
   { id: "transfers", label: "Transfers", icon: ArrowLeftRight },
-  { id: "transactions", label: "Transactions", icon: ArrowDownRight },
+  { id: "transactions", label: "Stock Transactions", icon: ArrowDownRight },
   { id: "reports", label: "Reports", icon: BarChart3 },
 ];
 
@@ -181,7 +181,9 @@ export default function App() {
           <button onClick={() => setSidebarOpen(true)} className="lg:hidden w-8 h-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground transition-colors">
             <Menu size={18} />
           </button>
-          <h1 className="text-sm font-semibold text-foreground capitalize">{page}</h1>
+          <h1 className="text-sm font-semibold text-foreground capitalize">
+            {page === "transactions" ? "Stock Transactions" : page === "reports" ? "Reports" : page}
+          </h1>
           <div className="flex-1" />
           <div className="relative hidden sm:block">
             <div className="relative">
