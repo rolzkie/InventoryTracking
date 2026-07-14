@@ -29,7 +29,6 @@ export default function App() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [assigningItemId, setAssigningItemId] = useState<string | null>(null);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -49,11 +48,6 @@ export default function App() {
       toast("error", message);
     }
   }, []);
-
-  const handleAssignmentCompleted = useCallback(async () => {
-    setAssigningItemId(null);
-    await loadGlobal();
-  }, [loadGlobal]);
 
   useEffect(() => {
     if (initialized.current) return;
@@ -269,8 +263,8 @@ export default function App() {
           ) : (
             <>
               {page === "dashboard" && <DashboardPage stats={stats} onNavigate={setPage} />}
-              {page === "inventory" && <InventoryPage warehouses={warehouses} onNavigate={setPage} onRequestAssign={(id) => { setAssigningItemId(id); setPage("warehouses"); }} />}
-              {page === "warehouses" && <WarehousesPage warehouses={warehouses} inventory={inventory} setWarehouses={setWarehouses} assignItemId={assigningItemId} onClearAssign={() => setAssigningItemId(null)} onAssigned={handleAssignmentCompleted} />}
+              {page === "inventory" && <InventoryPage warehouses={warehouses} />}
+              {page === "warehouses" && <WarehousesPage warehouses={warehouses} setWarehouses={setWarehouses} />}
               {page === "transfers" && <TransfersPage warehouses={warehouses} inventory={inventory} />}
               {page === "transactions" && <TransactionsPage inventory={inventory} warehouses={warehouses} />}
               {page === "reports" && <ReportsPage inventory={inventory} warehouses={warehouses} />}

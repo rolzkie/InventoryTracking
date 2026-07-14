@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Plus, Edit, Trash2, Loader2 } from "lucide-react";
-import type { InventoryItem, Warehouse as WH } from "../../lib/api";
+import type { Warehouse as WH } from "../../lib/api";
 import { api } from "../../lib/api";
 import { ConfirmDialog, FormField, inputCls, Modal, StatusBadge, toast } from "../components/ui";
 
@@ -133,7 +133,7 @@ function WarehouseModal({ wh, onClose, onSaved }: WarehouseModalProps) {
   );
 }
 
-export function WarehousesPage({ warehouses, inventory, setWarehouses, assignItemId, onClearAssign, onAssigned }: { warehouses: WH[]; inventory: InventoryItem[]; setWarehouses: (w: WH[]) => void; assignItemId: string | null; onClearAssign: () => void; onAssigned: () => void; }) {
+export function WarehousesPage({ warehouses, setWarehouses, assignItemId, onClearAssign, onAssigned }: { warehouses: WH[]; setWarehouses: (w: WH[]) => void; assignItemId?: string | null; onClearAssign?: () => void; onAssigned?: () => void; }) {
   const [modal, setModal] = useState<{ type: "add" } | { type: "edit"; wh: WH } | { type: "delete"; wh: WH } | { type: "assign"; itemId: string } | null>(null);
 
   const [assignmentPending, setAssignmentPending] = useState(false);
@@ -222,7 +222,7 @@ export function WarehousesPage({ warehouses, inventory, setWarehouses, assignIte
       {modal?.type === "add" && <WarehouseModal onClose={() => setModal(null)} onSaved={handleSaved} />}
       {modal?.type === "edit" && <WarehouseModal wh={modal.wh} onClose={() => setModal(null)} onSaved={handleSaved} />}
       {modal?.type === "assign" && (
-        <AssignmentModal itemId={modal.itemId} warehouses={warehouses} onClose={() => { setModal(null); onClearAssign(); setAssignmentPending(false); }} onAssigned={() => { onAssigned(); setModal(null); setAssignmentPending(false); }} />
+        <AssignmentModal itemId={modal.itemId} warehouses={warehouses} onClose={() => { setModal(null); onClearAssign?.(); setAssignmentPending(false); }} onAssigned={() => { onAssigned?.(); setModal(null); setAssignmentPending(false); }} />
       )}
       {modal?.type === "delete" && (
         <ConfirmDialog title="Delete Warehouse" danger message={`Delete "${modal.wh.name}"? All inventory records linked to this warehouse will lose their warehouse reference.`} onConfirm={() => handleDelete(modal.wh)} onCancel={() => setModal(null)} />

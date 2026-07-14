@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Search, Plus, Download, Edit, Eye, TrendingUp, Trash2, Loader2, ChevronLeft, ChevronRight, Package, Minus, Save } from "lucide-react";
+import { Search, Plus, Download, Edit, Eye, Trash2, Loader2, ChevronLeft, ChevronRight, Save } from "lucide-react";
 import type { InventoryItem, Warehouse as WH } from "../../lib/api";
 import { api } from "../../lib/api";
 import { ConfirmDialog, FormField, inputCls, LoadingRow, Modal, EmptyRow, selectCls, StatusBadge, toast } from "../components/ui";
@@ -10,7 +10,6 @@ type InvModal =
   | { type: "add" }
   | { type: "edit"; item: InventoryItem }
   | { type: "view"; item: InventoryItem }
-  | { type: "adjust"; item: InventoryItem }
   | { type: "delete"; item: InventoryItem };
 
 type InvForm = {
@@ -23,7 +22,7 @@ type InvForm = {
   description: string;
 };
 
-function InventoryModal({ item, warehouses, onClose, onSaved }: { item?: InventoryItem; warehouses: WH[]; onClose: () => void; onSaved: (item: InventoryItem) => void }) {
+function InventoryModal({ item, onClose, onSaved }: { item?: InventoryItem; onClose: () => void; onSaved: (item: InventoryItem) => void }) {
   const editing = !!item;
   const [form, setForm] = useState<InvForm>({
     name: item?.name ?? "",
@@ -119,78 +118,6 @@ function InventoryModal({ item, warehouses, onClose, onSaved }: { item?: Invento
   );
 }
 
-function AdjustModal({ item, onClose, onAdjusted }: { item: InventoryItem; onClose: () => void; onAdjusted: (item: InventoryItem) => void }) {
-  const [delta, setDelta] = useState("");
-  const [type, setType] = useState<"add" | "remove">("add");
-  const [saving, setSaving] = useState(false);
-
-  const currentQuantity = Number(item.quantity ?? item.qty ?? 0);
-  const unitLabel = item.unit ?? "pcs";
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const n = Number(delta);
-    if (!delta || isNaN(n) || n <= 0) {
-      toast("error", "Enter a valid positive number");
-      return;
-    }
-    setSaving(true);
-    try {
-      const updated = await api.inventory.adjust(item.id, type === "add" ? n : -n);
-      toast("success", `Stock ${type === "add" ? "added" : "removed"} successfully`);
-      onAdjusted(updated);
-      onClose();
-    } catch (err: any) {
-      toast("error", err.message ?? "Adjustment failed");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const preview = type === "add" ? currentQuantity + Number(delta || 0) : Math.max(0, currentQuantity - Number(delta || 0));
-
-  return (
-    <Modal title="Adjust Stock Quantity" onClose={onClose}>
-      <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-4">
-        <div className="bg-muted rounded-lg p-3 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-medium text-foreground">{item.name}</p>
-            <p className="text-xs text-muted-foreground mt-0.5" style={{ fontFamily: "JetBrains Mono, monospace" }}>{item.sku}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-muted-foreground">Current</p>
-            <p className="text-lg font-bold text-foreground" style={{ fontFamily: "JetBrains Mono, monospace" }}>{currentQuantity} <span className="text-xs text-muted-foreground">{unitLabel}</span></p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          {(["add", "remove"] as const).map((t) => (
-            <button key={t} type="button" onClick={() => setType(t)} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-medium border transition-colors ${type === t ? (t === "add" ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-400" : "bg-red-500/15 border-red-500/40 text-red-400") : "border-border text-muted-foreground hover:text-foreground"}`}>
-              {t === "add" ? <Plus size={12} /> : <Minus size={12} />}
-              {t === "add" ? "Stock In" : "Stock Out"}
-            </button>
-          ))}
-        </div>
-        <FormField label="Quantity to Adjust">
-          <input className={inputCls} type="number" min="1" value={delta} onChange={(e) => setDelta(e.target.value)} placeholder="Enter amount" style={{ fontFamily: "JetBrains Mono, monospace" }} />
-        </FormField>
-        {delta && Number(delta) > 0 && (
-          <div className={`flex items-center justify-between px-3 py-2.5 rounded-lg border text-xs ${type === "add" ? "bg-emerald-500/10 border-emerald-500/20" : "bg-red-500/10 border-red-500/20"}`}>
-            <span className="text-muted-foreground">New quantity</span>
-            <span className={`font-bold ${type === "add" ? "text-emerald-400" : "text-red-400"}`} style={{ fontFamily: "JetBrains Mono, monospace" }}>{preview} {unitLabel}</span>
-          </div>
-        )}
-        <div className="flex justify-end gap-2 pt-2 border-t border-border">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-xs border border-border rounded-lg text-muted-foreground hover:text-foreground transition-colors">Cancel</button>
-          <button type="submit" disabled={saving} className={`flex items-center gap-1.5 px-4 py-2 text-xs rounded-lg text-white disabled:opacity-50 transition-colors ${type === "add" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-red-600 hover:bg-red-700"}`}>
-            {saving ? <Loader2 size={12} className="animate-spin" /> : type === "add" ? <Plus size={12} /> : <Minus size={12} />}
-            {saving ? "Saving..." : "Apply"}
-          </button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
 function ViewItemModal({ item, warehouse, onClose, onEdit }: { item: InventoryItem; warehouse?: WH; onClose: () => void; onEdit: () => void }) {
   const quantity = Number(item.quantity ?? item.qty ?? 0);
   const unitPrice = Number(item.unitPrice ?? item.cost ?? 0);
@@ -244,7 +171,7 @@ function ViewItemModal({ item, warehouse, onClose, onEdit }: { item: InventoryIt
   );
 }
 
-export function InventoryPage({ warehouses, onRequestAssign }: { warehouses: WH[]; onRequestAssign: (id: string) => void; }) {
+export function InventoryPage({ warehouses }: { warehouses: WH[] }) {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -406,11 +333,6 @@ export function InventoryPage({ warehouses, onRequestAssign }: { warehouses: WH[
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-0.5">
                         <button onClick={() => setModal({ type: "view", item })} title="View" className="w-7 h-7 flex items-center justify-center rounded hover:bg-white/5 text-muted-foreground hover:text-foreground transition-colors"><Eye size={13} /></button>
-                        {item.status === "unassigned" ? (
-                          <button onClick={() => onRequestAssign(item.id)} title="Assign Warehouse" className="w-7 h-7 flex items-center justify-center rounded hover:bg-slate-500/10 text-muted-foreground hover:text-slate-400 transition-colors"><Plus size={13} /></button>
-                        ) : (
-                          <button onClick={() => setModal({ type: "adjust", item })} title="Adjust Stock" className="w-7 h-7 flex items-center justify-center rounded hover:bg-blue-500/10 text-muted-foreground hover:text-blue-400 transition-colors"><TrendingUp size={13} /></button>
-                        )}
                         <button onClick={() => setModal({ type: "edit", item })} title="Edit" className="w-7 h-7 flex items-center justify-center rounded hover:bg-white/5 text-muted-foreground hover:text-foreground transition-colors"><Edit size={13} /></button>
                         <button onClick={() => setModal({ type: "delete", item })} title="Delete" className="w-7 h-7 flex items-center justify-center rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors"><Trash2 size={13} /></button>
                       </div>
@@ -443,10 +365,9 @@ export function InventoryPage({ warehouses, onRequestAssign }: { warehouses: WH[
         )}
       </div>
 
-      {modal?.type === "add" && <InventoryModal warehouses={warehouses} onClose={() => setModal(null)} onSaved={handleSaved} />}
-      {modal?.type === "edit" && <InventoryModal item={modal.item} warehouses={warehouses} onClose={() => setModal(null)} onSaved={handleSaved} />}
+      {modal?.type === "add" && <InventoryModal onClose={() => setModal(null)} onSaved={handleSaved} />}
+      {modal?.type === "edit" && <InventoryModal item={modal.item} onClose={() => setModal(null)} onSaved={handleSaved} />}
       {modal?.type === "view" && <ViewItemModal item={modal.item} warehouse={whMap[modal.item.warehouseId]} onClose={() => setModal(null)} onEdit={() => setModal({ type: "edit", item: modal.item })} />}
-      {modal?.type === "adjust" && <AdjustModal item={modal.item} onClose={() => setModal(null)} onAdjusted={handleSaved} />}
       {modal?.type === "delete" && (
         <ConfirmDialog title="Delete Item" danger message={`Are you sure you want to delete "${modal.item.name}" (${modal.item.sku})? This action cannot be undone."`} onConfirm={() => handleDelete(modal.item)} onCancel={() => setModal(null)} />
       )}
