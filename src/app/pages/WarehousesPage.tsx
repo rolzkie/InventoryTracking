@@ -1,21 +1,34 @@
 import { useEffect, useState } from "react";
-import { Plus, Edit, Trash2, Loader2 } from "lucide-react";
-import type { Warehouse as WH } from "../../lib/api";
+import { Plus, Edit, Trash2, Loader2, Search } from "lucide-react";
+import type { InventoryItem, Warehouse as WH } from "../../lib/api";
 import { api } from "../../lib/api";
 import { ConfirmDialog, FormField, inputCls, Modal, StatusBadge, toast } from "../components/ui";
 
 type WarehouseModalProps = { wh?: WH; onClose: () => void; onSaved: (w: WH) => void };
 
-type AssignmentModalProps = { itemId: string; warehouses: WH[]; onClose: () => void; onAssigned: () => void };
+type AssignmentModalProps = { itemId?: string; warehouses: WH[]; inventory: InventoryItem[]; onClose: () => void; onAssigned: () => void };
 
-function AssignmentModal({ itemId, warehouses, onClose, onAssigned }: AssignmentModalProps) {
+function AssignmentModal({ itemId, warehouses, inventory, onClose, onAssigned }: AssignmentModalProps) {
+  const [selectedItemId, setSelectedItemId] = useState(itemId ?? "");
   const [warehouseId, setWarehouseId] = useState(warehouses[0]?.id ?? "");
   const [storageLocation, setStorageLocation] = useState("");
-  const [errors, setErrors] = useState<{ warehouseId?: string; storageLocation?: string }>({});
+  const [zone, setZone] = useState("");
+  const [rack, setRack] = useState("");
+  const [shelf, setShelf] = useState("");
+  const [errors, setErrors] = useState<{ warehouseId?: string; storageLocation?: string; itemId?: string }>({});
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (itemId) {
+      setSelectedItemId(itemId);
+    }
+  }, [itemId]);
+
+  const availableItems = inventory.sort((a, b) => a.name.localeCompare(b.name));
 
   function validate() {
     const e: typeof errors = {};
+    if (!selectedItemId) e.itemId = "Item is required";
     if (!warehouseId) e.warehouseId = "Warehouse is required";
     if (storageLocation.length > 255) e.storageLocation = "Location must be 255 characters or fewer";
     setErrors(e);
@@ -28,7 +41,7 @@ function AssignmentModal({ itemId, warehouses, onClose, onAssigned }: Assignment
     setSaving(true);
 
     try {
-      await api.inventory.assign(itemId, { warehouseId, storageLocation });
+      await api.inventory.assign(selectedItemId, { warehouseId, storageLocation, zone, rack, shelf });
       toast("success", "Inventory item assigned successfully.");
       onAssigned();
       onClose();
@@ -42,6 +55,14 @@ function AssignmentModal({ itemId, warehouses, onClose, onAssigned }: Assignment
   return (
     <Modal title="Assign Inventory to Warehouse" onClose={onClose} wide>
       <form onSubmit={handleAssign} className="p-5 flex flex-col gap-4">
+        <FormField label="Inventory Item" required error={errors.itemId}>
+          <select className={inputCls} value={selectedItemId} onChange={(e) => setSelectedItemId(e.target.value)}>
+            <option value="">Select an inventory item</option>
+            {availableItems.map((item) => (
+              <option key={item.id} value={item.id}>{item.sku} — {item.name}</option>
+            ))}
+          </select>
+        </FormField>
         <FormField label="Warehouse" required error={errors.warehouseId}>
           <select className={inputCls} value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
             <option value="">Select warehouse</option>
@@ -50,8 +71,19 @@ function AssignmentModal({ itemId, warehouses, onClose, onAssigned }: Assignment
             ))}
           </select>
         </FormField>
-        <FormField label="Zone / Rack / Shelf" error={errors.storageLocation}>
-          <input className={inputCls} value={storageLocation} onChange={(e) => setStorageLocation(e.target.value)} placeholder="e.g. Zone A / Rack 12 / Shelf 5" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <FormField label="Zone" error={errors.storageLocation}>
+            <input className={inputCls} value={zone} onChange={(e) => setZone(e.target.value)} placeholder="e.g. A" />
+          </FormField>
+          <FormField label="Rack" error={errors.storageLocation}>
+            <input className={inputCls} value={rack} onChange={(e) => setRack(e.target.value)} placeholder="e.g. R12" />
+          </FormField>
+          <FormField label="Shelf" error={errors.storageLocation}>
+            <input className={inputCls} value={shelf} onChange={(e) => setShelf(e.target.value)} placeholder="e.g. S5" />
+          </FormField>
+        </div>
+        <FormField label="Storage Location" error={errors.storageLocation}>
+          <input className={inputCls} value={storageLocation} onChange={(e) => setStorageLocation(e.target.value)} placeholder="e.g. Dock 2 / Bay 4" />
         </FormField>
         <div className="text-xs text-muted-foreground">Assigning this item to a warehouse is required before you can record stock transactions.</div>
         <div className="flex justify-end gap-2 pt-2 border-t border-border">
@@ -133,8 +165,9 @@ function WarehouseModal({ wh, onClose, onSaved }: WarehouseModalProps) {
   );
 }
 
-export function WarehousesPage({ warehouses, setWarehouses, assignItemId, onClearAssign, onAssigned }: { warehouses: WH[]; setWarehouses: (w: WH[]) => void; assignItemId?: string | null; onClearAssign?: () => void; onAssigned?: () => void; }) {
-  const [modal, setModal] = useState<{ type: "add" } | { type: "edit"; wh: WH } | { type: "delete"; wh: WH } | { type: "assign"; itemId: string } | null>(null);
+export function WarehousesPage({ warehouses, setWarehouses, inventory = [], assignItemId, onClearAssign, onAssigned }: { warehouses: WH[]; setWarehouses: (w: WH[]) => void; inventory?: InventoryItem[]; assignItemId?: string | null; onClearAssign?: () => void; onAssigned?: () => void; }) {
+  const [modal, setModal] = useState<{ type: "add" } | { type: "edit"; wh: WH } | { type: "delete"; wh: WH } | { type: "assign"; itemId?: string } | null>(null);
+  const [search, setSearch] = useState("");
 
   const [assignmentPending, setAssignmentPending] = useState(false);
 
@@ -144,6 +177,12 @@ export function WarehousesPage({ warehouses, setWarehouses, assignItemId, onClea
       setAssignmentPending(true);
     }
   }, [assignItemId]);
+
+  const filteredWarehouses = warehouses.filter((wh) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return [wh.name, wh.location, wh.manager].some((value) => value?.toLowerCase().includes(q));
+  });
 
   async function handleDelete(wh: WH) {
     try {
@@ -165,13 +204,22 @@ export function WarehousesPage({ warehouses, setWarehouses, assignItemId, onClea
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-muted-foreground">{warehouses.length} warehouses registered</p>
-        <button onClick={() => setModal({ type: "add" })} className="flex items-center gap-1.5 px-3 py-2 text-xs bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
-          <Plus size={13} /> Add Warehouse
-        </button>
+        <div className="flex items-center gap-2">
+          <label className="relative text-xs text-muted-foreground">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search warehouses" className="pl-8 pr-3 py-2 rounded-lg border border-border bg-background text-foreground text-xs" />
+          </label>
+          <button onClick={() => setModal({ type: "assign" })} className="flex items-center gap-1.5 px-3 py-2 text-xs bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
+            <Plus size={13} /> Assign Item
+          </button>
+          <button onClick={() => setModal({ type: "add" })} className="flex items-center gap-1.5 px-3 py-2 text-xs bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
+            <Plus size={13} /> Add Warehouse
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {warehouses.map((wh) => {
+        {filteredWarehouses.map((wh) => {
           const pct = Math.round((wh.used / wh.capacity) * 100);
           return (
             <div key={wh.id} className="bg-card border border-border rounded-lg p-5 hover:border-white/10 transition-colors">
@@ -214,6 +262,31 @@ export function WarehousesPage({ warehouses, setWarehouses, assignItemId, onClea
                   <p className="text-xs font-medium text-foreground mt-0.5 capitalize">{wh.status.replace("_", " ")}</p>
                 </div>
               </div>
+
+              <div className="mt-4 border-t border-border pt-3">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-foreground">Assigned items</p>
+                  <p className="text-[11px] text-muted-foreground">{inventory.filter((item) => item.warehouseId === wh.id).length} items</p>
+                </div>
+                <div className="space-y-2">
+                  {inventory.filter((item) => item.warehouseId === wh.id).length === 0 ? (
+                    <p className="text-[11px] text-muted-foreground">No assigned items yet.</p>
+                  ) : inventory.filter((item) => item.warehouseId === wh.id).map((item) => (
+                    <div key={item.id} className="rounded-md border border-border bg-background/70 px-2.5 py-2 text-[11px] text-muted-foreground">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium text-foreground">{item.name}</span>
+                        <span className="text-[10px] uppercase tracking-wide">Qty {item.quantity}</span>
+                      </div>
+                      <div className="mt-1 flex flex-wrap gap-2">
+                        <span>SKU {item.sku}</span>
+                        <span>Zone {item.zone || "—"}</span>
+                        <span>Rack {item.rack || "—"}</span>
+                        <span>Shelf {item.shelf || "—"}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           );
         })}
@@ -222,7 +295,7 @@ export function WarehousesPage({ warehouses, setWarehouses, assignItemId, onClea
       {modal?.type === "add" && <WarehouseModal onClose={() => setModal(null)} onSaved={handleSaved} />}
       {modal?.type === "edit" && <WarehouseModal wh={modal.wh} onClose={() => setModal(null)} onSaved={handleSaved} />}
       {modal?.type === "assign" && (
-        <AssignmentModal itemId={modal.itemId} warehouses={warehouses} onClose={() => { setModal(null); onClearAssign?.(); setAssignmentPending(false); }} onAssigned={() => { onAssigned?.(); setModal(null); setAssignmentPending(false); }} />
+        <AssignmentModal itemId={modal.itemId} warehouses={warehouses} inventory={inventory} onClose={() => { setModal(null); onClearAssign?.(); setAssignmentPending(false); }} onAssigned={() => { onAssigned?.(); setModal(null); setAssignmentPending(false); }} />
       )}
       {modal?.type === "delete" && (
         <ConfirmDialog title="Delete Warehouse" danger message={`Delete "${modal.wh.name}"? All inventory records linked to this warehouse will lose their warehouse reference.`} onConfirm={() => handleDelete(modal.wh)} onCancel={() => setModal(null)} />

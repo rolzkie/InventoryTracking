@@ -5,7 +5,7 @@ import { api } from "../../lib/api";
 import { ConfirmDialog, FormField, inputCls, LoadingRow, Modal, EmptyRow, selectCls, StatusBadge, toast } from "../components/ui";
 
 function TransferModal({ warehouses, inventory, onClose, onSaved }: { warehouses: WH[]; inventory: InventoryItem[]; onClose: () => void; onSaved: (t: Transfer) => void }) {
-  const [form, setForm] = useState({ itemId: "", fromWarehouseId: "", toWarehouseId: "", qty: "", notes: "", initiator: "Sarah Chen" });
+  const [form, setForm] = useState({ itemId: "", fromWarehouseId: "", toWarehouseId: "", qty: "", notes: "", initiator: "Sarah Chen", fromZone: "", fromRack: "", fromShelf: "", toZone: "", toRack: "", toShelf: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
@@ -17,6 +17,7 @@ function TransferModal({ warehouses, inventory, onClose, onSaved }: { warehouses
     if (!form.itemId) e.itemId = "Required";
     if (!form.fromWarehouseId) e.fromWarehouseId = "Required";
     if (!form.toWarehouseId) e.toWarehouseId = "Required";
+    if (!form.qty || Number(form.qty) <= 0) e.qty = "Quantity must be greater than 0";
     if (form.fromWarehouseId === form.toWarehouseId) e.toWarehouseId = "Destination must differ from source";
     if (!form.qty || isNaN(Number(form.qty)) || Number(form.qty) <= 0) e.qty = "Must be > 0";
     if (selectedItem && Number(form.qty) > selectedItem.quantity) e.qty = `Max available: ${selectedItem.quantity}`;
@@ -85,6 +86,29 @@ function TransferModal({ warehouses, inventory, onClose, onSaved }: { warehouses
             </span>
           </div>
         )}
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <FormField label="From Zone">
+            <input className={inputCls} value={form.fromZone} onChange={(e) => setForm((f) => ({ ...f, fromZone: e.target.value }))} placeholder="A" />
+          </FormField>
+          <FormField label="From Rack">
+            <input className={inputCls} value={form.fromRack} onChange={(e) => setForm((f) => ({ ...f, fromRack: e.target.value }))} placeholder="R12" />
+          </FormField>
+          <FormField label="From Shelf">
+            <input className={inputCls} value={form.fromShelf} onChange={(e) => setForm((f) => ({ ...f, fromShelf: e.target.value }))} placeholder="S5" />
+          </FormField>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <FormField label="To Zone">
+            <input className={inputCls} value={form.toZone} onChange={(e) => setForm((f) => ({ ...f, toZone: e.target.value }))} placeholder="B" />
+          </FormField>
+          <FormField label="To Rack">
+            <input className={inputCls} value={form.toRack} onChange={(e) => setForm((f) => ({ ...f, toRack: e.target.value }))} placeholder="R3" />
+          </FormField>
+          <FormField label="To Shelf">
+            <input className={inputCls} value={form.toShelf} onChange={(e) => setForm((f) => ({ ...f, toShelf: e.target.value }))} placeholder="S8" />
+          </FormField>
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField label="Quantity" required error={errors.qty}>

@@ -68,6 +68,10 @@ function normalizeInventoryItem(item: Partial<InventoryItem> & Record<string, an
     reorderPoint: Number(item.reorderPoint ?? 0),
     warehouseId: String(item.warehouseId ?? ""),
     storageLocation: item.storageLocation ?? "",
+    zone: item.zone ?? "",
+    rack: item.rack ?? "",
+    shelf: item.shelf ?? "",
+    assignedAt: item.assignedAt ?? "",
     unitPrice,
     lastRestocked: item.lastRestocked ?? "",
     status,
@@ -117,6 +121,12 @@ function normalizeTransfer(transfer: Partial<Transfer> & Record<string, any>): T
     date: transfer.date ?? transfer.createdAt ?? "",
     notes: transfer.notes ?? "",
     initiator: transfer.initiator ?? "Sarah Chen",
+    fromZone: transfer.fromZone ?? "",
+    fromRack: transfer.fromRack ?? "",
+    fromShelf: transfer.fromShelf ?? "",
+    toZone: transfer.toZone ?? "",
+    toRack: transfer.toRack ?? "",
+    toShelf: transfer.toShelf ?? "",
   } as Transfer;
 }
 
@@ -149,6 +159,12 @@ function toTransferPayload(data: Partial<Transfer>): Partial<Transfer> {
     status: data.status ?? "pending",
     notes: data.notes ?? "",
     initiator: data.initiator ?? "Sarah Chen",
+    fromZone: data.fromZone ?? "",
+    fromRack: data.fromRack ?? "",
+    fromShelf: data.fromShelf ?? "",
+    toZone: data.toZone ?? "",
+    toRack: data.toRack ?? "",
+    toShelf: data.toShelf ?? "",
     createdAt: data.createdAt ?? data.date ?? new Date().toISOString(),
     date: data.date ?? data.createdAt ?? new Date().toISOString().slice(0, 10),
   };
@@ -210,13 +226,13 @@ export const api = {
         () => localStorageAPI.inventory.delete(id)
       );
     },
-    assign: (id: string, data: { warehouseId: string; storageLocation?: string }) => {
+    assign: (id: string, data: { warehouseId: string; storageLocation?: string; zone?: string; rack?: string; shelf?: string }) => {
       if (!isNumericResourceId(id)) {
         return localStorageAPI.inventory.update(id, data as Partial<InventoryItem>);
       }
 
       return apiCall(
-        () => request<InventoryItem>(`/inventory/${id}/assign`, { method: "POST", body: JSON.stringify({ warehouseId: Number(data.warehouseId), storageLocation: data.storageLocation ?? null }) }).then(normalizeInventoryItem),
+        () => request<InventoryItem>(`/inventory/${id}/assign`, { method: "POST", body: JSON.stringify({ warehouseId: Number(data.warehouseId), storageLocation: data.storageLocation ?? null, zone: data.zone ?? null, rack: data.rack ?? null, shelf: data.shelf ?? null }) }).then(normalizeInventoryItem),
         () => localStorageAPI.inventory.update(id, data as Partial<InventoryItem>)
       );
     },
@@ -307,6 +323,10 @@ export interface InventoryItem {
   reorderPoint: number;
   warehouseId: string;
   storageLocation: string;
+  zone: string;
+  rack: string;
+  shelf: string;
+  assignedAt: string;
   unitPrice: number;
   lastRestocked: string;
   status: "unassigned" | "in_stock" | "low_stock" | "out_of_stock";
@@ -334,6 +354,12 @@ export interface Transfer {
   completedAt?: string;
   notes: string;
   initiator: string;
+  fromZone: string;
+  fromRack: string;
+  fromShelf: string;
+  toZone: string;
+  toRack: string;
+  toShelf: string;
 }
 
 export interface StockTransaction {

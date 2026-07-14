@@ -183,6 +183,10 @@ export const localStorageAPI = {
             ? Number(data.reorderPoint)
             : list[idx].reorderPoint,
         warehouseId: data.warehouseId ?? list[idx].warehouseId,
+        storageLocation: data.storageLocation ?? list[idx].storageLocation,
+        zone: data.zone ?? list[idx].zone,
+        rack: data.rack ?? list[idx].rack,
+        shelf: data.shelf ?? list[idx].shelf,
         unitPrice:
           data.unitPrice !== undefined ? Number(data.unitPrice) : list[idx].unitPrice,
         lastRestocked: data.lastRestocked ?? list[idx].lastRestocked,

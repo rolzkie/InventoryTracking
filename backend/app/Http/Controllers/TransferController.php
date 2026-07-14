@@ -25,7 +25,7 @@ class TransferController extends Controller
         $item->save();
     }
 
-    protected function createOrUpdateDestinationItem(InventoryItem $sourceItem, int $destinationWarehouseId, int $quantity): void
+    protected function createOrUpdateDestinationItem(InventoryItem $sourceItem, int $destinationWarehouseId, int $quantity, Transfer $transfer): void
     {
         if ($quantity <= 0) {
             return;
@@ -37,6 +37,12 @@ class TransferController extends Controller
 
         if ($destinationItem) {
             $destinationItem->quantity += $quantity;
+            $destinationItem->warehouseId = $destinationWarehouseId;
+            $destinationItem->storageLocation = $destinationItem->storageLocation ?: null;
+            $destinationItem->zone = $transfer->toZone ?: $destinationItem->zone;
+            $destinationItem->rack = $transfer->toRack ?: $destinationItem->rack;
+            $destinationItem->shelf = $transfer->toShelf ?: $destinationItem->shelf;
+            $destinationItem->assignedAt = $destinationItem->assignedAt ?: now();
             $destinationItem->save();
             return;
         }
@@ -49,6 +55,11 @@ class TransferController extends Controller
             'quantity' => $quantity,
             'reorderPoint' => $sourceItem->reorderPoint,
             'warehouseId' => $destinationWarehouseId,
+            'storageLocation' => null,
+            'zone' => $transfer->toZone ?: null,
+            'rack' => $transfer->toRack ?: null,
+            'shelf' => $transfer->toShelf ?: null,
+            'assignedAt' => now(),
             'unitPrice' => $sourceItem->unitPrice,
             'lastRestocked' => now()->toDateString(),
         ]);
@@ -67,7 +78,7 @@ class TransferController extends Controller
                 $this->decrementSourceQuantity($item, $transfer->quantity);
             }
 
-            $this->createOrUpdateDestinationItem($item, $transfer->destinationWarehouse, $transfer->quantity);
+            $this->createOrUpdateDestinationItem($item, $transfer->destinationWarehouse, $transfer->quantity, $transfer);
         }
 
         if ($oldStatus === 'in_transit' && $newStatus === 'cancelled') {
@@ -89,6 +100,12 @@ class TransferController extends Controller
             'quantity' => 'required|integer|min:1',
             'status' => 'required|in:pending,in_transit,completed,cancelled',
             'notes' => 'nullable|string',
+            'fromZone' => 'nullable|string|max:100',
+            'fromRack' => 'nullable|string|max:100',
+            'fromShelf' => 'nullable|string|max:100',
+            'toZone' => 'nullable|string|max:100',
+            'toRack' => 'nullable|string|max:100',
+            'toShelf' => 'nullable|string|max:100',
         ]);
 
         $item = $this->findItem($validated['itemId']);
@@ -112,6 +129,12 @@ class TransferController extends Controller
             'quantity' => $validated['quantity'],
             'status' => $validated['status'],
             'notes' => $validated['notes'] ?? '',
+            'fromZone' => $validated['fromZone'] ?? null,
+            'fromRack' => $validated['fromRack'] ?? null,
+            'fromShelf' => $validated['fromShelf'] ?? null,
+            'toZone' => $validated['toZone'] ?? null,
+            'toRack' => $validated['toRack'] ?? null,
+            'toShelf' => $validated['toShelf'] ?? null,
             'createdAt' => now(),
         ]);
 
