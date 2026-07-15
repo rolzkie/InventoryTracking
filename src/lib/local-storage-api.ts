@@ -57,6 +57,43 @@ function saveList<T>(key: string, items: T[]): void {
   }
 }
 
+function normalizeInventoryRecord(item: InventoryItem): InventoryItem {
+  const quantity = Number(item.quantity ?? item.qty ?? 0) || 0;
+  const reorderPoint = Number(item.reorderPoint ?? 0) || 0;
+  return {
+    ...item,
+    quantity,
+    qty: quantity,
+    reorderPoint,
+    unitPrice: Number(item.unitPrice ?? item.cost ?? 0) || 0,
+    status: itemStatus(quantity, reorderPoint, (item as any).expiryDate),
+  };
+}
+
+function syncWarehouseUsage(): void {
+  const inventory = getList<InventoryItem>(STORAGE_KEYS.inventory);
+  const warehouses = getList<Warehouse>(STORAGE_KEYS.warehouses);
+  const usageMap = new Map<string, number>();
+
+  inventory.forEach((item) => {
+    if (!item.warehouseId) return;
+    const current = Number(item.quantity ?? item.qty ?? 0) || 0;
+    usageMap.set(item.warehouseId, (usageMap.get(item.warehouseId) ?? 0) + current);
+  });
+
+  const updatedWarehouses = warehouses.map((warehouse) => {
+    const used = usageMap.get(warehouse.id) ?? 0;
+    const capacity = Number(warehouse.capacity ?? 0) || 0;
+    return {
+      ...warehouse,
+      used,
+      status: capacity > 0 && used >= capacity ? "near_full" : "active",
+    } as Warehouse;
+  });
+
+  saveList(STORAGE_KEYS.warehouses, updatedWarehouses);
+}
+
 export const localStorageAPI = {
   dashboard: async (): Promise<DashboardStats> => {
     const inventory = getList<InventoryItem>(STORAGE_KEYS.inventory);
@@ -203,7 +240,7 @@ export const localStorageAPI = {
         name: data.name ?? "",
         description: data.description ?? "",
         category: data.category ?? "",
-        quantity: Number(data.quantity) || 0,
+        quantity: Number(data.quantity ?? data.qty ?? 0) || 0,
         reorderPoint: Number(data.reorderPoint) || 0,
         zone: data.zone ?? "",
         rack: data.rack ?? "",
@@ -229,14 +266,17 @@ export const localStorageAPI = {
       };
       list.push(item);
       saveList(STORAGE_KEYS.inventory, list);
+      syncWarehouseUsage();
       return item;
     },
     update: async (id: string, data: Partial<InventoryItem>) => {
       const list = getList<InventoryItem>(STORAGE_KEYS.inventory);
       const idx = list.findIndex((i) => i.id === id);
       if (idx === -1) throw new Error("Not found");
-      list[idx] = { ...list[idx], ...data, id };
+      const nextItem = normalizeInventoryRecord({ ...list[idx], ...data, id });
+      list[idx] = nextItem;
       saveList(STORAGE_KEYS.inventory, list);
+      syncWarehouseUsage();
       return list[idx];
     },
     delete: async (id: string) => {
@@ -252,10 +292,11 @@ export const localStorageAPI = {
       const idx = list.findIndex((i) => i.id === id);
       if (idx === -1) throw new Error("Not found");
       list[idx].quantity = Math.max(0, list[idx].quantity + delta);
+      list[idx].qty = list[idx].quantity;
       list[idx].status = itemStatus(list[idx].quantity, list[idx].reorderPoint, (list[idx] as any).expiryDate);
 
-
       saveList(STORAGE_KEYS.inventory, list);
+      syncWarehouseUsage();
       return list[idx];
     },
   },
@@ -424,8 +465,36 @@ export const localStorageAPI = {
         itemName: data.itemName ?? "",
         warehouseName: data.warehouseName ?? "",
       };
+      const inventory = getList<InventoryItem>(STORAGE_KEYS.inventory);
+      const itemIdx = inventory.findIndex((i) => i.id === data.itemId);
+      if (itemIdx === -1) throw new Error("Inventory item not found");
+
+      const item = inventory[itemIdx];
+      const quantity = Number(data.quantity ?? 0) || 0;
+      const warehouseId = data.warehouseId ?? item.warehouseId ?? "";
+
+      if (!item.warehouseId || item.warehouseId !== warehouseId) {
+        throw new Error("Item must be assigned to the selected warehouse before stock transactions can be recorded");
+      }
+
+      if (data.transactionType === "stock_out" && item.quantity < quantity) {
+        throw new Error("Insufficient stock available");
+      }
+
+      inventory[itemIdx].quantity = data.transactionType === "stock_in"
+        ? item.quantity + quantity
+        : item.quantity - quantity;
+      inventory[itemIdx].quantity = Math.max(0, inventory[itemIdx].quantity);
+      inventory[itemIdx].qty = inventory[itemIdx].quantity;
+      inventory[itemIdx].status = itemStatus(inventory[itemIdx].quantity, inventory[itemIdx].reorderPoint, (inventory[itemIdx] as any).expiryDate);
+      if (data.transactionType === "stock_in") {
+        inventory[itemIdx].lastRestocked = new Date().toISOString().slice(0, 10);
+      }
+
+      saveList(STORAGE_KEYS.inventory, inventory);
       list.push(transaction);
       saveList(STORAGE_KEYS.transactions, list);
+      syncWarehouseUsage();
       return transaction;
     },
     update: async (id: string, data: Partial<StockTransaction>) => {

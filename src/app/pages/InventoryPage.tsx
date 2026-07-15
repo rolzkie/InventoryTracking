@@ -16,6 +16,7 @@ type InvForm = {
   name: string;
   sku: string;
   category: string;
+  quantity: string;
   reorderPoint: string;
   unit: string;
   unitPrice: string;
@@ -30,6 +31,7 @@ function InventoryModal({ item, onClose, onSaved }: { item?: InventoryItem; onCl
     name: item?.name ?? "",
     sku: item?.sku ?? "",
     category: item?.category ?? "",
+    quantity: String(item?.quantity ?? item?.qty ?? 0),
     reorderPoint: String(item?.reorderPoint ?? 50),
     unit: item?.unit ?? "pcs",
     unitPrice: String(item?.unitPrice ?? item?.cost ?? ""),
@@ -47,6 +49,7 @@ function InventoryModal({ item, onClose, onSaved }: { item?: InventoryItem; onCl
     const e: Partial<InvForm> = {};
     if (!form.name.trim()) e.name = "Required";
     if (!form.sku.trim()) e.sku = "Required";
+    if (isNaN(Number(form.quantity)) || Number(form.quantity) < 0) e.quantity = "Must be ≥ 0";
     if (isNaN(Number(form.reorderPoint)) || Number(form.reorderPoint) < 0) e.reorderPoint = "Must be ≥ 0";
     if (!form.unitPrice || isNaN(Number(form.unitPrice)) || Number(form.unitPrice) < 0) e.unitPrice = "Must be a valid positive number";
     setErrors(e);
@@ -62,6 +65,7 @@ function InventoryModal({ item, onClose, onSaved }: { item?: InventoryItem; onCl
         name: form.name.trim(),
         sku: form.sku.trim(),
         category: form.category,
+        quantity: Number(form.quantity),
         reorderPoint: Number(form.reorderPoint),
         unit: form.unit,
         unitPrice: Number(form.unitPrice),
@@ -101,12 +105,18 @@ function InventoryModal({ item, onClose, onSaved }: { item?: InventoryItem; onCl
           </FormField>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <FormField label="Quantity" required error={errors.quantity}>
+            <input className={inputCls} type="number" min="0" value={form.quantity} onChange={set("quantity")} style={{ fontFamily: "JetBrains Mono, monospace" }} />
+          </FormField>
           <FormField label="Reorder Point" required error={errors.reorderPoint}>
             <input className={inputCls} type="number" min="0" value={form.reorderPoint} onChange={set("reorderPoint")} style={{ fontFamily: "JetBrains Mono, monospace" }} />
           </FormField>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField label="Unit Price (USD)" required error={errors.unitPrice}>
             <input className={inputCls} type="number" step="0.01" min="0" value={form.unitPrice} onChange={set("unitPrice")} placeholder="0.00" style={{ fontFamily: "JetBrains Mono, monospace" }} />
           </FormField>
+          <div />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField label="Expiry Date">

@@ -80,4 +80,57 @@ class InventoryApiTest extends TestCase
             ->assertJsonPath('name', 'Updated Laptop')
             ->assertJsonPath('quantity', 3);
     }
+
+    public function test_inventory_create_accepts_quantity_and_persists_it(): void
+    {
+        $response = $this->postJson('/api/inventory', [
+            'sku' => 'SKU-003',
+            'name' => 'Keyboard',
+            'description' => 'Mechanical keyboard',
+            'category' => 'Electronics',
+            'unit' => 'pcs',
+            'quantity' => 12,
+            'reorderPoint' => 3,
+            'unitPrice' => 79.99,
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('quantity', 12)
+            ->assertJsonPath('name', 'Keyboard');
+    }
+
+    public function test_assigning_inventory_updates_the_warehouse_capacity_used_values(): void
+    {
+        $warehouse = Warehouse::create([
+            'name' => 'North Hub',
+            'location' => 'Seattle',
+            'capacity' => 1000,
+            'used' => 0,
+            'manager' => 'Alicia',
+        ]);
+
+        $item = InventoryItem::create([
+            'sku' => 'SKU-004',
+            'name' => 'Monitor',
+            'description' => 'Test item',
+            'category' => 'Electronics',
+            'quantity' => 5,
+            'reorderPoint' => 1,
+            'unitPrice' => 150,
+            'lastRestocked' => now()->toDateString(),
+        ]);
+
+        $assignResponse = $this->postJson('/api/inventory/' . $item->id . '/assign', [
+            'warehouseId' => $warehouse->id,
+            'storageLocation' => 'Aisle 1',
+        ]);
+
+        $assignResponse->assertOk();
+
+        $warehousesResponse = $this->getJson('/api/warehouses');
+
+        $warehousesResponse->assertOk()
+            ->assertJsonPath('0.capacityUsed', 5)
+            ->assertJsonPath('0.used', 5);
+    }
 }

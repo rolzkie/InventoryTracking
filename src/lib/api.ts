@@ -142,12 +142,15 @@ function toInventoryPayload(data: Partial<InventoryItem>): Partial<InventoryItem
   const reorderPoint = Number(data.reorderPoint ?? 0);
   const unitPrice = Number(data.unitPrice ?? data.cost ?? 0);
 
+  const quantity = Number(data.quantity ?? data.qty ?? 0);
+
   return {
     sku: data.sku,
     name: data.name,
     description: data.description ?? data.notes ?? "",
     category: data.category,
     unit: data.unit,
+    quantity: Number.isFinite(quantity) ? quantity : 0,
     reorderPoint: Number.isFinite(reorderPoint) ? reorderPoint : 0,
     unitPrice: Number.isFinite(unitPrice) ? unitPrice : 0,
   };
