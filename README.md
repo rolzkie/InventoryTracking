@@ -1,11 +1,20 @@
+# Enhance ERP Inventory System
 
-  # Enhance ERP Inventory System
+This project now runs as a full Laravel application with the frontend shell served from the Laravel web layer.
 
-  This is a code bundle for Enhance ERP Inventory System. The original project is available at https://www.figma.com/design/9PMmAENisTxqdKp9JHN3JK/Enhance-ERP-Inventory-System.
+## Run the app
 
-  ## Running the code
+1. Open a terminal in the backend folder:
+   `cd backend`
+2. Install PHP dependencies if needed:
+   `composer install`
+3. Start the Laravel app:
+   `php artisan serve`
+4. Open:
+   `http://127.0.0.1:8000`
 
-  Run `npm i` to install the dependencies.
+## Build frontend assets
 
-  Run `npm run dev` to start the development server.
-  
+If you need to rebuild the bundled frontend assets, run the Vite build from the workspace root:
+
+`npm run build`
