@@ -1,10 +1,19 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\WarehouseController;
+use App\Http\Controllers\TransferController;
 
 Route::get('/', function () {
     return view('app');
 });
+
+Route::get('/dashboard', [DashboardController::class, 'page']);
+Route::get('/inventory', [InventoryController::class, 'page']);
+Route::get('/warehouses', [WarehouseController::class, 'page']);
+Route::get('/transfers', [TransferController::class, 'page']);
 
 Route::get('/assets/{file}', function (string $file) {
     $path = realpath(base_path('../dist/assets/' . $file));

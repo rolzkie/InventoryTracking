@@ -2,11 +2,41 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\InventoryItem;
 use App\Models\Warehouse;
 use Illuminate\Http\Request;
 
 class WarehouseController extends Controller
 {
+    public function page(Request $request)
+    {
+        $search = trim((string) $request->query('search', ''));
+
+        $warehouses = Warehouse::with('inventoryItems')->get()->map(function ($warehouse) {
+            $warehouse->status = $warehouse->computeStatus();
+            $warehouse->capacityUsed = $warehouse->inventoryItems->sum('quantity');
+            $warehouse->used = $warehouse->capacityUsed;
+            return $warehouse->toArray();
+        });
+
+        if ($search !== '') {
+            $warehouses = $warehouses->filter(function ($warehouse) use ($search) {
+                $haystack = strtolower(($warehouse['name'] ?? '') . ' ' . ($warehouse['location'] ?? '') . ' ' . ($warehouse['manager'] ?? ''));
+                return str_contains($haystack, strtolower($search));
+            })->values();
+        }
+
+        $inventory = InventoryItem::with('warehouse')->get()->map(function ($item) {
+            return $item->toArray() + ['warehouseName' => $item->warehouse?->name];
+        });
+
+        return view('warehouses.index', [
+            'warehouses' => $warehouses,
+            'inventory' => $inventory,
+            'search' => $search,
+        ]);
+    }
+
     public function index()
     {
         return response()->json(Warehouse::with('inventoryItems')->get()->map(function ($warehouse) {

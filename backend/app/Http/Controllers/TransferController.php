@@ -4,10 +4,61 @@ namespace App\Http\Controllers;
 
 use App\Models\Transfer;
 use App\Models\InventoryItem;
+use App\Models\Warehouse;
 use Illuminate\Http\Request;
 
 class TransferController extends Controller
 {
+    public function page(Request $request)
+    {
+        $search = trim((string) $request->query('search', ''));
+        $status = trim((string) $request->query('status', 'all'));
+
+        $transfers = Transfer::with(['item', 'sourceWh', 'destinationWh'])
+            ->orderByDesc('createdAt')
+            ->get()
+            ->map(function ($transfer) {
+                return [
+                    'id' => (string) $transfer->id,
+                    'itemName' => $transfer->itemName,
+                    'fromWarehouseId' => (string) $transfer->sourceWarehouse,
+                    'toWarehouseId' => (string) $transfer->destinationWarehouse,
+                    'quantity' => (int) $transfer->quantity,
+                    'initiator' => 'Sarah Chen',
+                    'date' => $transfer->createdAt?->toDateString(),
+                    'status' => $transfer->status,
+                    'sourceWarehouseName' => $transfer->sourceWh?->name,
+                    'destinationWarehouseName' => $transfer->destinationWh?->name,
+                    'sourceLocation' => $transfer->sourceWh?->location,
+                    'destinationLocation' => $transfer->destinationWh?->location,
+                ];
+            });
+
+        if ($search !== '') {
+            $transfers = $transfers->filter(function ($transfer) use ($search) {
+                $haystack = strtolower(($transfer['id'] ?? '') . ' ' . ($transfer['itemName'] ?? ''));
+                return str_contains($haystack, strtolower($search));
+            })->values();
+        }
+
+        if ($status !== '' && $status !== 'all') {
+            $transfers = $transfers->filter(fn ($transfer) => $transfer['status'] === $status)->values();
+        }
+
+        $warehouses = Warehouse::all();
+        $inventory = InventoryItem::with('warehouse')->get()->map(function ($item) {
+            return $item->toArray() + ['warehouseName' => $item->warehouse?->name];
+        });
+
+        return view('transfers.index', [
+            'transfers' => $transfers,
+            'warehouses' => $warehouses,
+            'inventory' => $inventory,
+            'search' => $search,
+            'status' => $status,
+        ]);
+    }
+
     protected function findItem(int $itemId): InventoryItem
     {
         return InventoryItem::findOrFail($itemId);

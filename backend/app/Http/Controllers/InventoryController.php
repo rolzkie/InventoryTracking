@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\InventoryItem;
+use App\Models\Warehouse;
 use Illuminate\Http\Request;
 
 class InventoryController extends Controller
@@ -14,6 +15,52 @@ class InventoryController extends Controller
                 return $item->toArray() + ['warehouseName' => $item->warehouse?->name];
             })
         );
+    }
+
+    public function page(Request $request)
+    {
+        $query = InventoryItem::with('warehouse')->orderBy('name');
+
+        $search = trim((string) $request->query('search', ''));
+        $status = trim((string) $request->query('status', 'all'));
+        $category = trim((string) $request->query('category', 'all'));
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('sku', 'like', "%{$search}%")
+                  ->orWhere('category', 'like', "%{$search}%");
+            });
+        }
+
+        if ($status !== '' && $status !== 'all') {
+            $query->where('status', $status);
+        }
+
+        if ($category !== '' && $category !== 'all') {
+            $query->where('category', $category);
+        }
+
+        $items = $query->get()->map(function ($item) {
+            return $item->toArray() + [
+                'warehouse' => $item->warehouse?->toArray(),
+                'warehouseName' => $item->warehouse?->name,
+            ];
+        });
+
+        $warehouses = Warehouse::all();
+        $categories = InventoryItem::query()->distinct()->pluck('category')->filter()->values();
+        $totalValue = $items->sum(fn ($item) => (float) ($item['quantity'] ?? 0) * (float) ($item['unitPrice'] ?? 0));
+
+        return view('inventory.index', [
+            'items' => $items,
+            'warehouses' => $warehouses,
+            'categories' => $categories,
+            'search' => $search,
+            'status' => $status,
+            'category' => $category,
+            'totalValue' => $totalValue,
+        ]);
     }
 
     public function store(Request $request)
