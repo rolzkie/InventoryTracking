@@ -6,11 +6,29 @@ use App\Models\InventoryItem;
 use App\Models\StockTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Models\Warehouse;
 
 class StockTransactionController extends Controller
 {
+    public function page(Request $request)
+    {
+        $warehouses = Warehouse::all(['id', 'name']);
+        $inventory = InventoryItem::with('warehouse')->get()->map(function ($item) {
+            return $item->toArray() + [
+                'warehouseName' => $item->warehouse?->name,
+                'warehouse' => $item->warehouse?->toArray(),
+            ];
+        });
+
+        return view('transactions.index', [
+            'warehouses' => $warehouses,
+            'inventory' => $inventory,
+        ]);
+    }
+
     public function index(Request $request)
     {
+
         $query = StockTransaction::with(['item', 'warehouse'])->orderByDesc('createdAt');
 
         if ($request->filled('type')) {

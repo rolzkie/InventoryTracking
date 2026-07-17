@@ -14,6 +14,8 @@ Route::get('/dashboard', [DashboardController::class, 'page']);
 Route::get('/inventory', [InventoryController::class, 'page']);
 Route::get('/warehouses', [WarehouseController::class, 'page']);
 Route::get('/transfers', [TransferController::class, 'page']);
+Route::get('/transactions', [\App\Http\Controllers\StockTransactionController::class, 'page']);
+
 
 Route::get('/assets/{file}', function (string $file) {
     $path = realpath(base_path('../dist/assets/' . $file));
