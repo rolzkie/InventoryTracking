@@ -109,13 +109,23 @@ class DatabaseSeeder extends Seeder
             Supplier::updateOrCreate(['name' => $supplier['name']], $supplier);
         }
 
+        User::whereIn('email', [
+            'AdminMiranda@.com',
+            'AdminMiranda@gmail.com',
+            'ManagerAnacta@gmail.com',
+            'Thervs@gmail.com',
+            'Jes@gmail.com',
+            'Kevs@gmail.com',
+            'Employee@gmail.com',
+        ])->delete();
+
         $users = [
-            ['name' => 'Errol Miranda', 'email' => 'AdminMiranda@gmail.com', 'password' => 'admin123', 'role' => 'admin', 'department' => 'Operations', 'active' => true],
-            ['name' => 'Rolando Anacta', 'email' => 'ManagerAnacta@gmail.com', 'password' => 'manager123', 'role' => 'manager', 'department' => 'Logistics', 'active' => true],
-            ['name' => 'Thervin Ranehart Bandril', 'email' => 'Thervs@gmail.com', 'password' => 'manager123', 'role' => 'manager', 'department' => 'Warehouse', 'active' => true],
-            ['name' => 'Jesreel Domaanis', 'email' => 'a.rodriguez@erp.com', 'password' => 'staff123', 'role' => 'staff', 'department' => 'Inventory', 'active' => true],
-            ['name' => 'Brian Chen', 'email' => 'b.chen@erp.com', 'password' => 'staff123', 'role' => 'staff', 'department' => 'Receiving', 'active' => true],
-            ['name' => 'Sarah Johnson', 'email' => 's.johnson@erp.com', 'password' => 'staff123', 'role' => 'viewer', 'department' => 'Finance', 'active' => false],
+            ['name' => 'Errol Miranda', 'email' => 'adminmiranda@gmail.com', 'password' => 'admin123', 'role' => 'admin', 'department' => 'Operations', 'active' => true],
+            ['name' => 'Rolando Anacta', 'email' => 'manageranacta@gmail.com', 'password' => 'manager123', 'role' => 'manager', 'department' => 'Logistics', 'active' => true],
+            ['name' => 'Thervin Ranehart Bandril', 'email' => 'thervs@gmail.com', 'password' => 'manager123', 'role' => 'manager', 'department' => 'Warehouse', 'active' => true],
+            ['name' => 'Jesreel Domaanis', 'email' => 'jes@gmail.com', 'password' => 'staff123', 'role' => 'staff', 'department' => 'Inventory', 'active' => true],
+            ['name' => 'Kevin Rei Gelle', 'email' => 'kevs@gmail.com', 'password' => 'staff123', 'role' => 'staff', 'department' => 'Receiving', 'active' => true],
+            ['name' => 'Employee', 'email' => 'employee@gmail.com', 'password' => 'staff123', 'role' => 'viewer', 'department' => 'Finance', 'active' => false],
         ];
         foreach ($users as $userData) {
             $initials = collect(explode(' ', $userData['name']))

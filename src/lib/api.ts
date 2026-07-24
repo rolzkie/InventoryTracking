@@ -245,21 +245,19 @@ function itemPayload(item: InventoryItem, categories: Category[]) {
 
 export const api = {
   operational: {
-    async load() {
+    async load(currentUser?: User) {
       const [categoryRows, supplierRows] = await Promise.all([
         request<ApiRecord[]>("/categories"),
         request<ApiRecord[]>("/suppliers"),
       ]);
       const categories = categoryRows.map(normalizeCategory);
-      const hasAuthenticatedSession = Boolean(
-        window.sessionStorage.getItem(AUTH_STORAGE_KEY) ?? window.localStorage.getItem(AUTH_STORAGE_KEY),
-      );
+      const canManageAccounts = currentUser?.role === "admin" || currentUser?.role === "manager";
       const [warehouseRows, itemRows, transactionRows, transferRows, userRows, reorderRows, notificationRows, settings, acknowledgedAlertIds] = await Promise.all([
         request<ApiRecord[]>("/warehouses"),
         request<ApiRecord[]>("/inventory"),
         request<ApiRecord[]>("/transactions"),
         request<ApiRecord[]>("/transfers"),
-        hasAuthenticatedSession ? request<ApiRecord[]>("/users") : Promise.resolve([]),
+        canManageAccounts ? request<ApiRecord[]>("/users") : Promise.resolve([]),
         request<ApiRecord[]>("/reorders"),
         request<ApiRecord[]>("/notifications"),
         request<Record<string, Record<string, unknown>>>("/settings"),
