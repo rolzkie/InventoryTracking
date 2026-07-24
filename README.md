@@ -9,8 +9,8 @@ The canonical application is:
 Laravel is the source of truth for operational inventory data. The React application owns the user interface and communicates with Laravel through `/api`.
 
 Seeded login credentials and their role permissions are listed in
-[DEMO_ACCOUNTS.md](DEMO_ACCOUNTS.md). Quick Demo Access is limited to the primary
-administrator and manager accounts.
+[DEMO_ACCOUNTS.md](DEMO_ACCOUNTS.md). Active registered accounts are available
+from the login page for quick access.
 
 ## System flow
 

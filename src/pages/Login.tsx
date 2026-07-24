@@ -7,8 +7,12 @@ interface LoginProps {
 }
 
 const DEMO_ACCOUNTS = [
-  { label: "Admin", email: "AdminMiranda@.com", password: "admin123", role: "Administrator" },
-  { label: "Manager", email: "ManagerAnacta@.com", password: "manager123", role: "Logistics Manager" },
+  { label: "Admin", email: "adminmiranda@gmail.com", password: "admin123", role: "Administrator", active: true },
+  { label: "Rolando", email: "manageranacta@gmail.com", password: "manager123", role: "Logistics Manager", active: true },
+  { label: "Thervin", email: "thervs@gmail.com", password: "manager123", role: "Warehouse Manager", active: true },
+  { label: "Jesreel", email: "jes@gmail.com", password: "staff123", role: "Inventory Staff", active: true },
+  { label: "Kevin", email: "kevs@gmail.com", password: "staff123", role: "Receiving Staff", active: true },
+  { label: "Employee", email: "employee@gmail.com", password: "staff123", role: "Viewer", active: false },
 ];
 
 export default function Login({ onLogin, onForgotPassword }: LoginProps) {
@@ -50,6 +54,13 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
   };
 
   const handleQuickDemo = async (acc: typeof DEMO_ACCOUNTS[0]) => {
+    if (!acc.active) {
+      setEmail(acc.email);
+      setPassword(acc.password);
+      setError("This account is inactive. Activate it in User Management before signing in.");
+      setNotice("");
+      return;
+    }
     setEmail(acc.email);
     setPassword(acc.password);
     setError("");
@@ -171,18 +182,19 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
 
           {/* Demo accounts */}
           <div className="mb-6">
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Quick Demo Access</p>
-            <div className="flex gap-2">
+            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Registered Accounts</p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {DEMO_ACCOUNTS.map((acc) => (
                 <button
                   key={acc.email}
                   type="button"
                   disabled={loading}
                   onClick={() => void handleQuickDemo(acc)}
-                  className="flex-1 py-2 px-3 text-xs font-medium rounded-xl border border-[#2A3445] text-slate-300 hover:border-blue-500/50 hover:bg-blue-500/5 hover:text-blue-300 transition-all duration-150"
+                  className={`py-2 px-3 text-xs font-medium rounded-xl border border-[#2A3445] text-slate-300 transition-all duration-150 ${acc.active ? "hover:border-blue-500/50 hover:bg-blue-500/5 hover:text-blue-300" : "opacity-70 hover:border-amber-500/50 hover:bg-amber-500/5 hover:text-amber-300"}`}
                 >
                   <span className="block">{acc.label}</span>
                   <span className="block mt-0.5 text-[10px] text-slate-500">{acc.email}</span>
+                  <span className="block mt-0.5 text-[10px] text-slate-600">{acc.role}</span>
                 </button>
               ))}
             </div>
@@ -274,8 +286,9 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
 
           {/* Hint */}
           <p className="mt-6 text-center text-xs text-slate-600">
-            Quick Demo: <span className="text-slate-500 font-mono">admin123</span> ·{" "}
-            <span className="text-slate-500 font-mono">manager123</span>
+            Passwords: <span className="text-slate-500 font-mono">admin123</span> ·{" "}
+            <span className="text-slate-500 font-mono">manager123</span> ·{" "}
+            <span className="text-slate-500 font-mono">staff123</span>
           </p>
 
           {/* Footer */}

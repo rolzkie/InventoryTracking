@@ -374,7 +374,7 @@ interface AppContextValue {
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   forgotPassword: (email: string) => Promise<{ success: boolean; message: string }>;
   logout: () => Promise<void>;
-  refreshOperationalData: () => Promise<void>;
+  refreshOperationalData: (currentUser?: User) => Promise<void>;
   createItem: (item: InventoryItem) => Promise<void>;
   updateItem: (item: InventoryItem) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
@@ -404,16 +404,16 @@ const AppContext = createContext<AppContextValue | null>(null);
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
 
-  const refreshOperationalData = useCallback(async () => {
+  const refreshOperationalData = useCallback(async (currentUser = state.currentUser) => {
     try {
-      const data = await api.operational.load();
+      const data = await api.operational.load(currentUser);
       dispatch({ type: "SET_OPERATIONAL_DATA", data });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to reach the Laravel API.";
       dispatch({ type: "SET_BACKEND_ERROR", error: message });
       throw error;
     }
-  }, []);
+  }, [state.currentUser]);
 
   useEffect(() => {
     // Every new page load starts at the login screen. This also prevents a stale
@@ -501,7 +501,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const { user } = session;
       window.sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
       dispatch({ type: "LOGIN", user });
-      void refreshOperationalData().catch(() => undefined);
+      void refreshOperationalData(user).catch(() => undefined);
       return { success: true };
     } catch (error) {
       return {
