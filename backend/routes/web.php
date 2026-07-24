@@ -1,27 +1,28 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\InventoryController;
-use App\Http\Controllers\WarehouseController;
-use App\Http\Controllers\TransferController;
 
-Route::get('/', function () {
-    return view('app');
+$serveReactApp = function () {
+    $indexPath = base_path('../dist/index.html');
+
+    abort_unless(
+        is_file($indexPath),
+        503,
+        'React build not found. Run "npm run build" from the workspace root.',
+    );
+
+    return response()->file($indexPath, ['Content-Type' => 'text/html; charset=UTF-8']);
+};
+
+Route::get('/health', function () {
+    return response()->json(['status' => 'ok']);
 });
 
-Route::get('/dashboard', [DashboardController::class, 'page']);
-Route::get('/inventory', [InventoryController::class, 'page']);
-Route::get('/warehouses', [WarehouseController::class, 'page']);
-Route::get('/transfers', [TransferController::class, 'page']);
-Route::get('/transactions', [\App\Http\Controllers\StockTransactionController::class, 'page']);
-
-
 Route::get('/assets/{file}', function (string $file) {
-    $path = realpath(base_path('../dist/assets/' . $file));
     $assetsDir = realpath(base_path('../dist/assets'));
+    $path = realpath(base_path('../dist/assets/'.$file));
 
-    if ($path === false || $assetsDir === false || ! str_starts_with($path, $assetsDir)) {
+    if ($path === false || $assetsDir === false || ! str_starts_with($path, $assetsDir.DIRECTORY_SEPARATOR)) {
         abort(404);
     }
 
@@ -40,15 +41,8 @@ Route::get('/assets/{file}', function (string $file) {
         default => mime_content_type($path) ?: 'application/octet-stream',
     };
 
-    $contents = file_get_contents($path);
+    return response()->file($path, ['Content-Type' => $mimeType]);
+})->where('file', '.*');
 
-    return response($contents, 200, ['Content-Type' => $mimeType]);
-});
-
-Route::fallback(function () {
-    return view('app');
-});
-
-Route::get('/health', function () {
-    return response()->json(['status' => 'ok']);
-});
+Route::get('/', $serveReactApp);
+Route::fallback($serveReactApp);

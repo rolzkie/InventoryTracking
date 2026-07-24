@@ -7,6 +7,7 @@ use App\Models\Transfer;
 use App\Models\Warehouse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class ReportController extends Controller
 {
@@ -70,5 +71,58 @@ class ReportController extends Controller
                 'status' => $item->quantity === 0 ? 'out_of_stock' : 'low_stock',
             ];
         }));
+    }
+
+    public function stockMovement(Request $request)
+    {
+        $end = Carbon::now()->startOfMonth();
+        $start = (clone $end)->subMonths(6)->startOfMonth();
+
+        $monthExpression = DB::getDriverName() === 'sqlite'
+            ? "strftime('%Y-%m', createdAt)"
+            : "DATE_FORMAT(createdAt, '%Y-%m')";
+
+        $rows = DB::table('stock_transactions')
+            ->selectRaw("{$monthExpression} as ym, transactionType, SUM(quantity) as qty")
+            ->whereBetween('createdAt', [$start->toDateString(), $end->endOfMonth()->toDateString()])
+            ->groupBy('ym', 'transactionType')
+            ->get();
+
+        $map = [];
+        foreach ($rows as $r) {
+            $map[$r->ym][$r->transactionType] = (int) $r->qty;
+        }
+
+        $data = [];
+        $cur = clone $start;
+        while ($cur->lte($end)) {
+            $key = $cur->format('Y-m');
+            $label = $cur->format('M');
+            $in = $map[$key]['stock_in'] ?? 0;
+            $out = $map[$key]['stock_out'] ?? 0;
+            $data[] = ['month' => $label, 'inbound' => (int) $in, 'outbound' => (int) $out];
+            $cur->addMonth();
+        }
+
+        return response()->json($data);
+    }
+
+    public function categoryDistribution(Request $request)
+    {
+        $rows = InventoryItem::selectRaw('category, SUM(quantity * unitPrice) as total')
+            ->groupBy('category')
+            ->get();
+
+        $total = $rows->sum('total') ?: 1;
+
+        $data = $rows->map(function ($r) use ($total) {
+            return [
+                'name' => $r->category ?: 'Uncategorized',
+                'value' => round(((float) $r->total / (float) $total) * 100, 1),
+                'raw' => (float) $r->total,
+            ];
+        })->values();
+
+        return response()->json($data);
     }
 }

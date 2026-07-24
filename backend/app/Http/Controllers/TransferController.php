@@ -6,6 +6,7 @@ use App\Models\Transfer;
 use App\Models\InventoryItem;
 use App\Models\Warehouse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class TransferController extends Controller
 {
@@ -61,12 +62,16 @@ class TransferController extends Controller
 
     protected function findItem(int $itemId): InventoryItem
     {
-        return InventoryItem::findOrFail($itemId);
+        return InventoryItem::lockForUpdate()->findOrFail($itemId);
     }
 
     protected function decrementSourceQuantity(InventoryItem $item, int $quantity): void
     {
-        $item->quantity = max(0, $item->quantity - $quantity);
+        if ($item->quantity < $quantity) {
+            throw new \DomainException('Insufficient stock. Available: '.$item->quantity);
+        }
+
+        $item->quantity -= $quantity;
         $item->save();
     }
 
@@ -103,8 +108,10 @@ class TransferController extends Controller
             'name' => $sourceItem->name,
             'description' => $sourceItem->description,
             'category' => $sourceItem->category,
+            'unit' => $sourceItem->unit,
             'quantity' => $quantity,
             'reorderPoint' => $sourceItem->reorderPoint,
+            'maxStock' => $sourceItem->maxStock,
             'warehouseId' => $destinationWarehouseId,
             'storageLocation' => null,
             'zone' => $transfer->toZone ?: null,
@@ -112,7 +119,9 @@ class TransferController extends Controller
             'shelf' => $transfer->toShelf ?: null,
             'assignedAt' => now(),
             'unitPrice' => $sourceItem->unitPrice,
+            'supplierId' => $sourceItem->supplierId,
             'lastRestocked' => now()->toDateString(),
+            'expiryDate' => $sourceItem->expiryDate,
         ]);
     }
 
@@ -151,6 +160,8 @@ class TransferController extends Controller
             'quantity' => 'required|integer|min:1',
             'status' => 'required|in:pending,in_transit,completed,cancelled',
             'notes' => 'nullable|string',
+            'requestedBy' => 'nullable|string|max:255',
+            'approvedBy' => 'nullable|string|max:255',
             'fromZone' => 'nullable|string|max:100',
             'fromRack' => 'nullable|string|max:100',
             'fromShelf' => 'nullable|string|max:100',
@@ -159,44 +170,48 @@ class TransferController extends Controller
             'toShelf' => 'nullable|string|max:100',
         ]);
 
-        $item = $this->findItem($validated['itemId']);
+        return DB::transaction(function () use ($validated) {
+            $item = $this->findItem($validated['itemId']);
 
-        if ($item->warehouseId != $validated['sourceWarehouse']) {
-            return response()->json(['error' => 'Item not in source warehouse'], 422);
-        }
+            if ($item->warehouseId != $validated['sourceWarehouse']) {
+                return response()->json(['error' => 'Item not in source warehouse'], 422);
+            }
 
-        if ($item->quantity < $validated['quantity']) {
-            return response()->json(
-                ['error' => 'Insufficient stock. Available: ' . $item->quantity],
-                422
-            );
-        }
+            if ($item->quantity < $validated['quantity']) {
+                return response()->json(
+                    ['error' => 'Insufficient stock. Available: ' . $item->quantity],
+                    422
+                );
+            }
 
-        $transfer = Transfer::create([
-            'sourceWarehouse' => $validated['sourceWarehouse'],
-            'destinationWarehouse' => $validated['destinationWarehouse'],
-            'itemId' => $validated['itemId'],
-            'itemName' => $item->name,
-            'quantity' => $validated['quantity'],
-            'status' => $validated['status'],
-            'notes' => $validated['notes'] ?? '',
-            'fromZone' => $validated['fromZone'] ?? null,
-            'fromRack' => $validated['fromRack'] ?? null,
-            'fromShelf' => $validated['fromShelf'] ?? null,
-            'toZone' => $validated['toZone'] ?? null,
-            'toRack' => $validated['toRack'] ?? null,
-            'toShelf' => $validated['toShelf'] ?? null,
-            'createdAt' => now(),
-        ]);
+            $transfer = Transfer::create([
+                'sourceWarehouse' => $validated['sourceWarehouse'],
+                'destinationWarehouse' => $validated['destinationWarehouse'],
+                'itemId' => $validated['itemId'],
+                'itemName' => $item->name,
+                'quantity' => $validated['quantity'],
+                'status' => $validated['status'],
+                'notes' => $validated['notes'] ?? '',
+                'requestedBy' => $validated['requestedBy'] ?? null,
+                'approvedBy' => $validated['approvedBy'] ?? null,
+                'fromZone' => $validated['fromZone'] ?? null,
+                'fromRack' => $validated['fromRack'] ?? null,
+                'fromShelf' => $validated['fromShelf'] ?? null,
+                'toZone' => $validated['toZone'] ?? null,
+                'toRack' => $validated['toRack'] ?? null,
+                'toShelf' => $validated['toShelf'] ?? null,
+                'createdAt' => now(),
+            ]);
 
-        $this->applyStatusTransition($transfer, 'pending', $transfer->status);
+            $this->applyStatusTransition($transfer, 'pending', $transfer->status);
 
-        if ($transfer->status === 'completed') {
-            $transfer->completedAt = now();
-            $transfer->save();
-        }
+            if ($transfer->status === 'completed') {
+                $transfer->completedAt = now();
+                $transfer->save();
+            }
 
-        return response()->json($transfer->fresh(['item', 'sourceWh', 'destinationWh']), 201);
+            return response()->json($transfer->fresh(['item', 'sourceWh', 'destinationWh']), 201);
+        });
     }
 
     public function show(Transfer $transfer)
@@ -209,28 +224,33 @@ class TransferController extends Controller
         $validated = $request->validate([
             'status' => 'sometimes|in:pending,in_transit,completed,cancelled',
             'notes' => 'nullable|string',
+            'approvedBy' => 'nullable|string|max:255',
         ]);
 
-        $oldStatus = $transfer->status;
-        $transfer->update($validated);
-        $this->applyStatusTransition($transfer, $oldStatus, $transfer->status);
+        return DB::transaction(function () use ($transfer, $validated) {
+            $oldStatus = $transfer->status;
+            $transfer->update($validated);
+            $this->applyStatusTransition($transfer, $oldStatus, $transfer->status);
 
-        if ($transfer->status === 'completed' && !$transfer->completedAt) {
-            $transfer->completedAt = now();
-            $transfer->save();
-        }
+            if ($transfer->status === 'completed' && !$transfer->completedAt) {
+                $transfer->completedAt = now();
+                $transfer->save();
+            }
 
-        return response()->json($transfer->fresh(['item', 'sourceWh', 'destinationWh']));
+            return response()->json($transfer->fresh(['item', 'sourceWh', 'destinationWh']));
+        });
     }
 
     public function destroy(Transfer $transfer)
     {
-        if ($transfer->status === 'in_transit') {
-            $item = $this->findItem($transfer->itemId);
-            $this->restoreSourceQuantity($item, $transfer->quantity);
-        }
+        return DB::transaction(function () use ($transfer) {
+            if ($transfer->status === 'in_transit') {
+                $item = $this->findItem($transfer->itemId);
+                $this->restoreSourceQuantity($item, $transfer->quantity);
+            }
 
-        $transfer->delete();
-        return response()->json(['ok' => true]);
+            $transfer->delete();
+            return response()->json(['ok' => true]);
+        });
     }
 }

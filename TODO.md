@@ -1,26 +1,33 @@
-# Inventory Expiry & Expiring Notifications - TODO
+# WarehouseIQ Integration Roadmap
 
-Status: Plan created. Code changes pending.
+## Required before local backend verification
 
-## Backend
-- [ ] Add `expiryDate` column to `inventory_items` via new migration.
-- [ ] Update `InventoryItem` model: include `expiryDate` in `$fillable`, cast `expiryDate`.
-- [ ] Update `InventoryItem` status logic to set status to `Expiring` when expiry is within next 7 days (and not already expired).
-- [ ] Update `InventoryController` store/update validation to accept `expiryDate` and persist it.
-- [ ] Add expiring notifications endpoint in `ReportController` (e.g. `/reports/expiring`) based on `inventory_items.expiryDate`.
-- [ ] Update `backend/routes/api.php` to register new expiring reports route.
+- [ ] Install or select PHP 8.4.1 or newer.
+- [ ] Run `composer install` in `backend/`.
+- [ ] Run `php artisan migrate`.
+- [ ] Run `php artisan test`.
 
-## Frontend
-- [ ] Update `src/lib/api.ts` types + normalization to include `expiryDate`.
-- [ ] Update `src/app/pages/InventoryPage.tsx`: add expiry date column and input field in add/edit modal.
-- [ ] Update `src/app/pages/ReportsPage.tsx`: add Expiring Soon notification table/section using `/reports/expiring`.
-- [ ] Update `src/app/components/ui.tsx` `StatusBadge` to support `Expiring` status.
-- [ ] Update `src/app/pages/TransactionsPage.tsx`: when selecting an Item, auto-fill `warehouseId` and auto-fill `expirationDate` from item’s `expiryDate`.
+## Laravel production modules
 
-## Local storage fallback
-- [ ] Update `src/lib/local-storage-api.ts` to include expiryDate, compute Expiring status, and support the new expiring report endpoint.
+- [ ] Add Laravel Sanctum authentication.
+- [x] Issue expiring Laravel bearer tokens for registered-account management.
+- [x] Persist users and roles in Laravel.
+- [x] Add category and supplier tables/endpoints.
+- [x] Add reorder request endpoints and lifecycle rules.
+- [x] Persist notifications and acknowledgement state.
+- [x] Persist system settings.
 
-## Verify
-- [ ] Run backend migrations.
-- [ ] Test UI flows: add item with expiry, inventory list shows Expiring badge, reports show expiring notifications, stock-in modal auto-fills warehouse+expiry.
+## Testing
 
+- [ ] Test partial and full transfer completion.
+- [x] Add database-integrity regression coverage for stock-out and warehouse deletion.
+- [ ] Test concurrent stock-out and transfer requests with a PHP 8.4 runtime.
+- [ ] Test the additional React frontend database fields.
+- [ ] Test SQLite and MySQL report queries.
+- [ ] Add React API-client and page interaction tests.
+
+## Maintenance
+
+- [ ] Code-split frontend pages to reduce the main bundle.
+- [ ] Remove already tracked `node_modules`, vendor artifacts, and generated builds from the Git index in a dedicated cleanup commit.
+- [ ] Remove legacy root directories and Blade views after confirming they are no longer needed.

@@ -14,12 +14,18 @@ class StockTransaction extends Model
         'transactionType',
         'quantity',
         'expirationDate',
+        'supplierId',
+        'purpose',
+        'referenceNumber',
+        'processedBy',
+        'unitCost',
         'notes',
         'createdAt',
     ];
 
     protected $casts = [
         'quantity' => 'integer',
+        'unitCost' => 'decimal:2',
         'expirationDate' => 'date',
         'createdAt' => 'datetime',
     ];

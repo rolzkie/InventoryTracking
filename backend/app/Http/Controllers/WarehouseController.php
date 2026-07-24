@@ -3,8 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\InventoryItem;
+use App\Models\StockTransaction;
+use App\Models\Transfer;
 use App\Models\Warehouse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class WarehouseController extends Controller
 {
@@ -52,8 +55,10 @@ class WarehouseController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'location' => 'required|string|max:255',
+            'address' => 'nullable|string|max:500',
             'capacity' => 'required|integer|min:0',
-            'manager' => 'required|string|max:255',
+            'manager' => 'nullable|string|max:255',
+            'zones' => 'sometimes|array',
         ]);
 
         $warehouse = Warehouse::create($validated);
@@ -78,9 +83,11 @@ class WarehouseController extends Controller
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
             'location' => 'sometimes|string|max:255',
+            'address' => 'nullable|string|max:500',
             'capacity' => 'sometimes|integer|min:0',
             'used' => 'sometimes|integer|min:0',
             'manager' => 'sometimes|string|max:255',
+            'zones' => 'sometimes|array',
         ]);
 
         $warehouse->update($validated);
@@ -93,7 +100,29 @@ class WarehouseController extends Controller
 
     public function destroy(Warehouse $warehouse)
     {
-        $warehouse->delete();
+        $hasTransferHistory = Transfer::where('sourceWarehouse', $warehouse->id)
+            ->orWhere('destinationWarehouse', $warehouse->id)
+            ->exists();
+        $hasStockHistory = StockTransaction::where('warehouseId', $warehouse->id)->exists();
+
+        if ($hasTransferHistory || $hasStockHistory) {
+            return response()->json([
+                'error' => 'This warehouse has transaction or transfer history and cannot be deleted.',
+            ], 422);
+        }
+
+        DB::transaction(function () use ($warehouse) {
+            $warehouse->inventoryItems()->update([
+                'warehouseId' => null,
+                'storageLocation' => null,
+                'zone' => null,
+                'rack' => null,
+                'shelf' => null,
+                'assignedAt' => null,
+            ]);
+            $warehouse->delete();
+        });
+
         return response()->json(['ok' => true]);
     }
 }

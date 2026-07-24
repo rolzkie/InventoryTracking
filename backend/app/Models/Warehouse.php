@@ -9,12 +9,20 @@ class Warehouse extends Model
     protected $fillable = [
         'name',
         'location',
+        'address',
         'capacity',
         'used',
         'manager',
+        'zones',
     ];
 
     protected $appends = ['status', 'capacityUsed'];
+
+    protected $casts = [
+        'capacity' => 'integer',
+        'used' => 'integer',
+        'zones' => 'array',
+    ];
 
     public function inventoryItems()
     {
