@@ -54,10 +54,7 @@ Install and initialize:
 
 ```powershell
 npm install
-cd backend
-composer install
-php artisan migrate
-php artisan db:seed
+npm run setup
 ```
 
 Start Laravel and the React development server together:
@@ -66,7 +63,15 @@ Start Laravel and the React development server together:
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173`. Vite proxies `/api` to Laravel at `http://127.0.0.1:8000`.
+Open `http://127.0.0.1:5173` on the server computer. To use another device on
+the same network, open the `Network` URL printed by Vite (for example,
+`http://192.168.1.20:5173`). Vite proxies `/api` to Laravel on the server
+computer, so no API URL needs to be changed on the other device.
+
+If Windows asks, allow Node.js and PHP through the firewall on **Private
+networks**. Do not use `localhost` on the other device: there, `localhost`
+means that other device rather than the server computer.
+
 The startup script automatically uses `C:\xampp\php\php.exe` when present. For
 another PHP installation, set `WAREHOUSEIQ_PHP_PATH` to its executable path.
 
@@ -80,17 +85,23 @@ seeder. Laravel/Eloquent remains the only database access layer used by React.
 Build the React application:
 
 ```powershell
-npm run build
+npm start
 ```
 
-Then start Laravel:
+Open `http://127.0.0.1:8000`, or use one of the printed `Laravel LAN` URLs on
+another device. Laravel serves the generated `dist/index.html` and assets while
+continuing to handle `/api`.
 
-```powershell
-cd backend
-php artisan serve
-```
+Only one computer should host the server/database at a time. Other devices
+should connect to that host's LAN URL. Do not run a synchronized SQLite file
+from multiple computers simultaneously; cloud-sync tools cannot safely merge
+live SQLite writes. Use a shared MySQL server if multiple Laravel server
+instances must write to the same database.
 
-Open `http://127.0.0.1:8000`. Laravel serves the generated `dist/index.html` and assets while continuing to handle `/api`.
+After syncing the project to a new computer, run `npm install` and
+`npm run setup` once. The setup command restores missing PHP dependencies,
+creates the local environment and app key when needed, clears stale Laravel
+caches, and runs pending migrations.
 
 ## Important folders
 

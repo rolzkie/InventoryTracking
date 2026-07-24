@@ -4,9 +4,11 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "setup": "node scripts/setup.cjs",
     "dev": "concurrently --kill-others-on-fail --names api,web \"npm:dev:api\" \"npm:dev:web\"",
     "dev:api": "node scripts/start-api.cjs",
-    "dev:web": "vite --host 0.0.0.0",
+    "dev:web": "vite",
+    "start": "npm run build && node scripts/start-api.cjs",
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",

@@ -11,7 +11,10 @@ class FrontendAssetTest extends TestCase
         $response = $this->get('/');
 
         $response->assertOk();
-        $this->assertStringContainsString('Enhance ERP Inventory System', $response->getContent());
-        $this->assertStringContainsString('id="root"', $response->getContent());
+        $response->assertHeader('content-type', 'text/html; charset=UTF-8');
+        $this->assertSame(
+            realpath(base_path('../dist/index.html')),
+            realpath($response->baseResponse->getFile()->getPathname()),
+        );
     }
 }

@@ -11,7 +11,10 @@ export default defineConfig({
     },
   },
   server: {
-    host: "127.0.0.1",
+    // Listen on the LAN as well as localhost. API requests stay same-origin
+    // through this proxy, so phones and other computers do not need a
+    // device-specific VITE_API_URL.
+    host: "0.0.0.0",
     port: 5173,
     strictPort: true,
     proxy: {
@@ -22,8 +25,9 @@ export default defineConfig({
     },
   },
   preview: {
-    host: "127.0.0.1",
+    host: "0.0.0.0",
     port: 4173,
+    strictPort: true,
   },
   build: {
     outDir: "dist",
