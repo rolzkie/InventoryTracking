@@ -6,6 +6,12 @@ use Illuminate\Database\Seeder;
 use App\Models\Warehouse;
 use App\Models\InventoryItem;
 use App\Models\Transfer;
+use App\Models\AppNotification;
+use App\Models\Category;
+use App\Models\Supplier;
+use App\Models\SystemSetting;
+use App\Models\User;
+use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
@@ -80,6 +86,89 @@ class DatabaseSeeder extends Seeder
                 $transfer
             );
         }
+
+        $categoryColors = [
+            'Electronics' => '#3B82F6',
+            'Hardware' => '#8B5CF6',
+            'Chemicals' => '#10B981',
+            'Packaging' => '#F59E0B',
+            'Raw Materials' => '#EF4444',
+            'Office Supplies' => '#06B6D4',
+        ];
+        foreach ($categoryColors as $name => $color) {
+            Category::updateOrCreate(['name' => $name], ['color' => $color]);
+        }
+
+        $suppliers = [
+            ['name' => 'TechCorp Industries', 'contact' => 'John Smith', 'email' => 'john@techcorp.com', 'phone' => '+1-555-0101'],
+            ['name' => 'Global Industrial Supply', 'contact' => 'Sarah Lee', 'email' => 'sarah@globalindustrial.com', 'phone' => '+1-555-0102'],
+            ['name' => 'MediSupply Inc.', 'contact' => 'Robert Chen', 'email' => 'rchen@medisupply.com', 'phone' => '+1-555-0103'],
+            ['name' => 'Office Depot Pro', 'contact' => 'Emily Davis', 'email' => 'emily@odepot.com', 'phone' => '+1-555-0104'],
+        ];
+        foreach ($suppliers as $supplier) {
+            Supplier::updateOrCreate(['name' => $supplier['name']], $supplier);
+        }
+
+        $users = [
+            ['name' => 'Michael Torres', 'email' => 'm.torres@erp.com', 'password' => 'admin123', 'role' => 'admin', 'department' => 'Operations', 'active' => true],
+            ['name' => 'Jessica Wong', 'email' => 'j.wong@erp.com', 'password' => 'manager123', 'role' => 'manager', 'department' => 'Logistics', 'active' => true],
+            ['name' => 'David Kim', 'email' => 'd.kim@erp.com', 'password' => 'manager123', 'role' => 'manager', 'department' => 'Warehouse', 'active' => true],
+            ['name' => 'Amanda Rodriguez', 'email' => 'a.rodriguez@erp.com', 'password' => 'staff123', 'role' => 'staff', 'department' => 'Inventory', 'active' => true],
+            ['name' => 'Brian Chen', 'email' => 'b.chen@erp.com', 'password' => 'staff123', 'role' => 'staff', 'department' => 'Receiving', 'active' => true],
+            ['name' => 'Sarah Johnson', 'email' => 's.johnson@erp.com', 'password' => 'staff123', 'role' => 'viewer', 'department' => 'Finance', 'active' => false],
+        ];
+        foreach ($users as $userData) {
+            $initials = collect(explode(' ', $userData['name']))
+                ->map(fn ($part) => substr($part, 0, 1))
+                ->implode('');
+            User::updateOrCreate(
+                ['email' => $userData['email']],
+                [
+                    'name' => $userData['name'],
+                    'password' => Hash::make($userData['password']),
+                    'role' => $userData['role'],
+                    'avatar' => $initials,
+                    'department' => $userData['department'],
+                    'active' => $userData['active'],
+                    'api_token' => null,
+                    'token_expires_at' => null,
+                ],
+            );
+        }
+
+        if (AppNotification::count() === 0) {
+            AppNotification::create([
+                'title' => 'WarehouseIQ connected',
+                'message' => 'Operational data is now loaded from Laravel.',
+                'type' => 'success',
+                'read' => false,
+            ]);
+        }
+
+        SystemSetting::updateOrCreate(['section' => 'general'], ['payload' => [
+            'companyName' => 'WarehouseIQ Corp',
+            'systemEmail' => 'system@warehouseiq.com',
+            'timezone' => 'Asia/Manila',
+            'currency' => 'PHP',
+            'dateFormat' => 'YYYY-MM-DD',
+            'lowStockThreshold' => 10,
+            'overstockThreshold' => 500,
+        ]]);
+        SystemSetting::updateOrCreate(['section' => 'notifications'], ['payload' => [
+            'lowStockEmail' => true,
+            'outOfStockEmail' => true,
+            'expirationEmail' => true,
+            'transferEmail' => false,
+            'dailyDigest' => true,
+            'weeklyReport' => true,
+        ]]);
+        SystemSetting::updateOrCreate(['section' => 'appearance'], ['payload' => [
+            'darkMode' => true,
+            'themeColor' => '#3B82F6',
+        ]]);
+        SystemSetting::updateOrCreate(['section' => 'thresholds'], ['payload' => [
+            'lowStockMin' => 10,
+            'overstockMax' => 500,
+        ]]);
     }
 }
-

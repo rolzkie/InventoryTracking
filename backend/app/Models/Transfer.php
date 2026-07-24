@@ -16,6 +16,8 @@ class Transfer extends Model
         'createdAt',
         'completedAt',
         'notes',
+        'requestedBy',
+        'approvedBy',
         'fromZone',
         'fromRack',
         'fromShelf',

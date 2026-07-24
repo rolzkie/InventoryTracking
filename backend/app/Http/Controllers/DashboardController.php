@@ -10,7 +10,7 @@ use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
-    public function index()
+    protected function dashboardStats(): array
     {
         $inventory = InventoryItem::with('warehouse')->get();
         $warehouses = Warehouse::all();
@@ -46,7 +46,7 @@ class DashboardController extends Controller
             })
             ->values();
 
-        return response()->json([
+        return [
             'totalSkus' => $totalSkus,
             'unassigned' => $unassigned,
             'outOfStock' => $outOfStock,
@@ -57,6 +57,16 @@ class DashboardController extends Controller
             'recentStockIn' => $recentStockIn,
             'recentStockOut' => $recentStockOut,
             'alerts' => $alerts,
-        ]);
+        ];
+    }
+
+    public function index()
+    {
+        return response()->json($this->dashboardStats());
+    }
+
+    public function page()
+    {
+        return view('dashboard.index', ['stats' => $this->dashboardStats()]);
     }
 }

@@ -6,11 +6,12 @@ use Tests\TestCase;
 
 class FrontendAssetTest extends TestCase
 {
-    public function test_homepage_returns_api_status_message(): void
+    public function test_homepage_serves_the_spa_shell(): void
     {
         $response = $this->get('/');
 
         $response->assertOk();
-        $response->assertJsonPath('message', 'Laravel API is running. Use Vite at http://localhost:5173.');
+        $this->assertStringContainsString('Enhance ERP Inventory System', $response->getContent());
+        $this->assertStringContainsString('id="root"', $response->getContent());
     }
 }

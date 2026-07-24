@@ -6,11 +6,30 @@ use App\Models\InventoryItem;
 use App\Models\StockTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+use App\Models\Warehouse;
 
 class StockTransactionController extends Controller
 {
+    public function page(Request $request)
+    {
+        $warehouses = Warehouse::all(['id', 'name']);
+        $inventory = InventoryItem::with('warehouse')->get()->map(function ($item) {
+            return $item->toArray() + [
+                'warehouseName' => $item->warehouse?->name,
+                'warehouse' => $item->warehouse?->toArray(),
+            ];
+        });
+
+        return view('transactions.index', [
+            'warehouses' => $warehouses,
+            'inventory' => $inventory,
+        ]);
+    }
+
     public function index(Request $request)
     {
+
         $query = StockTransaction::with(['item', 'warehouse'])->orderByDesc('createdAt');
 
         if ($request->filled('type')) {
@@ -45,24 +64,35 @@ class StockTransactionController extends Controller
             'transactionType' => 'required|in:stock_in,stock_out',
             'quantity' => 'required|integer|min:1',
             'expirationDate' => 'nullable|date',
+            'supplierId' => 'nullable|string|max:100',
+            'purpose' => 'nullable|string|max:100',
+            'referenceNumber' => 'nullable|string|max:100',
+            'processedBy' => 'nullable|string|max:255',
+            'unitCost' => 'sometimes|numeric|min:0',
             'notes' => 'nullable|string',
         ]);
 
-        $item = InventoryItem::findOrFail($validated['itemId']);
+        $transaction = DB::transaction(function () use ($validated) {
+            $item = InventoryItem::lockForUpdate()->findOrFail($validated['itemId']);
 
-        if (!$item->warehouseId) {
-            return response()->json(['error' => 'Item must be assigned to a warehouse before stock transactions can be recorded'], 422);
-        }
+            if (!$item->warehouseId) {
+                throw ValidationException::withMessages([
+                    'itemId' => 'Item must be assigned to a warehouse before stock transactions can be recorded.',
+                ]);
+            }
 
-        if ($item->warehouseId != $validated['warehouseId']) {
-            return response()->json(['error' => 'Selected warehouse does not match item location'], 422);
-        }
+            if ($item->warehouseId != $validated['warehouseId']) {
+                throw ValidationException::withMessages([
+                    'warehouseId' => 'Selected warehouse does not match the item location.',
+                ]);
+            }
 
-        if ($validated['transactionType'] === 'stock_out' && $item->quantity < $validated['quantity']) {
-            return response()->json(['error' => 'Insufficient stock available'], 422);
-        }
+            if ($validated['transactionType'] === 'stock_out' && $item->quantity < $validated['quantity']) {
+                throw ValidationException::withMessages([
+                    'quantity' => 'Insufficient stock available.',
+                ]);
+            }
 
-        $transaction = DB::transaction(function () use ($validated, $item) {
             if ($validated['transactionType'] === 'stock_in') {
                 $item->quantity += $validated['quantity'];
                 $item->lastRestocked = now();
@@ -77,6 +107,11 @@ class StockTransactionController extends Controller
                 'transactionType' => $validated['transactionType'],
                 'quantity' => $validated['quantity'],
                 'expirationDate' => $validated['expirationDate'] ?? null,
+                'supplierId' => $validated['supplierId'] ?? null,
+                'purpose' => $validated['purpose'] ?? null,
+                'referenceNumber' => $validated['referenceNumber'] ?? null,
+                'processedBy' => $validated['processedBy'] ?? null,
+                'unitCost' => $validated['unitCost'] ?? $item->unitPrice,
                 'notes' => $validated['notes'] ?? '',
                 'createdAt' => now(),
             ]);
@@ -93,6 +128,11 @@ class StockTransactionController extends Controller
             'transactionType' => 'sometimes|in:stock_in,stock_out',
             'quantity' => 'sometimes|integer|min:1',
             'expirationDate' => 'nullable|date',
+            'supplierId' => 'nullable|string|max:100',
+            'purpose' => 'nullable|string|max:100',
+            'referenceNumber' => 'nullable|string|max:100',
+            'processedBy' => 'nullable|string|max:255',
+            'unitCost' => 'sometimes|numeric|min:0',
             'notes' => 'nullable|string',
         ]);
 
@@ -106,7 +146,15 @@ class StockTransactionController extends Controller
             $changedStock = $newItemId !== $oldTransaction->itemId || $newWarehouseId !== $oldTransaction->warehouseId || $newType !== $oldTransaction->transactionType || $newQuantity !== $oldTransaction->quantity;
 
             if ($changedStock) {
-                $oldItem = InventoryItem::findOrFail($oldTransaction->itemId);
+                $itemIds = collect([$oldTransaction->itemId, $newItemId])->unique()->sort()->values();
+                $lockedItems = InventoryItem::whereIn('id', $itemIds)->lockForUpdate()->get()->keyBy('id');
+                $oldItem = $lockedItems->get($oldTransaction->itemId);
+                $newItem = $lockedItems->get($newItemId);
+
+                if (!$oldItem || !$newItem) {
+                    throw ValidationException::withMessages(['itemId' => 'The selected inventory item no longer exists.']);
+                }
+
                 if ($oldTransaction->transactionType === 'stock_in') {
                     $oldItem->quantity = max(0, $oldItem->quantity - $oldTransaction->quantity);
                 } else {
@@ -114,15 +162,18 @@ class StockTransactionController extends Controller
                 }
                 $oldItem->save();
 
-                $newItem = InventoryItem::findOrFail($newItemId);
                 if (!$newItem->warehouseId) {
-                    throw new \RuntimeException('Item must be assigned to a warehouse before stock transactions can be recorded');
+                    throw ValidationException::withMessages([
+                        'itemId' => 'Item must be assigned to a warehouse before stock transactions can be recorded.',
+                    ]);
                 }
                 if ($newItem->warehouseId != $newWarehouseId) {
-                    throw new \RuntimeException('Selected warehouse does not match item location');
+                    throw ValidationException::withMessages([
+                        'warehouseId' => 'Selected warehouse does not match the item location.',
+                    ]);
                 }
                 if ($newType === 'stock_out' && $newItem->quantity < $newQuantity) {
-                    throw new \RuntimeException('Insufficient stock available for update');
+                    throw ValidationException::withMessages(['quantity' => 'Insufficient stock available for update.']);
                 }
 
                 if ($newType === 'stock_in') {
@@ -143,7 +194,7 @@ class StockTransactionController extends Controller
     public function destroy(StockTransaction $transaction)
     {
         DB::transaction(function () use ($transaction) {
-            $item = InventoryItem::find($transaction->itemId);
+            $item = InventoryItem::whereKey($transaction->itemId)->lockForUpdate()->first();
             if ($item) {
                 if ($transaction->transactionType === 'stock_in') {
                     $item->quantity = max(0, $item->quantity - $transaction->quantity);

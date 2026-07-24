@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\InventoryItem;
+use App\Models\Warehouse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class InventoryController extends Controller
 {
@@ -16,6 +18,52 @@ class InventoryController extends Controller
         );
     }
 
+    public function page(Request $request)
+    {
+        $query = InventoryItem::with('warehouse')->orderBy('name');
+
+        $search = trim((string) $request->query('search', ''));
+        $status = trim((string) $request->query('status', 'all'));
+        $category = trim((string) $request->query('category', 'all'));
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('sku', 'like', "%{$search}%")
+                  ->orWhere('category', 'like', "%{$search}%");
+            });
+        }
+
+        if ($status !== '' && $status !== 'all') {
+            $query->where('status', $status);
+        }
+
+        if ($category !== '' && $category !== 'all') {
+            $query->where('category', $category);
+        }
+
+        $items = $query->get()->map(function ($item) {
+            return $item->toArray() + [
+                'warehouse' => $item->warehouse?->toArray(),
+                'warehouseName' => $item->warehouse?->name,
+            ];
+        });
+
+        $warehouses = Warehouse::all();
+        $categories = InventoryItem::query()->distinct()->pluck('category')->filter()->values();
+        $totalValue = $items->sum(fn ($item) => (float) ($item['quantity'] ?? 0) * (float) ($item['unitPrice'] ?? 0));
+
+        return view('inventory.index', [
+            'items' => $items,
+            'warehouses' => $warehouses,
+            'categories' => $categories,
+            'search' => $search,
+            'status' => $status,
+            'category' => $category,
+            'totalValue' => $totalValue,
+        ]);
+    }
+
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -26,7 +74,9 @@ class InventoryController extends Controller
             'unit' => 'required|string|max:50',
             'quantity' => 'sometimes|integer|min:0',
             'reorderPoint' => 'required|integer|min:0',
+            'maxStock' => 'sometimes|integer|min:0',
             'unitPrice' => 'required|numeric|min:0',
+            'supplierId' => 'nullable|string|max:100',
             'expiryDate' => 'nullable|date',
         ]);
 
@@ -37,7 +87,9 @@ class InventoryController extends Controller
             'category' => $validated['category'],
             'unit' => $validated['unit'],
             'reorderPoint' => $validated['reorderPoint'],
+            'maxStock' => $validated['maxStock'] ?? 0,
             'unitPrice' => $validated['unitPrice'],
+            'supplierId' => $validated['supplierId'] ?? null,
             'quantity' => $validated['quantity'] ?? 0,
             'warehouseId' => null,
             'storageLocation' => null,
@@ -58,14 +110,23 @@ class InventoryController extends Controller
     public function update(Request $request, InventoryItem $inventory)
     {
         $validated = $request->validate([
-            'sku' => 'sometimes|string|unique:inventory_items,sku,' . $inventory->id . '|max:100',
+            'sku' => [
+                'sometimes',
+                'string',
+                'max:100',
+                Rule::unique('inventory_items', 'sku')
+                    ->ignore($inventory->id)
+                    ->where(fn ($query) => $query->where('warehouseId', $inventory->warehouseId)),
+            ],
             'name' => 'sometimes|string|max:255',
             'description' => 'nullable|string',
             'category' => 'sometimes|string|max:100',
             'unit' => 'sometimes|string|max:50',
             'quantity' => 'sometimes|integer|min:0',
             'reorderPoint' => 'sometimes|integer|min:0',
+            'maxStock' => 'sometimes|integer|min:0',
             'unitPrice' => 'sometimes|numeric|min:0',
+            'supplierId' => 'nullable|string|max:100',
             'expiryDate' => 'nullable|date',
         ]);
 

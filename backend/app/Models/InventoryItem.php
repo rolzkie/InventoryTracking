@@ -16,6 +16,7 @@ class InventoryItem extends Model
         'unit',
         'quantity',
         'reorderPoint',
+        'maxStock',
         'warehouseId',
         'storageLocation',
         'zone',
@@ -23,6 +24,7 @@ class InventoryItem extends Model
         'shelf',
         'assignedAt',
         'unitPrice',
+        'supplierId',
         'lastRestocked',
         'expiryDate',
         'status',
@@ -31,6 +33,7 @@ class InventoryItem extends Model
     protected $casts = [
         'quantity' => 'integer',
         'reorderPoint' => 'integer',
+        'maxStock' => 'integer',
         'warehouseId' => 'integer',
         'unitPrice' => 'decimal:2',
         'lastRestocked' => 'date',
