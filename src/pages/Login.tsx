@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Eye, EyeOff, Box, Lock, Mail, AlertCircle, Loader2 } from "lucide-react";
 
 interface LoginProps {
-  onLogin: (email: string, password: string, remember?: boolean) => Promise<{ success: boolean; error?: string }>;
+  onLogin: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   onForgotPassword: (email: string) => Promise<{ success: boolean; message: string }>;
 }
 
@@ -18,7 +18,6 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,7 +28,7 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
     setLoading(true);
     setError("");
     setNotice("");
-    const result = await onLogin(email, password, rememberMe);
+    const result = await onLogin(email.trim(), password);
     if (!result.success) {
       setError(result.error ?? "Invalid credentials.");
       setLoading(false);
@@ -56,7 +55,7 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
     setError("");
     setNotice("");
     setLoading(true);
-    const result = await onLogin(acc.email, acc.password, rememberMe);
+    const result = await onLogin(acc.email, acc.password);
     if (!result.success) {
       setError(result.error ?? "Unable to access the demo account.");
       setLoading(false);
@@ -253,22 +252,6 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
                   {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                 </button>
               </div>
-            </div>
-
-            {/* Remember me */}
-            <div className="flex items-center gap-2.5">
-              <button
-                type="button"
-                onClick={() => setRememberMe((v) => !v)}
-                className={`w-4 h-4 rounded flex-shrink-0 border transition-all ${rememberMe ? "bg-blue-600 border-blue-600" : "border-[#2A3445] bg-transparent"}`}
-              >
-                {rememberMe && (
-                  <svg viewBox="0 0 12 12" fill="none" className="w-full h-full p-0.5">
-                    <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                )}
-              </button>
-              <span className="text-xs text-slate-400">Keep me signed in on this device</span>
             </div>
 
             {/* Submit */}

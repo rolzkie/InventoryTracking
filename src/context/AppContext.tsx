@@ -371,7 +371,7 @@ interface AppContextValue {
   getCategory: (id: string) => Category | undefined;
   getSupplier: (id: string) => Supplier | undefined;
   generateId: (prefix?: string) => string;
-  login: (email: string, password: string, remember?: boolean) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   forgotPassword: (email: string) => Promise<{ success: boolean; message: string }>;
   logout: () => Promise<void>;
   refreshOperationalData: () => Promise<void>;
@@ -416,20 +416,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    try {
-      const savedSession =
-        window.sessionStorage.getItem(AUTH_STORAGE_KEY) ??
-        window.localStorage.getItem(AUTH_STORAGE_KEY);
-      if (savedSession) {
-        const parsed = JSON.parse(savedSession) as { user?: User; token?: string };
-        if (parsed.user && parsed.token) dispatch({ type: "LOGIN", user: parsed.user });
-      }
-    } catch {
-      window.sessionStorage.removeItem(AUTH_STORAGE_KEY);
-      window.localStorage.removeItem(AUTH_STORAGE_KEY);
-    }
-    void refreshOperationalData().catch(() => undefined);
-  }, [refreshOperationalData]);
+    // Every new page load starts at the login screen. This also prevents a stale
+    // browser token from bypassing login after the backend/database restarts.
+    window.sessionStorage.removeItem(AUTH_STORAGE_KEY);
+    window.localStorage.removeItem(AUTH_STORAGE_KEY);
+  }, []);
 
   useEffect(() => {
     document.documentElement.classList.toggle("light-mode", !state.darkMode);
@@ -504,18 +495,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await refreshOperationalData();
   }, [refreshOperationalData]);
 
-  const login = useCallback(async (email: string, password: string, remember = false) => {
+  const login = useCallback(async (email: string, password: string) => {
     try {
       const session = await api.auth.login(email, password);
       const { user } = session;
       window.sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
-      if (remember) {
-        window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
-      } else {
-        window.localStorage.removeItem(AUTH_STORAGE_KEY);
-      }
       dispatch({ type: "LOGIN", user });
-      await refreshOperationalData();
+      void refreshOperationalData().catch(() => undefined);
       return { success: true };
     } catch (error) {
       return {

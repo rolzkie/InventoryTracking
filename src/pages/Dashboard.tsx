@@ -345,7 +345,7 @@ export default function Dashboard() {
                 { label: "Styling", value: "Tailwind CSS v4", icon: <Cpu size={12} /> },
                 { label: "Charts", value: "Chart.js + react-chartjs-2", icon: <TrendingUp size={12} /> },
                 { label: "Icons", value: "Lucide React", icon: <Package size={12} /> },
-                { label: "Backend", value: "Laravel 13 API", icon: <Database size={12} /> },
+                { label: "Backend", value: "Laravel 12 API", icon: <Database size={12} /> },
                 { label: "Database", value: "SQLite / MySQL", icon: <Database size={12} /> },
                 { label: "Version", value: "WarehouseIQ v2.4.0", icon: <GithubIcon size={12} /> },
               ].map((item) => (

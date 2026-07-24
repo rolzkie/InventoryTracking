@@ -46,8 +46,8 @@ Operational Laravel-backed modules:
 
 Requirements:
 
-- Node.js compatible with Vite 8
-- PHP 8.4.1 or newer
+- Node.js compatible with Vite 7
+- PHP 8.2 or newer
 - Composer
 
 Install and initialize:
@@ -60,20 +60,15 @@ php artisan migrate
 php artisan db:seed
 ```
 
-Run Laravel:
-
-```powershell
-cd backend
-php artisan serve
-```
-
-Run the React development server in another terminal:
+Start Laravel and the React development server together:
 
 ```powershell
 npm run dev
 ```
 
 Open `http://127.0.0.1:5173`. Vite proxies `/api` to Laravel at `http://127.0.0.1:8000`.
+The startup script automatically uses `C:\xampp\php\php.exe` when present. For
+another PHP installation, set `WAREHOUSEIQ_PHP_PATH` to its executable path.
 
 The checked-in local configuration uses `backend/database/database.sqlite`. To use
 MySQL, set `DB_CONNECTION=mysql` plus `DB_HOST`, `DB_PORT`, `DB_DATABASE`,
