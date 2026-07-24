@@ -7,8 +7,8 @@ interface LoginProps {
 }
 
 const DEMO_ACCOUNTS = [
-  { label: "Admin", email: "m.torres@erp.com", password: "admin123", role: "Administrator" },
-  { label: "Manager", email: "j.wong@erp.com", password: "manager123", role: "Logistics Manager" },
+  { label: "Admin", email: "AdminMiranda@.com", password: "admin123", role: "Administrator" },
+  { label: "Manager", email: "ManagerAnacta@.com", password: "manager123", role: "Logistics Manager" },
 ];
 
 export default function Login({ onLogin, onForgotPassword }: LoginProps) {
@@ -90,8 +90,8 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
             <Box size={20} className="text-white" />
           </div>
           <div>
-            <p className="text-lg font-bold text-slate-100 leading-tight">WarehouseIQ</p>
-            <p className="text-xs text-slate-500">Enterprise ERP Platform</p>
+            <p className="text-lg font-bold text-slate-100 leading-tight">Inventory and Warehouse</p>
+            <p className="text-xs text-slate-500">Management System</p>
           </div>
         </div>
 
@@ -104,11 +104,11 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
           <h1 className="text-5xl font-black text-slate-100 leading-tight mb-4">
             Inventory &<br />Warehouse<br />
             <span style={{ background: "linear-gradient(90deg, #3B82F6, #8B5CF6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              Intelligence
+              System
             </span>
           </h1>
           <p className="text-slate-400 text-base leading-relaxed max-w-sm">
-            Unified control over your entire supply chain — real-time tracking, automated alerts, and comprehensive reporting across all your warehouses.
+           Take full control of your inventory and warehouse operations with a centralized ERP solution. Monitor stock levels in real time, automate inventory processes, manage multiple warehouses, and generate insightful reports—all from one powerful dashboard.
           </p>
 
           {/* Feature pills */}
@@ -138,15 +138,15 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
         {/* Bottom quote */}
         <div className="relative p-4 rounded-2xl border border-[#2A3445] bg-[#1A2232]/50">
           <p className="text-sm text-slate-300 italic leading-relaxed">
-            "WarehouseIQ gave us complete visibility across all four facilities — stock alerts alone saved us thousands in waste."
+            "Efficiency begins with visibility—when every item is tracked, every decision becomes smarter."
           </p>
           <div className="flex items-center gap-3 mt-3">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold">
               MT
             </div>
             <div>
-              <p className="text-xs font-semibold text-slate-200">Michael Torres</p>
-              <p className="text-[10px] text-slate-500">Operations Director, WarehouseIQ Corp</p>
+              <p className="text-xs font-semibold text-slate-200">Errol Miranda</p>
+              <p className="text-[10px] text-slate-500">Operations Director,Inventory and Warehouse Management System</p>
             </div>
           </div>
         </div>

@@ -110,10 +110,10 @@ class DatabaseSeeder extends Seeder
         }
 
         $users = [
-            ['name' => 'Michael Torres', 'email' => 'm.torres@erp.com', 'password' => 'admin123', 'role' => 'admin', 'department' => 'Operations', 'active' => true],
-            ['name' => 'Jessica Wong', 'email' => 'j.wong@erp.com', 'password' => 'manager123', 'role' => 'manager', 'department' => 'Logistics', 'active' => true],
-            ['name' => 'David Kim', 'email' => 'd.kim@erp.com', 'password' => 'manager123', 'role' => 'manager', 'department' => 'Warehouse', 'active' => true],
-            ['name' => 'Amanda Rodriguez', 'email' => 'a.rodriguez@erp.com', 'password' => 'staff123', 'role' => 'staff', 'department' => 'Inventory', 'active' => true],
+            ['name' => 'Errol Miranda', 'email' => 'AdminMiranda@gmail.com', 'password' => 'admin123', 'role' => 'admin', 'department' => 'Operations', 'active' => true],
+            ['name' => 'Rolando Anacta', 'email' => 'ManagerAnacta@gmail.com', 'password' => 'manager123', 'role' => 'manager', 'department' => 'Logistics', 'active' => true],
+            ['name' => 'Thervin Ranehart Bandril', 'email' => 'Thervs@gmail.com', 'password' => 'manager123', 'role' => 'manager', 'department' => 'Warehouse', 'active' => true],
+            ['name' => 'Jesreel Domaanis', 'email' => 'a.rodriguez@erp.com', 'password' => 'staff123', 'role' => 'staff', 'department' => 'Inventory', 'active' => true],
             ['name' => 'Brian Chen', 'email' => 'b.chen@erp.com', 'password' => 'staff123', 'role' => 'staff', 'department' => 'Receiving', 'active' => true],
             ['name' => 'Sarah Johnson', 'email' => 's.johnson@erp.com', 'password' => 'staff123', 'role' => 'viewer', 'department' => 'Finance', 'active' => false],
         ];
