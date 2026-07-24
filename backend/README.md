@@ -2,7 +2,7 @@
 
 ## Inventory Tracking Laravel app
 
-This backend now serves the inventory SPA from Laravel itself. Use `php artisan serve` from this folder and open `http://127.0.0.1:8000`.
+This backend now serves the inventory SPA from Laravel itself. From the workspace root, use `npm start` and open `http://127.0.0.1:8001`.
 
 <p align="center">
 <a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>

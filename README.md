@@ -63,17 +63,12 @@ Start Laravel and the React development server together:
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173` on the server computer. To use another device on
-the same network, open the `Network` URL printed by Vite (for example,
-`http://192.168.1.20:5173`). Vite proxies `/api` to Laravel on the server
-computer, so no API URL needs to be changed on the other device.
+Open `http://127.0.0.1:5173`. Vite proxies `/api` to Laravel at
+`http://127.0.0.1:8001`, so no API URL needs to be configured.
 
-If Windows asks, allow Node.js and PHP through the firewall on **Private
-networks**. Do not use `localhost` on the other device: there, `localhost`
-means that other device rather than the server computer.
-
-The startup script automatically uses `C:\xampp\php\php.exe` when present. For
-another PHP installation, set `WAREHOUSEIQ_PHP_PATH` to its executable path.
+The startup script prefers a compatible PHP executable on `PATH` and falls back
+to XAMPP when needed. To choose a specific PHP installation, set
+`WAREHOUSEIQ_PHP_PATH` to its executable path.
 
 The checked-in local configuration uses `backend/database/database.sqlite`. To use
 MySQL, set `DB_CONNECTION=mysql` plus `DB_HOST`, `DB_PORT`, `DB_DATABASE`,
@@ -88,9 +83,8 @@ Build the React application:
 npm start
 ```
 
-Open `http://127.0.0.1:8000`, or use one of the printed `Laravel LAN` URLs on
-another device. Laravel serves the generated `dist/index.html` and assets while
-continuing to handle `/api`.
+Open `http://127.0.0.1:8001`. Laravel serves the generated `dist/index.html`
+and assets while continuing to handle `/api`.
 
 Only one computer should host the server/database at a time. Other devices
 should connect to that host's LAN URL. Do not run a synchronized SQLite file
