@@ -232,14 +232,14 @@ export default function Users() {
                   </Td>
                   <Td><span className="text-xs text-slate-500">{user.createdAt}</span></Td>
                   <Td>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button disabled={!canModify} onClick={() => openEdit(user)} className="p-1.5 rounded-lg text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title={canModify ? "Edit" : "Administrators can only be edited by another administrator"}>
+                    <div className="flex items-center gap-1">
+                      <button disabled={!canModify} onClick={() => openEdit(user)} className="p-1.5 rounded-lg border border-[#334155]/70 bg-[#0B1220]/70 text-slate-300 transition-all hover:border-amber-500/60 hover:bg-amber-500/10 hover:text-amber-300 hover:shadow-[0_0_14px_rgba(245,158,11,0.28)] focus-visible:shadow-[0_0_14px_rgba(245,158,11,0.28)] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:shadow-none" title={canModify ? "Edit" : "Administrators can only be edited by another administrator"}>
                         <Edit2 size={13} />
                       </button>
-                      <button disabled={!canModify || isCurrentUser} onClick={() => void toggleActive(user)} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title={isCurrentUser ? "You cannot deactivate your own account" : user.active ? "Deactivate" : "Activate"}>
+                      <button disabled={!canModify || isCurrentUser} onClick={() => void toggleActive(user)} className="p-1.5 rounded-lg border border-[#334155]/70 bg-[#0B1220]/70 text-slate-300 transition-all hover:border-blue-500/60 hover:bg-blue-500/10 hover:text-blue-300 hover:shadow-[0_0_14px_rgba(59,130,246,0.28)] focus-visible:shadow-[0_0_14px_rgba(59,130,246,0.28)] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:shadow-none" title={isCurrentUser ? "You cannot deactivate your own account" : user.active ? "Deactivate" : "Activate"}>
                         {user.active ? <UserX size={13} /> : <UserCheck size={13} />}
                       </button>
-                      <button onClick={() => setDeleteId(user.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title={isCurrentUser ? "You cannot delete your own account" : "Delete"} disabled={!canModify || isCurrentUser}>
+                      <button onClick={() => setDeleteId(user.id)} className="p-1.5 rounded-lg border border-[#334155]/70 bg-[#0B1220]/70 text-slate-300 transition-all hover:border-red-500/60 hover:bg-red-500/10 hover:text-red-300 hover:shadow-[0_0_14px_rgba(239,68,68,0.28)] focus-visible:shadow-[0_0_14px_rgba(239,68,68,0.28)] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:shadow-none" title={isCurrentUser ? "You cannot delete your own account" : "Delete"} disabled={!canModify || isCurrentUser}>
                         <Trash2 size={13} />
                       </button>
                     </div>

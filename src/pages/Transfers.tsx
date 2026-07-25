@@ -233,7 +233,7 @@ export default function Transfers() {
                     <Td><span className="text-xs text-slate-400">{transfer.requestedBy}</span></Td>
                     <Td><StatusBadge status={transfer.status} /></Td>
                     <Td>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-1">
                         {transfer.status === "pending" && (
                           <>
                             <Button variant="success" size="sm" onClick={() => handleApprove(transfer)}>Approve</Button>

@@ -197,17 +197,17 @@ export default function Warehouses() {
                   <div className="flex gap-1">
                     <button
                       onClick={() => { setSelectedWarehouse(wh); setShowDetailModal(true); }}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"
+                      className="p-1.5 rounded-lg border border-[#334155]/70 bg-[#0B1220]/70 text-slate-300 transition-all hover:border-blue-500/60 hover:bg-blue-500/10 hover:text-blue-300 hover:shadow-[0_0_14px_rgba(59,130,246,0.28)] focus-visible:shadow-[0_0_14px_rgba(59,130,246,0.28)]"
                     >
                       <BarChart2 size={13} />
                     </button>
                     <button
                       onClick={() => { setSelectedWarehouse(wh); setWhForm({ name: wh.name, location: wh.location, address: wh.address, capacity: wh.capacity, used: wh.used, manager: wh.manager }); setFormErrors({}); setShowEditModal(true); }}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
+                      className="p-1.5 rounded-lg border border-[#334155]/70 bg-[#0B1220]/70 text-slate-300 transition-all hover:border-amber-500/60 hover:bg-amber-500/10 hover:text-amber-300 hover:shadow-[0_0_14px_rgba(245,158,11,0.28)] focus-visible:shadow-[0_0_14px_rgba(245,158,11,0.28)]"
                     >
                       <Edit2 size={13} />
                     </button>
-                    <button onClick={() => setDeleteId(wh.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors">
+                    <button onClick={() => setDeleteId(wh.id)} className="p-1.5 rounded-lg border border-[#334155]/70 bg-[#0B1220]/70 text-slate-300 transition-all hover:border-red-500/60 hover:bg-red-500/10 hover:text-red-300 hover:shadow-[0_0_14px_rgba(239,68,68,0.28)] focus-visible:shadow-[0_0_14px_rgba(239,68,68,0.28)]">
                       <Trash2 size={13} />
                     </button>
                   </div>
@@ -310,7 +310,7 @@ export default function Warehouses() {
                           setAssignItemId(item.id);
                           setShowAssignModal(true);
                         }}
-                        className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all"
+                        className="inline-flex items-center gap-1 rounded-lg border border-blue-500/30 bg-blue-500/10 px-2 py-1 text-xs text-blue-300 transition-all hover:border-blue-400/70 hover:bg-blue-500/20 hover:text-blue-200 hover:shadow-[0_0_14px_rgba(59,130,246,0.28)] focus-visible:shadow-[0_0_14px_rgba(59,130,246,0.28)]"
                       >
                         <ArrowLeftRight size={11} /> {item.warehouseId ? "Use Transfer" : "Assign"}
                       </button>

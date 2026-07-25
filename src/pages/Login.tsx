@@ -170,7 +170,7 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
             <Box size={20} className="text-white" />
           </div>
-          <p className="text-lg font-bold text-slate-100">WarehouseIQ</p>
+          <p className="text-lg font-bold text-slate-100">Inventory Warehouse Management System </p>
         </div>
 
         <div className="w-full max-w-md">

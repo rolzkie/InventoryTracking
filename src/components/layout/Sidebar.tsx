@@ -58,7 +58,7 @@ export default function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose:
             <Box size={16} className="text-white" />
           </div>
           <div>
-            <p className="text-sm font-bold text-slate-100 leading-tight">WarehouseIQ</p>
+            <p className="text-sm font-bold text-slate-100 leading-tight">IWM System</p>
             <p className="text-[10px] text-slate-500">ERP System v2.4</p>
           </div>
         </div>

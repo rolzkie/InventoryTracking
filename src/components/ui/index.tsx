@@ -50,11 +50,11 @@ export function StatusBadge({ status }: { status: string }) {
 // ─── Button ──────────────────────────────────────────────────────────────────
 type BtnVariant = "primary" | "secondary" | "danger" | "ghost" | "success";
 const btnVariants: Record<BtnVariant, string> = {
-  primary: "bg-blue-600 hover:bg-blue-500 text-white",
-  secondary: "bg-[#2A3445] hover:bg-[#334155] text-slate-200 border border-[#2A3445]",
-  danger: "bg-red-600 hover:bg-red-500 text-white",
-  ghost: "bg-transparent hover:bg-[#2A3445] text-slate-300",
-  success: "bg-emerald-600 hover:bg-emerald-500 text-white",
+  primary: "bg-blue-600 hover:bg-blue-500 text-white hover:shadow-[0_0_18px_rgba(59,130,246,0.38)] focus-visible:shadow-[0_0_18px_rgba(59,130,246,0.38)]",
+  secondary: "bg-[#2A3445] hover:bg-[#334155] text-slate-200 border border-[#2A3445] hover:border-blue-500/50 hover:shadow-[0_0_16px_rgba(59,130,246,0.22)] focus-visible:shadow-[0_0_16px_rgba(59,130,246,0.22)]",
+  danger: "bg-red-600 hover:bg-red-500 text-white hover:shadow-[0_0_18px_rgba(239,68,68,0.38)] focus-visible:shadow-[0_0_18px_rgba(239,68,68,0.38)]",
+  ghost: "bg-transparent hover:bg-[#2A3445] text-slate-300 hover:text-white hover:shadow-[0_0_14px_rgba(148,163,184,0.18)] focus-visible:shadow-[0_0_14px_rgba(148,163,184,0.18)]",
+  success: "bg-emerald-600 hover:bg-emerald-500 text-white hover:shadow-[0_0_18px_rgba(16,185,129,0.38)] focus-visible:shadow-[0_0_18px_rgba(16,185,129,0.38)]",
 };
 
 export function Button({
@@ -80,7 +80,7 @@ export function Button({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex items-center gap-2 rounded-lg font-medium transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed ${btnVariants[variant]} ${sizes[size]} ${className}`}
+      className={`inline-flex items-center gap-2 rounded-lg font-medium transition-all duration-150 hover:-translate-y-0.5 focus-visible:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none ${btnVariants[variant]} ${sizes[size]} ${className}`}
     >
       {children}
     </button>
