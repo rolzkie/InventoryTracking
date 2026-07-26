@@ -102,6 +102,20 @@ export default function Transfers() {
   };
 
   const handleComplete = async (transfer: Transfer) => {
+    const item = state.items.find((entry) => entry.id === transfer.itemId);
+    if (!item) {
+      showToast("Transfer item could not be found", "error");
+      return;
+    }
+    if (item.warehouseId !== transfer.fromWarehouseId) {
+      showToast("Item is no longer in the source warehouse", "error");
+      return;
+    }
+    if (item.quantity < transfer.quantity) {
+      showToast(`Only ${item.quantity} units available in the source warehouse`, "error");
+      return;
+    }
+
     try {
       await updateTransfer({
         ...transfer,
@@ -120,6 +134,7 @@ export default function Transfers() {
     try {
       await updateTransfer({ ...transfer, status: "cancelled" });
       showToast("Transfer cancelled", "warning");
+      setCancelId(null);
     } catch (error) {
       showToast(error instanceof Error ? error.message : "Unable to cancel transfer", "error");
     }

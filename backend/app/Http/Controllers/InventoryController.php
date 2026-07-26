@@ -5,10 +5,16 @@ namespace App\Http\Controllers;
 use App\Models\InventoryItem;
 use App\Models\Warehouse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
 class InventoryController extends Controller
 {
+    protected function supportsUnitColumn(): bool
+    {
+        return Schema::hasColumn('inventory_items', 'unit');
+    }
+
     public function index()
     {
         return response()->json(
@@ -71,7 +77,7 @@ class InventoryController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'category' => 'required|string|max:100',
-            'unit' => 'required|string|max:50',
+            'unit' => $this->supportsUnitColumn() ? 'required|string|max:50' : 'nullable|string|max:50',
             'quantity' => 'sometimes|integer|min:0',
             'reorderPoint' => 'required|integer|min:0',
             'maxStock' => 'sometimes|integer|min:0',
@@ -80,12 +86,11 @@ class InventoryController extends Controller
             'expiryDate' => 'nullable|date',
         ]);
 
-        $item = InventoryItem::create([
+        $payload = [
             'sku' => $validated['sku'],
             'name' => $validated['name'],
             'description' => $validated['description'] ?? '',
             'category' => $validated['category'],
-            'unit' => $validated['unit'],
             'reorderPoint' => $validated['reorderPoint'],
             'maxStock' => $validated['maxStock'] ?? 0,
             'unitPrice' => $validated['unitPrice'],
@@ -96,7 +101,13 @@ class InventoryController extends Controller
             'status' => 'unassigned',
             'lastRestocked' => null,
             'expiryDate' => $validated['expiryDate'] ?? null,
-        ]);
+        ];
+
+        if ($this->supportsUnitColumn()) {
+            $payload['unit'] = $validated['unit'] ?? 'pcs';
+        }
+
+        $item = InventoryItem::create($payload);
 
 
         return response()->json($item->fresh('warehouse')->toArray() + ['warehouseName' => $item->warehouse?->name], 201);
@@ -121,7 +132,7 @@ class InventoryController extends Controller
             'name' => 'sometimes|string|max:255',
             'description' => 'nullable|string',
             'category' => 'sometimes|string|max:100',
-            'unit' => 'sometimes|string|max:50',
+            'unit' => $this->supportsUnitColumn() ? 'sometimes|string|max:50' : 'nullable|string|max:50',
             'quantity' => 'sometimes|integer|min:0',
             'reorderPoint' => 'sometimes|integer|min:0',
             'maxStock' => 'sometimes|integer|min:0',
@@ -130,6 +141,10 @@ class InventoryController extends Controller
             'expiryDate' => 'nullable|date',
         ]);
 
+
+        if (!$this->supportsUnitColumn()) {
+            unset($validated['unit']);
+        }
 
         $inventory->update($validated);
 

@@ -34,7 +34,9 @@ class ReorderRequestController extends Controller
             return response()->json(['message' => 'An open reorder already exists for this item.'], 422);
         }
 
-        return response()->json(ReorderRequest::create($validated), 201);
+        $validated['status'] = 'pending';
+
+        return response()->json(ReorderRequest::create($validated)->fresh(['item', 'supplier']), 201);
     }
 
     public function update(Request $request, ReorderRequest $reorder)

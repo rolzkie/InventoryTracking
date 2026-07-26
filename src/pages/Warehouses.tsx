@@ -123,6 +123,29 @@ export default function Warehouses() {
 
   const unassignedItems = state.items.filter((i) => !i.warehouseId);
   const warehouseItems = (whId: string) => state.items.filter((i) => i.warehouseId === whId);
+  const warehouseToDelete = deleteId ? state.warehouses.find((w) => w.id === deleteId) : null;
+  const warehouseToDeleteItems = deleteId ? warehouseItems(deleteId) : [];
+
+  const handleDeleteWarehouse = async () => {
+    if (!deleteId) return;
+    const warehouse = state.warehouses.find((w) => w.id === deleteId);
+    if (warehouseToDeleteItems.length > 0) {
+      showToast("Move or remove inventory before deleting this warehouse", "error");
+      return;
+    }
+
+    try {
+      await deleteWarehouse(deleteId);
+      showToast(`Warehouse "${warehouse?.name ?? "selected"}" deleted`, "success");
+      setDeleteId(null);
+      if (selectedWarehouse?.id === deleteId) {
+        setSelectedWarehouse(null);
+        setShowDetailModal(false);
+      }
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Unable to delete warehouse", "error");
+    }
+  };
 
   const zoneTypeColor: Record<string, string> = {
     storage: "text-blue-400 bg-blue-500/10",
@@ -468,13 +491,13 @@ export default function Warehouses() {
       <ConfirmDialog
         isOpen={!!deleteId}
         onClose={() => setDeleteId(null)}
-        onConfirm={() => {
-          void deleteWarehouse(deleteId!)
-            .then(() => showToast("Warehouse deleted", "warning"))
-            .catch((error) => showToast(error instanceof Error ? error.message : "Unable to delete warehouse", "error"));
-        }}
+        onConfirm={() => void handleDeleteWarehouse()}
         title="Delete Warehouse"
-        message="Are you sure? Items in this warehouse will become unassigned."
+        message={
+          warehouseToDeleteItems.length > 0
+            ? `"${warehouseToDelete?.name ?? "This warehouse"}" contains ${warehouseToDeleteItems.length} inventory item${warehouseToDeleteItems.length === 1 ? "" : "s"} and cannot be deleted. Move or remove the inventory first.`
+            : `Are you sure you want to delete "${warehouseToDelete?.name ?? "this warehouse"}"? This action cannot be undone.`
+        }
         confirmLabel="Delete Warehouse"
         variant="danger"
       />

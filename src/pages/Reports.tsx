@@ -62,13 +62,13 @@ export default function Reports() {
   const handleGenerateReorder = async (itemId: string) => {
     const item = state.items.find((i) => i.id === itemId);
     if (!item) return;
-    const existingPending = state.reorderRequests.find((r) => r.itemId === itemId && r.status === "pending");
-    if (existingPending) { showToast("A pending reorder already exists for this item", "warning"); return; }
+    const existingOpen = state.reorderRequests.find((r) => r.itemId === itemId && r.status !== "received");
+    if (existingOpen) { showToast("An open reorder already exists for this item", "warning"); return; }
     const reorder: ReorderRequest = {
       id: generateId("ro"),
       itemId,
       supplierId: item.supplierId ?? state.suppliers[0]?.id ?? "",
-      quantity: item.maxStock - item.quantity,
+      quantity: Math.max(1, item.maxStock - item.quantity),
       status: "pending",
       createdAt: new Date().toISOString().split("T")[0],
       estimatedDelivery: new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0],
@@ -364,7 +364,7 @@ export default function Reports() {
                 const wh = state.warehouses.find((w) => w.id === item.warehouseId);
                 const sup = state.suppliers.find((s) => s.id === item.supplierId);
                 const shortage = item.reorderPoint - item.quantity;
-                const hasReorder = state.reorderRequests.some((r) => r.itemId === item.id && r.status === "pending");
+                const hasReorder = state.reorderRequests.some((r) => r.itemId === item.id && r.status !== "received");
                 return (
                   <tr key={item.id} className="hover:bg-[#1E2A3A]/50 transition-colors">
                     <Td><span className="font-mono text-xs text-blue-400">{item.sku}</span></Td>

@@ -100,6 +100,12 @@ class WarehouseController extends Controller
 
     public function destroy(Warehouse $warehouse)
     {
+        if ($warehouse->inventoryItems()->exists()) {
+            return response()->json([
+                'error' => 'This warehouse contains inventory and cannot be deleted. Move or remove its items first.',
+            ], 422);
+        }
+
         $hasTransferHistory = Transfer::where('sourceWarehouse', $warehouse->id)
             ->orWhere('destinationWarehouse', $warehouse->id)
             ->exists();
@@ -112,14 +118,6 @@ class WarehouseController extends Controller
         }
 
         DB::transaction(function () use ($warehouse) {
-            $warehouse->inventoryItems()->update([
-                'warehouseId' => null,
-                'storageLocation' => null,
-                'zone' => null,
-                'rack' => null,
-                'shelf' => null,
-                'assignedAt' => null,
-            ]);
             $warehouse->delete();
         });
 
