@@ -13,6 +13,8 @@ import {
 import { Line, Doughnut } from "react-chartjs-2";
 import {
   Package,
+  PackageMinus,
+  PackagePlus,
   Warehouse,
   AlertTriangle,
   DollarSign,
@@ -317,7 +319,11 @@ export default function Dashboard() {
               return (
                 <div key={txn.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-[#0B1220]/50 hover:bg-[#0B1220] transition-colors">
                   <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${txn.type === "stock-in" ? "bg-emerald-500/20" : "bg-red-500/20"}`}>
-                    <TrendingUp size={12} className={txn.type === "stock-in" ? "text-emerald-400" : "text-red-400 rotate-180"} />
+                    {txn.type === "stock-in" ? (
+                      <PackagePlus size={12} className="text-emerald-400" />
+                    ) : (
+                      <PackageMinus size={12} className="text-red-400" />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium text-slate-200 truncate">{item?.name ?? "Unknown"}</p>

@@ -8,7 +8,7 @@ const backendDir = path.resolve(__dirname, "..", "backend");
 const envPath = path.join(backendDir, ".env");
 const autoloadPath = path.join(backendDir, "vendor", "autoload.php");
 const host = process.env.WAREHOUSEIQ_HOST || "127.0.0.1";
-const port = process.env.WAREHOUSEIQ_PORT || "8001";
+const port = process.env.WAREHOUSEIQ_PORT || "8000";
 
 function canRun(command) {
   const result = spawnSync(command, ["-r", "echo PHP_VERSION;"], {

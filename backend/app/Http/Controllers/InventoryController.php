@@ -4,12 +4,22 @@ namespace App\Http\Controllers;
 
 use App\Models\InventoryItem;
 use App\Models\Warehouse;
+use App\Services\InventoryNotificationService;
+use App\Services\InventorySynchronizationService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
 class InventoryController extends Controller
 {
+    public function __construct(
+        protected InventoryNotificationService $notifications,
+        protected InventorySynchronizationService $sync,
+    )
+    {
+    }
+
     protected function supportsUnitColumn(): bool
     {
         return Schema::hasColumn('inventory_items', 'unit');
@@ -107,8 +117,12 @@ class InventoryController extends Controller
             $payload['unit'] = $validated['unit'] ?? 'pcs';
         }
 
-        $item = InventoryItem::create($payload);
+        $item = DB::transaction(function () use ($payload) {
+            $item = InventoryItem::create($payload);
+            $this->notifications->inventoryUpdated($item);
 
+            return $item;
+        });
 
         return response()->json($item->fresh('warehouse')->toArray() + ['warehouseName' => $item->warehouse?->name], 201);
     }
@@ -146,11 +160,11 @@ class InventoryController extends Controller
             unset($validated['unit']);
         }
 
-        $inventory->update($validated);
-
-        // Trigger model saving hooks to recompute status (including expiry-based status)
-        $inventory->refresh();
-
+        DB::transaction(function () use ($inventory, $validated) {
+            $inventory = InventoryItem::whereKey($inventory->id)->lockForUpdate()->firstOrFail();
+            $inventory->update($validated);
+            $this->notifications->inventoryUpdated($inventory);
+        });
 
         return response()->json($inventory->fresh('warehouse')->toArray() + ['warehouseName' => $inventory->warehouse?->name]);
     }
@@ -167,14 +181,22 @@ class InventoryController extends Controller
             'delta' => 'required|integer',
         ]);
 
-        $item = InventoryItem::findOrFail($id);
+        $item = DB::transaction(function () use ($id, $validated) {
+            $item = InventoryItem::whereKey($id)->lockForUpdate()->firstOrFail();
 
-        if (!$item->warehouseId) {
+            if (!$item->warehouseId) {
+                return null;
+            }
+
+            $item->quantity = max(0, $item->quantity + $validated['delta']);
+            $item->save();
+
+            return $this->sync->reconcileItem($item);
+        });
+
+        if (!$item) {
             return response()->json(['error' => 'Cannot adjust stock for an unassigned item. Assign a warehouse first.'], 422);
         }
-
-        $item->quantity = max(0, $item->quantity + $validated['delta']);
-        $item->save();
 
         return response()->json($item->fresh('warehouse')->toArray() + ['warehouseName' => $item->warehouse?->name]);
     }
@@ -189,26 +211,30 @@ class InventoryController extends Controller
             'shelf' => 'nullable|string|max:100',
         ]);
 
-        $item = InventoryItem::findOrFail($id);
+        $item = DB::transaction(function () use ($id, $validated) {
+            $item = InventoryItem::whereKey($id)->lockForUpdate()->firstOrFail();
 
-        if ($item->warehouseId && $item->warehouseId != $validated['warehouseId']) {
+            if ($item->warehouseId && $item->warehouseId != $validated['warehouseId']) {
+                return null;
+            }
+
+            $item->warehouseId = $validated['warehouseId'];
+            $item->storageLocation = $validated['storageLocation'] ?? null;
+            $item->zone = $validated['zone'] ?? null;
+            $item->rack = $validated['rack'] ?? null;
+            $item->shelf = $validated['shelf'] ?? null;
+            $item->assignedAt = now();
+            $item->save();
+
+            $item = $this->sync->reconcileItem($item, false);
+            $this->notifications->inventoryAssigned($item);
+
+            return $item;
+        });
+
+        if (!$item) {
             return response()->json(['error' => 'Item already assigned to another warehouse. Use transfer instead.'], 422);
         }
-
-        $item->warehouseId = $validated['warehouseId'];
-        $item->storageLocation = $validated['storageLocation'] ?? null;
-        $item->zone = $validated['zone'] ?? null;
-        $item->rack = $validated['rack'] ?? null;
-        $item->shelf = $validated['shelf'] ?? null;
-        $item->assignedAt = now();
-        if ($item->quantity === 0) {
-            $item->status = 'out_of_stock';
-        } elseif ($item->quantity < $item->reorderPoint) {
-            $item->status = 'low_stock';
-        } else {
-            $item->status = 'in_stock';
-        }
-        $item->save();
 
         return response()->json($item->fresh('warehouse')->toArray() + ['warehouseName' => $item->warehouse?->name]);
     }

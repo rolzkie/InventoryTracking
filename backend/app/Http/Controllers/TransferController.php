@@ -8,9 +8,18 @@ use App\Models\Warehouse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use App\Services\InventoryNotificationService;
+use App\Services\InventorySynchronizationService;
 
 class TransferController extends Controller
 {
+    public function __construct(
+        protected InventoryNotificationService $notifications,
+        protected InventorySynchronizationService $sync,
+    )
+    {
+    }
+
     public function page(Request $request)
     {
         $search = trim((string) $request->query('search', ''));
@@ -82,14 +91,15 @@ class TransferController extends Controller
         $item->save();
     }
 
-    protected function createOrUpdateDestinationItem(InventoryItem $sourceItem, int $destinationWarehouseId, int $quantity, Transfer $transfer): void
+    protected function createOrUpdateDestinationItem(InventoryItem $sourceItem, int $destinationWarehouseId, int $quantity, Transfer $transfer): ?InventoryItem
     {
         if ($quantity <= 0) {
-            return;
+            return null;
         }
 
         $destinationItem = InventoryItem::where('sku', $sourceItem->sku)
             ->where('warehouseId', $destinationWarehouseId)
+            ->lockForUpdate()
             ->first();
 
         if ($destinationItem) {
@@ -101,7 +111,7 @@ class TransferController extends Controller
             $destinationItem->shelf = $transfer->toShelf ?: $destinationItem->shelf;
             $destinationItem->assignedAt = $destinationItem->assignedAt ?: now();
             $destinationItem->save();
-            return;
+            return $destinationItem;
         }
 
         $payload = [
@@ -128,15 +138,15 @@ class TransferController extends Controller
             $payload['unit'] = $sourceItem->unit ?? 'pcs';
         }
 
-        InventoryItem::create($payload);
+        return InventoryItem::create($payload);
     }
 
-    protected function applyStatusTransition(Transfer $transfer, string $oldStatus, string $newStatus): void
+    protected function applyStatusTransition(Transfer $transfer, string $oldStatus, string $newStatus): array
     {
         $item = $this->findItem($transfer->itemId);
 
         if ($oldStatus === $newStatus) {
-            return;
+            return [];
         }
 
         if ($oldStatus !== 'completed' && $newStatus === 'completed') {
@@ -145,8 +155,12 @@ class TransferController extends Controller
             }
 
             $this->decrementSourceQuantity($item, $transfer->quantity);
-            $this->createOrUpdateDestinationItem($item, $transfer->destinationWarehouse, $transfer->quantity, $transfer);
+            $destinationItem = $this->createOrUpdateDestinationItem($item, $transfer->destinationWarehouse, $transfer->quantity, $transfer);
+
+            return array_values(array_filter([$item, $destinationItem]));
         }
+
+        return [];
     }
 
     public function index()
@@ -206,11 +220,18 @@ class TransferController extends Controller
                 'createdAt' => now(),
             ]);
 
-            $this->applyStatusTransition($transfer, 'pending', $transfer->status);
+            $affectedItems = $this->applyStatusTransition($transfer, 'pending', $transfer->status);
 
             if ($transfer->status === 'completed') {
+                foreach ($affectedItems as $affectedItem) {
+                    $this->sync->reconcileItem($affectedItem, false);
+                }
                 $transfer->completedAt = now();
                 $transfer->save();
+                $this->notifications->transferCompleted($transfer->fresh(['item', 'sourceWh', 'destinationWh']));
+                foreach ($affectedItems as $affectedItem) {
+                    $this->notifications->stockAlertChanged($affectedItem);
+                }
             }
 
             return response()->json($transfer->fresh(['item', 'sourceWh', 'destinationWh']), 201);
@@ -240,14 +261,24 @@ class TransferController extends Controller
                     return response()->json(['error' => 'Completed transfers cannot be changed.'], 422);
                 }
 
-                $this->applyStatusTransition($transfer, $oldStatus, $newStatus);
+                $affectedItems = $this->applyStatusTransition($transfer, $oldStatus, $newStatus);
                 $transfer->fill($validated);
 
                 if ($newStatus === 'completed' && !$transfer->completedAt) {
+                    foreach ($affectedItems as $affectedItem) {
+                        $this->sync->reconcileItem($affectedItem, false);
+                    }
                     $transfer->completedAt = now();
                 }
 
                 $transfer->save();
+
+                if ($oldStatus !== 'completed' && $newStatus === 'completed') {
+                    $this->notifications->transferCompleted($transfer->fresh(['item', 'sourceWh', 'destinationWh']));
+                    foreach ($affectedItems as $affectedItem) {
+                        $this->notifications->stockAlertChanged($affectedItem);
+                    }
+                }
 
                 return response()->json($transfer->fresh(['item', 'sourceWh', 'destinationWh']));
             });

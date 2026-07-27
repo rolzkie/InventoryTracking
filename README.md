@@ -63,8 +63,8 @@ Start Laravel and the React development server together:
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173`. Vite proxies `/api` to Laravel at
-`http://127.0.0.1:8001`, so no API URL needs to be configured.
+<!-- Open `http://127.0.0.1:5173`. Vite proxies `/api` to Laravel at
+`http://127.0.0.1:8000`, so no API URL needs to be configured. -->
 
 The startup script prefers a compatible PHP executable on `PATH` and falls back
 to XAMPP when needed. To choose a specific PHP installation, set
@@ -83,7 +83,7 @@ Build the React application:
 npm start
 ```
 
-Open `http://127.0.0.1:8001`. Laravel serves the generated `dist/index.html`
+Open `http://127.0.0.1:8000`. Laravel serves the generated `dist/index.html`
 and assets while continuing to handle `/api`.
 
 Only one computer should host the server/database at a time. Other devices

@@ -63,17 +63,20 @@ function dateOnly(value: unknown): string {
   return typeof value === "string" && value ? value.slice(0, 10) : "";
 }
 
-function itemStatus(item: {
-  quantity: number;
-  reorderPoint: number;
-  maxStock: number;
-  expirationDate: string | null;
-}): InventoryItem["status"] {
-  if (item.quantity === 0) return "out-of-stock";
-  if (item.expirationDate && new Date(item.expirationDate) <= new Date()) return "expired";
-  if (item.quantity <= item.reorderPoint) return "low-stock";
-  if (item.maxStock > 0 && item.quantity > item.maxStock) return "overstock";
-  return "in-stock";
+function normalizeItemStatus(rawStatus: unknown): InventoryItem["status"] {
+  const statusMap: Record<string, InventoryItem["status"]> = {
+    in_stock: "in-stock",
+    "in-stock": "in-stock",
+    low_stock: "low-stock",
+    "low-stock": "low-stock",
+    out_of_stock: "out-of-stock",
+    "out-of-stock": "out-of-stock",
+    overstock: "overstock",
+    expired: "expired",
+    unassigned: "out-of-stock",
+  };
+
+  return statusMap[String(rawStatus ?? "in_stock")] ?? "in-stock";
 }
 
 export function normalizeWarehouse(raw: ApiRecord): Warehouse {
@@ -101,7 +104,7 @@ export function normalizeItem(raw: ApiRecord, categories: Category[]): Inventory
   const reorderPoint = Number(raw.reorderPoint ?? 0);
   const maxStock = Number(raw.maxStock ?? Math.max(reorderPoint * 5, quantity, 1));
   const expirationDate = raw.expiryDate ? dateOnly(raw.expiryDate) : null;
-  const item = {
+  return {
     id: String(raw.id ?? ""),
     sku: String(raw.sku ?? ""),
     name: String(raw.name ?? ""),
@@ -114,13 +117,12 @@ export function normalizeItem(raw: ApiRecord, categories: Category[]): Inventory
     expirationDate,
     unitCost: Number(raw.unitPrice ?? 0),
     supplierId: raw.supplierId == null ? null : String(raw.supplierId),
-    status: "in-stock" as InventoryItem["status"],
+    status: normalizeItemStatus(raw.status),
     description: String(raw.description ?? ""),
     unit: String(raw.unit ?? "pcs"),
     createdAt: dateOnly(raw.created_at ?? raw.createdAt),
     updatedAt: dateOnly(raw.updated_at ?? raw.updatedAt),
   };
-  return { ...item, status: itemStatus(item) };
 }
 
 export function normalizeTransaction(raw: ApiRecord): StockTransaction {
@@ -321,6 +323,7 @@ export const api = {
       }).then(normalizeReorder),
   },
   notifications: {
+    list: () => request<ApiRecord[]>("/notifications").then((rows) => rows.map(normalizeNotification)),
     markRead: (id: string) =>
       request<ApiRecord>(`/notifications/${id}/read`, { method: "PATCH" }).then(normalizeNotification),
     markAllRead: () => request<{ ok: boolean }>("/notifications/read-all", { method: "PATCH" }),

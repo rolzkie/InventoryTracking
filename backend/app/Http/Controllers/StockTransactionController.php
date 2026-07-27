@@ -8,9 +8,18 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use App\Models\Warehouse;
+use App\Services\InventoryNotificationService;
+use App\Services\InventorySynchronizationService;
 
 class StockTransactionController extends Controller
 {
+    public function __construct(
+        protected InventoryNotificationService $notifications,
+        protected InventorySynchronizationService $sync,
+    )
+    {
+    }
+
     public function page(Request $request)
     {
         $warehouses = Warehouse::all(['id', 'name']);
@@ -101,7 +110,7 @@ class StockTransactionController extends Controller
             }
             $item->save();
 
-            return StockTransaction::create([
+            $transaction = StockTransaction::create([
                 'itemId' => $validated['itemId'],
                 'warehouseId' => $validated['warehouseId'],
                 'transactionType' => $validated['transactionType'],
@@ -115,6 +124,11 @@ class StockTransactionController extends Controller
                 'notes' => $validated['notes'] ?? '',
                 'createdAt' => now(),
             ]);
+
+            $this->sync->reconcileItem($item, false);
+            $this->notifications->stockTransactionCreated($transaction->fresh(['item', 'warehouse']));
+
+            return $transaction;
         });
 
         return response()->json($transaction->fresh(['item', 'warehouse']), 201);
@@ -143,10 +157,12 @@ class StockTransactionController extends Controller
         $newQuantity = $validated['quantity'] ?? $transaction->quantity;
 
         DB::transaction(function () use ($validated, $transaction, $oldTransaction, $newItemId, $newWarehouseId, $newType, $newQuantity) {
+            $affectedItemIds = collect();
             $changedStock = $newItemId !== $oldTransaction->itemId || $newWarehouseId !== $oldTransaction->warehouseId || $newType !== $oldTransaction->transactionType || $newQuantity !== $oldTransaction->quantity;
 
             if ($changedStock) {
                 $itemIds = collect([$oldTransaction->itemId, $newItemId])->unique()->sort()->values();
+                $affectedItemIds = $itemIds;
                 $lockedItems = InventoryItem::whereIn('id', $itemIds)->lockForUpdate()->get()->keyBy('id');
                 $oldItem = $lockedItems->get($oldTransaction->itemId);
                 $newItem = $lockedItems->get($newItemId);
@@ -186,6 +202,8 @@ class StockTransactionController extends Controller
             }
 
             $transaction->update($validated);
+
+            $affectedItemIds->each(fn ($itemId) => $this->sync->reconcileItemId((int) $itemId));
         });
 
         return response()->json($transaction->fresh(['item', 'warehouse']));
@@ -202,6 +220,7 @@ class StockTransactionController extends Controller
                     $item->quantity += $transaction->quantity;
                 }
                 $item->save();
+                $this->sync->reconcileItem($item);
             }
             $transaction->delete();
         });

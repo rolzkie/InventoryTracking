@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, TrendingUp, TrendingDown, Filter, Calendar, AlertCircle } from "lucide-react";
+import { PackageMinus, PackagePlus, Filter, Calendar, AlertCircle } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import type { StockTransaction } from "../types";
 import {
@@ -142,10 +142,10 @@ export default function StockTransactions() {
         actions={
           <div className="flex gap-2">
             <Button variant="success" onClick={() => { setInForm({ itemId: "", quantity: 0, supplierId: "", referenceNumber: `PO-${Date.now().toString().slice(-6)}`, notes: "", unitCost: 0, expirationDate: "" }); setInErrors({}); setShowInModal(true); }}>
-              <TrendingUp size={15} /> Stock In
+              <PackagePlus size={15} /> Stock In
             </Button>
             <Button variant="danger" onClick={() => { setOutForm({ itemId: "", quantity: 0, purpose: "sales", referenceNumber: `SO-${Date.now().toString().slice(-6)}`, notes: "" }); setOutErrors({}); setShowOutModal(true); }}>
-              <TrendingDown size={15} /> Stock Out
+              <PackageMinus size={15} /> Stock Out
             </Button>
           </div>
         }
@@ -153,8 +153,8 @@ export default function StockTransactions() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard title="Total Stock In" value={stats.totalIn.toLocaleString()} icon={<TrendingUp size={18} />} color="green" />
-        <StatCard title="Total Stock Out" value={stats.totalOut.toLocaleString()} icon={<TrendingDown size={18} />} color="red" />
+        <StatCard title="Total Stock In" value={stats.totalIn.toLocaleString()} icon={<PackagePlus size={18} />} color="green" />
+        <StatCard title="Total Stock Out" value={stats.totalOut.toLocaleString()} icon={<PackageMinus size={18} />} color="red" />
         <StatCard title="Today's Activity" value={stats.todayCount} icon={<Calendar size={18} />} color="blue" subtitle="transactions" />
         <StatCard title="Expiring ≤90 Days" value={stats.expiringCount} icon={<AlertCircle size={18} />} color="amber" subtitle="items require attention" />
       </div>
@@ -257,7 +257,7 @@ export default function StockTransactions() {
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={10}><EmptyState icon={<TrendingUp size={40} />} title="No transactions found" description="Record a stock-in or stock-out to get started" /></td></tr>
+                  <tr><td colSpan={10}><EmptyState icon={<PackagePlus size={40} />} title="No transactions found" description="Record a stock-in or stock-out to get started" /></td></tr>
                 ) : (
                   filtered.map((txn) => {
                     const item = state.items.find((i) => i.id === txn.itemId);
@@ -301,7 +301,7 @@ export default function StockTransactions() {
       <Modal isOpen={showInModal} onClose={() => setShowInModal(false)} title="Record Stock In" size="md">
         <div className="p-6 space-y-4">
           <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-2 text-xs text-emerald-300">
-            <TrendingUp size={14} />
+            <PackagePlus size={14} />
             Recording supplier delivery — stock will be added to the selected item
           </div>
           <Select label="Item *" value={inForm.itemId} onChange={(e) => { const item = state.items.find(i => i.id === e.target.value); setInForm({ ...inForm, itemId: e.target.value, unitCost: item?.unitCost ?? 0 }); }} error={inErrors.itemId}>
@@ -331,7 +331,7 @@ export default function StockTransactions() {
         </div>
         <div className="flex justify-end gap-3 px-6 pb-6">
           <Button variant="secondary" onClick={() => setShowInModal(false)}>Cancel</Button>
-          <Button variant="success" onClick={handleStockIn}><TrendingUp size={14} /> Record Stock In</Button>
+          <Button variant="success" onClick={handleStockIn}><PackagePlus size={14} /> Record Stock In</Button>
         </div>
       </Modal>
 
@@ -339,7 +339,7 @@ export default function StockTransactions() {
       <Modal isOpen={showOutModal} onClose={() => setShowOutModal(false)} title="Record Stock Out" size="md">
         <div className="p-6 space-y-4">
           <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-2 text-xs text-red-300">
-            <TrendingDown size={14} />
+            <PackageMinus size={14} />
             Recording stock release — available quantity will be deducted. Negative stock is prevented.
           </div>
           <Select label="Item *" value={outForm.itemId} onChange={(e) => setOutForm({ ...outForm, itemId: e.target.value })} error={outErrors.itemId}>
@@ -361,7 +361,7 @@ export default function StockTransactions() {
         </div>
         <div className="flex justify-end gap-3 px-6 pb-6">
           <Button variant="secondary" onClick={() => setShowOutModal(false)}>Cancel</Button>
-          <Button variant="danger" onClick={handleStockOut}><TrendingDown size={14} /> Record Stock Out</Button>
+          <Button variant="danger" onClick={handleStockOut}><PackageMinus size={14} /> Record Stock Out</Button>
         </div>
       </Modal>
     </div>

@@ -50,33 +50,46 @@ class InventoryItem extends Model
         return $this->hasMany(Transfer::class, 'itemId');
     }
 
+    public function computeStockStatus(): string
+    {
+        if (!$this->warehouseId) {
+            return 'unassigned';
+        }
+
+        if ((int) $this->quantity <= 0) {
+            return 'out_of_stock';
+        }
+
+        if ((int) $this->maxStock > 0 && (int) $this->quantity > (int) $this->maxStock) {
+            return 'overstock';
+        }
+
+        if ((int) $this->quantity <= (int) $this->reorderPoint) {
+            return 'low_stock';
+        }
+
+        if (!empty($this->expiryDate)) {
+            $expiryDay = \Illuminate\Support\Carbon::parse($this->expiryDate)->startOfDay();
+
+            if ($expiryDay < now()->startOfDay()) {
+                return 'expired';
+            }
+        }
+
+        return 'in_stock';
+    }
+
+    public function refreshStockStatus(): bool
+    {
+        $this->status = $this->computeStockStatus();
+
+        return $this->save();
+    }
+
     protected static function booted()
     {
         static::saving(function ($model) {
-            // Preserve expiry-based status as "Expiring" when within the next 7 days (and not expired).
-            $now = now()->startOfDay();
-            $threshold = $now->copy()->addDays(7);
-            $isExpiring = false;
-
-            if (!empty($model->expiryDate)) {
-                $expiryDay = \Illuminate\Support\Carbon::parse($model->expiryDate)->startOfDay();
-                $isExpiring = $expiryDay >= $now && $expiryDay <= $threshold;
-            }
-
-            if (!$model->warehouseId) {
-                $model->status = 'unassigned';
-                return;
-            }
-
-            if ($model->quantity === 0) {
-                $model->status = 'out_of_stock';
-            } elseif ($isExpiring) {
-                $model->status = 'Expiring';
-            } elseif ($model->quantity < $model->reorderPoint) {
-                $model->status = 'low_stock';
-            } else {
-                $model->status = 'in_stock';
-            }
+            $model->status = $model->computeStockStatus();
         });
     }
 }

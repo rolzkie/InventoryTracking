@@ -1,13 +1,96 @@
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Edit2, Trash2, MapPin, Package, Users, BarChart2, ChevronRight, ArrowLeftRight, X } from "lucide-react";
 import { useApp } from "../context/AppContext";
-import type { Warehouse, WarehouseZone } from "../types";
+import type { InventoryItem, Warehouse, WarehouseZone } from "../types";
 import {
   Button, Input, Select, Textarea, Modal, ConfirmDialog,
   Card, Table, Th, Td, SearchBar, PageHeader, ProgressBar, Badge, EmptyState,
 } from "../components/ui";
 
 const ZONE_TYPES = ["storage", "receiving", "shipping", "cold", "hazmat"] as const;
+
+function AssignItemCombobox({
+  items,
+  value,
+  onChange,
+}: {
+  items: InventoryItem[];
+  value: string;
+  onChange: (itemId: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const selectedItem = items.find((item) => item.id === value);
+
+  useEffect(() => {
+    setQuery(selectedItem ? `${selectedItem.sku} - ${selectedItem.name}` : "");
+  }, [selectedItem]);
+
+  useEffect(() => {
+    const handler = (event: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const filteredItems = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    if (!term || selectedItem?.id === value) return items.slice(0, 25);
+
+    return items.filter((item) => {
+      const codedItem = item as InventoryItem & { productCode?: string; product_code?: string };
+      const productCode = String(codedItem.productCode ?? codedItem.product_code ?? "");
+      return [item.name, item.sku, productCode].some((part) => part.toLowerCase().includes(term));
+    }).slice(0, 25);
+  }, [items, query, selectedItem?.id, value]);
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <label className="text-xs font-medium text-slate-400 uppercase tracking-wide block mb-1">Select Item *</label>
+      <input
+        value={query}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          onChange("");
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        placeholder="Search by item name, SKU, or product code..."
+        className="w-full px-3 py-2 rounded-lg bg-[#0B1220] border border-[#2A3445] text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500"
+        role="combobox"
+        aria-expanded={open}
+        aria-controls="assign-item-options"
+      />
+      {open && (
+        <div id="assign-item-options" className="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-[#2A3445] bg-[#111827] shadow-xl">
+          {filteredItems.length === 0 ? (
+            <div className="px-3 py-2 text-xs text-slate-500">No matching unassigned items</div>
+          ) : (
+            filteredItems.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  onChange(item.id);
+                  setQuery(`${item.sku} - ${item.name}`);
+                  setOpen(false);
+                }}
+                className="w-full px-3 py-2 text-left transition-colors hover:bg-[#1E2A3A]"
+              >
+                <span className="block text-xs font-medium text-slate-200">{item.name}</span>
+                <span className="block text-[10px] text-slate-500">{item.sku} - {item.quantity} {item.unit}</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function emptyWarehouse(): Omit<Warehouse, "id" | "zones" | "createdAt"> {
   return { name: "", location: "", address: "", capacity: 10000, used: 0, manager: "" };
@@ -403,12 +486,7 @@ export default function Warehouses() {
       {/* Assign Item Modal */}
       <Modal isOpen={showAssignModal} onClose={() => { setShowAssignModal(false); setAssignItemId(""); setAssignZoneId(""); }} title="Assign Item to Warehouse" size="md">
         <div className="p-6 space-y-4">
-          <Select label="Select Item *" value={assignItemId} onChange={(e) => setAssignItemId(e.target.value)}>
-            <option value="">Choose inventory item...</option>
-            {unassignedItems.map((i) => (
-              <option key={i.id} value={i.id}>{i.sku} — {i.name} ({i.quantity} {i.unit})</option>
-            ))}
-          </Select>
+          <AssignItemCombobox items={unassignedItems} value={assignItemId} onChange={setAssignItemId} />
           <Select label="Target Warehouse *" value={selectedWarehouse?.id ?? ""} onChange={(e) => { const wh = state.warehouses.find((w) => w.id === e.target.value); setSelectedWarehouse(wh ?? null); setAssignZoneId(""); }}>
             <option value="">Choose warehouse...</option>
             {state.warehouses.map((w) => (

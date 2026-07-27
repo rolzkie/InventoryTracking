@@ -83,23 +83,14 @@ type Action =
   | { type: "TOGGLE_DARK_MODE" }
   | { type: "ADD_TOAST"; toast: Toast }
   | { type: "REMOVE_TOAST"; id: string }
+  | { type: "SET_NOTIFICATIONS"; notifications: Notification[] }
   | { type: "MARK_NOTIFICATION_READ"; id: string }
   | { type: "MARK_ALL_NOTIFICATIONS_READ" }
   | { type: "LOGIN"; user: User }
   | { type: "LOGOUT" };
 
 function computeItemStatus(item: InventoryItem): InventoryItem {
-  let status: InventoryItem["status"] = "in-stock";
-  if (item.quantity === 0) {
-    status = "out-of-stock";
-  } else if (item.expirationDate && new Date(item.expirationDate) <= new Date()) {
-    status = "expired";
-  } else if (item.quantity <= item.reorderPoint) {
-    status = "low-stock";
-  } else if (item.quantity > item.maxStock) {
-    status = "overstock";
-  }
-  return { ...item, status };
+  return item;
 }
 
 function buildAlerts(
@@ -113,7 +104,7 @@ function buildAlerts(
 
   for (const item of items) {
     const lowStockPoint = Math.max(item.reorderPoint, lowStockMinimum);
-    if (item.quantity === 0) {
+    if (item.status === "out-of-stock") {
       alerts.push({
         id: `out-${item.id}`,
         type: "out-of-stock",
@@ -123,7 +114,7 @@ function buildAlerts(
         createdAt: new Date().toISOString(),
         acknowledged: acknowledgedAlertIds.includes(`out-${item.id}`),
       });
-    } else if (item.quantity <= lowStockPoint) {
+    } else if (item.status === "low-stock" || (lowStockMinimum > 0 && item.quantity <= lowStockPoint)) {
       alerts.push({
         id: `low-${item.id}`,
         type: "low-stock",
@@ -135,7 +126,7 @@ function buildAlerts(
       });
     }
 
-    if (overstockMaximum > 0 && item.quantity > overstockMaximum) {
+    if (item.status === "overstock" || (overstockMaximum > 0 && item.quantity > overstockMaximum)) {
       alerts.push({
         id: `over-${item.id}`,
         type: "overstock",
@@ -306,6 +297,9 @@ function reducer(state: AppState, action: Action): AppState {
     case "REMOVE_TOAST":
       return { ...state, toasts: state.toasts.filter((t) => t.id !== action.id) };
 
+    case "SET_NOTIFICATIONS":
+      return { ...state, notifications: action.notifications };
+
     case "MARK_NOTIFICATION_READ":
       return {
         ...state,
@@ -425,6 +419,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     document.documentElement.classList.toggle("light-mode", !state.darkMode);
   }, [state.darkMode]);
+
+  useEffect(() => {
+    if (!state.isAuthenticated) return;
+
+    const refreshNotifications = () => {
+      void api.notifications.list()
+        .then((notifications) => dispatch({ type: "SET_NOTIFICATIONS", notifications }))
+        .catch(() => undefined);
+    };
+
+    refreshNotifications();
+    const timer = window.setInterval(refreshNotifications, 10_000);
+    return () => window.clearInterval(timer);
+  }, [state.isAuthenticated]);
+
+  useEffect(() => {
+    if (!state.isAuthenticated) return;
+
+    const timer = window.setInterval(() => {
+      void refreshOperationalData().catch(() => undefined);
+    }, 30_000);
+
+    return () => window.clearInterval(timer);
+  }, [refreshOperationalData, state.isAuthenticated]);
 
   const navigate = useCallback(
     (page: Page) => dispatch({ type: "SET_PAGE", page }),
@@ -547,8 +565,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const acknowledgeAlert = useCallback(async (id: string) => {
     await api.alerts.acknowledge(id, state.currentUser.id);
-    dispatch({ type: "ACKNOWLEDGE_ALERT", id });
-  }, [state.currentUser.id]);
+    await refreshOperationalData();
+  }, [refreshOperationalData, state.currentUser.id]);
 
   const createReorder = useCallback(async (request: ReorderRequest) => {
     await api.reorders.create(request);
@@ -562,13 +580,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const markNotificationRead = useCallback(async (id: string) => {
     await api.notifications.markRead(id);
-    dispatch({ type: "MARK_NOTIFICATION_READ", id });
-  }, []);
+    await refreshOperationalData();
+  }, [refreshOperationalData]);
 
   const markAllNotificationsRead = useCallback(async () => {
     await api.notifications.markAllRead();
-    dispatch({ type: "MARK_ALL_NOTIFICATIONS_READ" });
-  }, []);
+    await refreshOperationalData();
+  }, [refreshOperationalData]);
 
   const setDarkMode = useCallback(async (value: boolean) => {
     const appearance = { ...(state.settings.appearance ?? {}), darkMode: value };

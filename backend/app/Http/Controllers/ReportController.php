@@ -15,17 +15,14 @@ class ReportController extends Controller
     {
         $warehouseCount = Warehouse::count();
         $inventoryCount = InventoryItem::count();
-        $lowStockCount = InventoryItem::whereColumn('quantity', '<=', 'reorderPoint')->count();
-        $outOfStockCount = InventoryItem::where('quantity', 0)->count();
+        $lowStockCount = InventoryItem::where('status', 'low_stock')->count();
+        $outOfStockCount = InventoryItem::where('status', 'out_of_stock')->count();
         $transferCount = Transfer::count();
         $totalValue = InventoryItem::sum(DB::raw('quantity * unitPrice'));
         $unassignedCount = InventoryItem::whereNull('warehouseId')->count();
 
         $alerts = InventoryItem::with('warehouse')
-            ->where(function ($query) {
-                $query->where('quantity', 0)
-                    ->orWhereColumn('quantity', '<=', 'reorderPoint');
-            })
+            ->whereIn('status', ['out_of_stock', 'low_stock', 'overstock'])
             ->orderByRaw('quantity ASC, reorderPoint DESC')
             ->get()
             ->map(function ($item) {
@@ -35,7 +32,7 @@ class ReportController extends Controller
                     'name' => $item->name,
                     'quantity' => $item->quantity,
                     'reorderPoint' => $item->reorderPoint,
-                    'status' => $item->quantity === 0 ? 'out_of_stock' : 'low_stock',
+                    'status' => $item->status,
                     'warehouseName' => $item->warehouse?->name ?? 'Unassigned',
                 ];
             });
@@ -56,7 +53,7 @@ class ReportController extends Controller
     public function lowStock()
     {
         $items = InventoryItem::with('warehouse')
-            ->whereColumn('quantity', '<=', 'reorderPoint')
+            ->whereIn('status', ['out_of_stock', 'low_stock'])
             ->orderBy('quantity', 'asc')
             ->get();
 
@@ -68,7 +65,7 @@ class ReportController extends Controller
                 'quantity' => $item->quantity,
                 'reorderPoint' => $item->reorderPoint,
                 'warehouseName' => $item->warehouse?->name ?? 'Unassigned',
-                'status' => $item->quantity === 0 ? 'out_of_stock' : 'low_stock',
+                'status' => $item->status,
             ];
         }));
     }
