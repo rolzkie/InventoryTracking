@@ -31,7 +31,7 @@ import {
   Clock,
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
-import { StatCard, Card, Badge, StatusBadge } from "../components/ui";
+import { StatCard, Card, Badge, StatusBadge, formatPHP } from "../components/ui";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, ArcElement, Tooltip, Legend, Filler);
 
@@ -87,7 +87,7 @@ export default function Dashboard() {
     const totalSKUs = state.items.length;
     const totalWarehouses = state.warehouses.length;
     const activeAlerts = state.alerts.filter((a) => !a.acknowledged).length;
-    const unassigned = state.items.filter((i) => !i.warehouseId).length;
+    const unassigned = state.assignableItems.length;
     const totalValue = state.items.reduce((sum, i) => sum + i.quantity * i.unitCost, 0);
     const lowStock = state.items.filter((i) => i.status === "low-stock").length;
     const outOfStock = state.items.filter((i) => i.status === "out-of-stock").length;
@@ -236,7 +236,7 @@ export default function Dashboard() {
         />
         <StatCard
           title="Total Value"
-          value={`$${(stats.totalValue / 1000).toFixed(0)}K`}
+          value={formatPHP(stats.totalValue)}
           subtitle={`${state.items.reduce((s, i) => s + i.quantity, 0).toLocaleString()} units`}
           icon={<DollarSign size={18} />}
           color="green"

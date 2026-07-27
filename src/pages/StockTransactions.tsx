@@ -1,13 +1,105 @@
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PackageMinus, PackagePlus, Filter, Calendar, AlertCircle } from "lucide-react";
 import { useApp } from "../context/AppContext";
-import type { StockTransaction } from "../types";
+import type { InventoryItem, StockTransaction } from "../types";
 import {
-  Button, Input, Select, Textarea, Modal,
+  Button, Input, Select, Textarea, Modal, SearchableSelect,
   Card, Table, Th, Td, SearchBar, PageHeader, StatusBadge, EmptyState, StatCard,
+  formatPHP,
 } from "../components/ui";
 
 const PURPOSES = ["sales", "production", "warehouse transfer", "damaged", "expired", "other"];
+
+function StockItemCombobox({
+  items,
+  value,
+  onChange,
+  label,
+  placeholder,
+  emptyMessage,
+}: {
+  items: InventoryItem[];
+  value: string;
+  onChange: (itemId: string) => void;
+  label: string;
+  placeholder: string;
+  emptyMessage: string;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const selectedItem = items.find((item) => item.id === value);
+
+  useEffect(() => {
+    if (selectedItem) {
+      setQuery(`${selectedItem.sku} — ${selectedItem.name}`);
+    }
+  }, [selectedItem]);
+
+  useEffect(() => {
+    const handler = (event: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const filteredItems = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    if (!term) return items.slice(0, 25);
+
+    return items.filter((item) => {
+      const codedItem = item as InventoryItem & { productCode?: string; product_code?: string };
+      const productCode = String(codedItem.productCode ?? codedItem.product_code ?? "");
+      return [item.name, item.sku, productCode].some((part) => part.toLowerCase().includes(term));
+    }).slice(0, 25);
+  }, [items, query]);
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <label className="text-xs font-medium text-slate-400 uppercase tracking-wide block mb-1">{label}</label>
+      <input
+        value={query}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          onChange("");
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        placeholder={placeholder}
+        className="w-full px-3 py-2 rounded-lg bg-[#0B1220] border border-[#2A3445] text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500"
+        role="combobox"
+        aria-expanded={open}
+        aria-controls="stock-item-options"
+      />
+      {open && (
+        <div id="stock-item-options" className="absolute left-0 right-0 z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-[#334155] bg-[#111827] shadow-[0_18px_40px_rgba(15,23,42,0.45)]">
+          {filteredItems.length === 0 ? (
+            <div className="px-3 py-2 text-xs text-slate-500">{emptyMessage}</div>
+          ) : (
+            filteredItems.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  onChange(item.id);
+                  setQuery(`${item.sku} — ${item.name}`);
+                  setOpen(false);
+                }}
+                className="w-full px-3 py-2 text-left transition-colors hover:bg-[#1E2A3A] focus:bg-[#1E2A3A]"
+              >
+                <span className="block text-xs font-medium text-slate-200">{item.name}</span>
+                <span className="block text-[10px] text-slate-500">{item.sku} - {item.quantity} {item.unit}</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function StockTransactions() {
   const { state, showToast, generateId, createTransaction } = useApp();
@@ -277,8 +369,8 @@ export default function StockTransactions() {
                             {txn.type === "stock-in" ? "+" : "-"}{txn.quantity}
                           </span>
                         </Td>
-                        <Td><span className="text-xs">${txn.unitCost.toFixed(2)}</span></Td>
-                        <Td><span className="text-xs font-medium text-slate-200">${(txn.quantity * txn.unitCost).toLocaleString()}</span></Td>
+                        <Td><span className="text-xs">{formatPHP(txn.unitCost)}</span></Td>
+                        <Td><span className="text-xs font-medium text-slate-200">{formatPHP(txn.quantity * txn.unitCost)}</span></Td>
                         <Td><span className="text-xs text-slate-400">{txn.date}</span></Td>
                         <Td>
                           <span className="text-xs text-slate-400">
@@ -304,10 +396,21 @@ export default function StockTransactions() {
             <PackagePlus size={14} />
             Recording supplier delivery — stock will be added to the selected item
           </div>
-          <Select label="Item *" value={inForm.itemId} onChange={(e) => { const item = state.items.find(i => i.id === e.target.value); setInForm({ ...inForm, itemId: e.target.value, unitCost: item?.unitCost ?? 0 }); }} error={inErrors.itemId}>
-            <option value="">Select inventory item...</option>
-            {state.items.filter((i) => Boolean(i.warehouseId)).map((i) => <option key={i.id} value={i.id}>{i.sku} — {i.name} (current: {i.quantity})</option>)}
-          </Select>
+          <div className="relative">
+            <SearchableSelect
+              label="Item *"
+              value={inForm.itemId}
+              onChange={(itemId) => {
+                const item = state.items.find((entry) => entry.id === itemId);
+                setInForm({ ...inForm, itemId, unitCost: item?.unitCost ?? 0 });
+              }}
+              items={state.items.filter((item) => Boolean(item.warehouseId))}
+              placeholder="Search by item name, SKU, or product code..."
+              emptyMessage="No matching items"
+              getSecondary={(item) => `${item.sku} · ${item.quantity} ${item.unit}`}
+            />
+          </div>
+          {inErrors.itemId && <span className="text-xs text-red-400">{inErrors.itemId}</span>}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-medium text-slate-400 uppercase tracking-wide block mb-1">Quantity *</label>
@@ -315,7 +418,7 @@ export default function StockTransactions() {
               {inErrors.quantity && <span className="text-xs text-red-400">{inErrors.quantity}</span>}
             </div>
             <div>
-              <label className="text-xs font-medium text-slate-400 uppercase tracking-wide block mb-1">Unit Cost ($)</label>
+              <label className="text-xs font-medium text-slate-400 uppercase tracking-wide block mb-1">Unit Cost (PHP)</label>
               <input type="number" min={0} step="0.01" value={inForm.unitCost} onChange={(e) => setInForm({ ...inForm, unitCost: parseFloat(e.target.value) || 0 })} className="w-full px-3 py-2 rounded-lg bg-[#0B1220] border border-[#2A3445] text-slate-100 text-sm focus:outline-none focus:border-blue-500" />
             </div>
           </div>
@@ -342,10 +445,18 @@ export default function StockTransactions() {
             <PackageMinus size={14} />
             Recording stock release — available quantity will be deducted. Negative stock is prevented.
           </div>
-          <Select label="Item *" value={outForm.itemId} onChange={(e) => setOutForm({ ...outForm, itemId: e.target.value })} error={outErrors.itemId}>
-            <option value="">Select inventory item...</option>
-            {state.items.filter((i) => Boolean(i.warehouseId) && i.quantity > 0).map((i) => <option key={i.id} value={i.id}>{i.sku} — {i.name} (available: {i.quantity})</option>)}
-          </Select>
+          <div className="relative">
+            <SearchableSelect
+              label="Item *"
+              value={outForm.itemId}
+              onChange={(itemId) => setOutForm({ ...outForm, itemId })}
+              items={state.items.filter((item) => Boolean(item.warehouseId) && item.quantity > 0)}
+              placeholder="Search by item name, SKU, or product code..."
+              emptyMessage="No matching items"
+              getSecondary={(item) => `${item.sku} · ${item.quantity} ${item.unit}`}
+            />
+          </div>
+          {outErrors.itemId && <span className="text-xs text-red-400">{outErrors.itemId}</span>}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-medium text-slate-400 uppercase tracking-wide block mb-1">Quantity *</label>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Eye, EyeOff, Box, Lock, Mail, AlertCircle, Loader2 } from "lucide-react";
 
 interface LoginProps {
@@ -6,14 +6,14 @@ interface LoginProps {
   onForgotPassword: (email: string) => Promise<{ success: boolean; message: string }>;
 }
 
-const DEMO_ACCOUNTS = [
-  { label: "Admin", email: "adminmiranda@gmail.com", password: "admin123", role: "Administrator", active: true },
-  { label: "Rolando", email: "manageranacta@gmail.com", password: "manager123", role: "Logistics Manager", active: true },
-  { label: "Thervin", email: "thervs@gmail.com", password: "manager123", role: "Warehouse Manager", active: true },
-  { label: "Jesreel", email: "jes@gmail.com", password: "staff123", role: "Inventory Staff", active: true },
-  { label: "Kevin", email: "kevs@gmail.com", password: "staff123", role: "Receiving Staff", active: true },
-  { label: "Employee", email: "employee@gmail.com", password: "staff123", role: "Viewer", active: false },
-];
+const RECENT_LOGINS_KEY = "warehouseiq.recent-logins";
+
+type RecentLogin = {
+  email: string;
+  name: string;
+  role: string;
+  lastLogin: string;
+};
 
 export default function Login({ onLogin, onForgotPassword }: LoginProps) {
   const [email, setEmail] = useState("");
@@ -22,6 +22,17 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [recentLogins, setRecentLogins] = useState<RecentLogin[]>([]);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(RECENT_LOGINS_KEY);
+      if (!raw) return;
+      setRecentLogins(JSON.parse(raw) as RecentLogin[]);
+    } catch {
+      setRecentLogins([]);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,24 +64,10 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
     else setError(result.message);
   };
 
-  const handleQuickDemo = async (acc: typeof DEMO_ACCOUNTS[0]) => {
-    if (!acc.active) {
-      setEmail(acc.email);
-      setPassword(acc.password);
-      setError("This account is inactive. Activate it in User Management before signing in.");
-      setNotice("");
-      return;
-    }
+  const handleQuickLogin = (acc: RecentLogin) => {
     setEmail(acc.email);
-    setPassword(acc.password);
     setError("");
     setNotice("");
-    setLoading(true);
-    const result = await onLogin(acc.email, acc.password);
-    if (!result.success) {
-      setError(result.error ?? "Unable to access the demo account.");
-      setLoading(false);
-    }
   };
 
   return (
@@ -157,9 +154,9 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
             </div>
             <div>
               <p className="text-xs font-semibold text-slate-200">Errol Miranda</p>
-              <p className="text-[10px] text-slate-500">Operations Director,Inventory and Warehouse Management System</p>
-            </div>
+            <p className="text-[10px] text-slate-500">Operations Director, Inventory and warehouse management system</p>
           </div>
+        </div>
         </div>
       </div>
 
@@ -170,7 +167,7 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
             <Box size={20} className="text-white" />
           </div>
-          <p className="text-lg font-bold text-slate-100">Inventory Warehouse Management System </p>
+          <p className="text-lg font-bold text-slate-100">Inventory Warehouse Management System</p>
         </div>
 
         <div className="w-full max-w-md">
@@ -180,23 +177,32 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
             <p className="text-sm text-slate-500">Sign in to access your ERP dashboard</p>
           </div>
 
-          {/* Demo accounts */}
+          {/* Recent saved log ins */}
           <div className="mb-6">
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Registered Accounts</p>
+            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Recent Saved Log Ins</p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {DEMO_ACCOUNTS.map((acc) => (
+              {recentLogins.length > 0 ? recentLogins.map((acc) => (
                 <button
                   key={acc.email}
                   type="button"
                   disabled={loading}
-                  onClick={() => void handleQuickDemo(acc)}
-                  className={`py-2 px-3 text-xs font-medium rounded-xl border border-[#2A3445] text-slate-300 transition-all duration-150 ${acc.active ? "hover:border-blue-500/50 hover:bg-blue-500/5 hover:text-blue-300" : "opacity-70 hover:border-amber-500/50 hover:bg-amber-500/5 hover:text-amber-300"}`}
+                  onClick={() => handleQuickLogin(acc)}
+                  className="py-2 px-3 text-xs font-medium rounded-xl border border-[#2A3445] text-slate-300 transition-all duration-150 hover:border-blue-500/50 hover:bg-blue-500/5 hover:text-blue-300"
                 >
-                  <span className="block">{acc.label}</span>
-                  <span className="block mt-0.5 text-[10px] text-slate-500">{acc.email}</span>
+                  <span className="block">{acc.name}</span>
                   <span className="block mt-0.5 text-[10px] text-slate-600">{acc.role}</span>
+                  <span className="block mt-0.5 text-[10px] text-slate-600">
+                    {new Intl.DateTimeFormat("en-PH", {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    }).format(new Date(acc.lastLogin))}
+                  </span>
                 </button>
-              ))}
+              )) : (
+                <div className="col-span-full rounded-xl border border-[#2A3445] bg-[#111827] px-3 py-4 text-xs text-slate-500">
+                  Your recent logins will appear here after a successful sign in.
+                </div>
+              )}
             </div>
           </div>
 
@@ -258,8 +264,10 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
                 />
                 <button
                   type="button"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                  className="absolute right-3.5 top-1/2 z-10 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors pointer-events-auto"
                 >
                   {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                 </button>
@@ -285,15 +293,9 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
           </form>
 
           {/* Hint */}
-          <p className="mt-6 text-center text-xs text-slate-600">
-            Passwords: <span className="text-slate-500 font-mono">admin123</span> ·{" "}
-            <span className="text-slate-500 font-mono">manager123</span> ·{" "}
-            <span className="text-slate-500 font-mono">staff123</span>
-          </p>
-
           {/* Footer */}
           <p className="mt-8 text-center text-xs text-slate-700">
-            WarehouseIQ ERP v2.4.0 · © {new Date().getFullYear()}
+            Inventory and Warehouse Management System 2026
           </p>
         </div>
       </div>

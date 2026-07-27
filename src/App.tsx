@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Box } from "lucide-react";
 import { AppProvider, useApp } from "./context/AppContext";
 import Sidebar from "./components/layout/Sidebar";
 import TopNav from "./components/layout/TopNav";
@@ -83,8 +84,10 @@ function AppContent() {
         </main>
 
         <footer className="px-6 py-3 border-t text-center text-xs text-slate-600" style={{ borderColor: "#2A3445" }}>
-          WarehouseIQ ERP System v2.4.0 · React 19 + Tailwind CSS v4 · Logged in as{" "}
-          <span className="text-slate-500">{state.currentUser.name}</span>
+          <span className="inline-flex items-center gap-2 justify-center">
+            <Box size={12} className="text-slate-500" />
+            <span>Inventory and Warehouse Management System 2026</span>
+          </span>
         </footer>
       </div>
 

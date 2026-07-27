@@ -1,9 +1,9 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Plus, ArrowRight, CheckCircle, XCircle, Clock, Truck } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import type { Transfer } from "../types";
 import {
-  Button, Select, Textarea, Modal, ConfirmDialog,
+  Button, Select, Textarea, Modal, ConfirmDialog, SearchableSelect,
   Card, Table, Th, Td, SearchBar, PageHeader, StatusBadge, Badge, EmptyState,
 } from "../components/ui";
 
@@ -273,12 +273,16 @@ export default function Transfers() {
       {/* Create Transfer Modal */}
       <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title="New Transfer Request" size="md">
         <div className="p-6 space-y-4">
-          <Select label="Item to Transfer *" value={form.itemId} onChange={(e) => { setForm({ ...form, itemId: e.target.value, fromWarehouseId: state.items.find(i => i.id === e.target.value)?.warehouseId ?? "" }); }} error={formErrors.itemId}>
-            <option value="">Select inventory item...</option>
-            {state.items.filter((i) => Boolean(i.warehouseId) && i.quantity > 0).map((i) => (
-              <option key={i.id} value={i.id}>{i.sku} — {i.name} ({i.quantity} available)</option>
-            ))}
-          </Select>
+          <SearchableSelect
+            label="Item to Transfer *"
+            items={state.items.filter((i) => Boolean(i.warehouseId) && i.quantity > 0)}
+            value={form.itemId}
+            onChange={(itemId) => setForm({ ...form, itemId, fromWarehouseId: state.items.find((item) => item.id === itemId)?.warehouseId ?? "" })}
+            placeholder="Search by item name, SKU, or product code..."
+            emptyMessage="No matching transferable items"
+            getSecondary={(item) => `${item.sku} · ${item.quantity} ${item.unit}`}
+          />
+          {formErrors.itemId && <span className="text-xs text-red-400">{formErrors.itemId}</span>}
 
           {selectedItem && (
             <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-xs text-blue-300 flex items-center gap-2">

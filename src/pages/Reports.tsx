@@ -7,6 +7,7 @@ import { useApp } from "../context/AppContext";
 import type { ReorderRequest } from "../types";
 import {
   Button, Card, Table, Th, Td, PageHeader, StatusBadge, Badge, Modal, Input, Select,
+  formatPHP,
 } from "../components/ui";
 
 type ReportTab = "inventory" | "movement" | "warehouse" | "low-stock" | "out-of-stock" | "expiring" | "alerts" | "reorders";
@@ -144,6 +145,17 @@ export default function Reports() {
   ];
 
   const alertSeverityIcon = { critical: <AlertCircle size={14} className="text-red-400" />, warning: <AlertTriangle size={14} className="text-amber-400" />, info: <Clock size={14} className="text-blue-400" /> };
+  const recentAlerts = [...state.alerts].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const formatAlertTime = (value: string) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(date);
+  };
 
   return (
     <div>
@@ -241,8 +253,8 @@ export default function Reports() {
                     <Td><span className="text-xs text-slate-400">{wh?.name ?? <span className="text-amber-400">Unassigned</span>}</span></Td>
                     <Td><span className="text-xs font-medium">{item.quantity}</span></Td>
                     <Td><span className="text-xs text-slate-500">{item.reorderPoint}</span></Td>
-                    <Td><span className="text-xs">${item.unitCost.toFixed(2)}</span></Td>
-                    <Td><span className="text-xs font-medium text-emerald-400">${(item.quantity * item.unitCost).toLocaleString()}</span></Td>
+                    <Td><span className="text-xs">{formatPHP(item.unitCost)}</span></Td>
+                    <Td><span className="text-xs font-medium text-emerald-400">{formatPHP(item.quantity * item.unitCost)}</span></Td>
                     <Td><StatusBadge status={item.status} /></Td>
                   </tr>
                 );
@@ -252,7 +264,7 @@ export default function Reports() {
           <div className="p-4 border-t border-[#2A3445] flex items-center justify-between">
             <span className="text-xs text-slate-500">{state.items.length} total items</span>
             <span className="text-sm font-semibold text-emerald-400">
-              Total Value: ${state.items.reduce((s, i) => s + i.quantity * i.unitCost, 0).toLocaleString("en-US", { maximumFractionDigits: 0 })}
+              Total Value: {formatPHP(state.items.reduce((s, i) => s + i.quantity * i.unitCost, 0))}
             </span>
           </div>
         </Card>
@@ -287,8 +299,8 @@ export default function Reports() {
                     <Td><StatusBadge status={txn.type} /></Td>
                     <Td><span className="text-xs text-slate-200">{item?.name ?? "Unknown"}</span></Td>
                     <Td><span className={`text-xs font-semibold ${txn.type === "stock-in" ? "text-emerald-400" : "text-red-400"}`}>{txn.type === "stock-in" ? "+" : "-"}{txn.quantity}</span></Td>
-                    <Td><span className="text-xs">${txn.unitCost.toFixed(2)}</span></Td>
-                    <Td><span className="text-xs">${(txn.quantity * txn.unitCost).toLocaleString()}</span></Td>
+                    <Td><span className="text-xs">{formatPHP(txn.unitCost)}</span></Td>
+                    <Td><span className="text-xs">{formatPHP(txn.quantity * txn.unitCost)}</span></Td>
                     <Td><span className="text-xs text-slate-500">{txn.date}</span></Td>
                     <Td><span className="text-xs text-slate-400">{txn.processedBy}</span></Td>
                   </tr>
@@ -321,7 +333,7 @@ export default function Reports() {
                 <div className="grid grid-cols-3 gap-3 mb-3">
                   {[
                     { label: "Total SKUs", value: items.length },
-                    { label: "Total Value", value: `$${(value / 1000).toFixed(1)}K` },
+                    { label: "Total Value", value: formatPHP(value) },
                     { label: "Low Stock", value: items.filter(i => i.status === "low-stock" || i.status === "out-of-stock").length },
                   ].map((s) => (
                     <div key={s.label} className="bg-[#0B1220]/50 rounded-xl p-2 text-center">
@@ -494,7 +506,7 @@ export default function Reports() {
               <p className="text-xs text-slate-500 mt-1">All inventory levels are within acceptable thresholds</p>
             </Card>
           )}
-          {state.alerts.map((alert) => {
+          {recentAlerts.map((alert) => {
             const item = state.items.find((i) => i.id === alert.itemId);
             return (
               <div
@@ -511,7 +523,7 @@ export default function Reports() {
                     {alert.acknowledged && <Badge variant="gray">Acknowledged</Badge>}
                   </div>
                   <p className="text-xs text-slate-400">{alert.message}</p>
-                  <p className="text-[10px] text-slate-600 mt-1">{alert.createdAt}</p>
+                  <p className="text-[10px] text-slate-600 mt-1">{formatAlertTime(alert.createdAt)}</p>
                 </div>
                 {!alert.acknowledged && (
                   <div className="flex gap-2">

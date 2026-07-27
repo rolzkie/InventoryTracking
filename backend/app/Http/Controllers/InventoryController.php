@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\InventoryItem;
+use App\Models\Supplier;
 use App\Models\Warehouse;
 use App\Services\InventoryNotificationService;
 use App\Services\InventorySynchronizationService;
@@ -23,6 +24,42 @@ class InventoryController extends Controller
     protected function supportsUnitColumn(): bool
     {
         return Schema::hasColumn('inventory_items', 'unit');
+    }
+
+    protected function resolveSupplierId(?string $supplierId, ?string $supplierName): ?string
+    {
+        $supplierName = trim((string) $supplierName);
+
+        if ($supplierName !== '') {
+            $normalized = mb_strtolower($supplierName);
+            $supplier = Supplier::whereRaw('LOWER(TRIM(name)) = ?', [$normalized])->first();
+
+            if (!$supplier) {
+                $supplier = Supplier::create(['name' => $supplierName]);
+            }
+
+            return (string) $supplier->id;
+        }
+
+        return $supplierId !== null && $supplierId !== '' ? (string) $supplierId : null;
+    }
+
+    public function assignable()
+    {
+        return response()->json(
+            InventoryItem::with('warehouse')
+                ->whereNull('warehouseId')
+                ->whereNotNull('sku')
+                ->whereNotNull('name')
+                ->where('sku', '<>', '')
+                ->where('name', '<>', '')
+                ->where('status', '<>', 'deleted')
+                ->orderBy('name')
+                ->get()
+                ->map(function ($item) {
+                    return $item->toArray() + ['warehouseName' => $item->warehouse?->name];
+                })
+        );
     }
 
     public function index()
@@ -83,7 +120,12 @@ class InventoryController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'sku' => 'required|string|unique:inventory_items|max:100',
+            'sku' => [
+                'required',
+                'string',
+                'max:100',
+                Rule::unique('inventory_items', 'sku'),
+            ],
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'category' => 'required|string|max:100',
@@ -92,19 +134,25 @@ class InventoryController extends Controller
             'reorderPoint' => 'required|integer|min:0',
             'maxStock' => 'sometimes|integer|min:0',
             'unitPrice' => 'required|numeric|min:0',
-            'supplierId' => 'nullable|string|max:100',
+            'supplierId' => 'nullable|exists:suppliers,id',
+            'supplierName' => 'nullable|string|max:255',
             'expiryDate' => 'nullable|date',
         ]);
 
+        $supplierId = $this->resolveSupplierId(
+            $validated['supplierId'] ?? null,
+            $validated['supplierName'] ?? null,
+        );
+
         $payload = [
-            'sku' => $validated['sku'],
+            'sku' => trim($validated['sku']),
             'name' => $validated['name'],
             'description' => $validated['description'] ?? '',
             'category' => $validated['category'],
             'reorderPoint' => $validated['reorderPoint'],
             'maxStock' => $validated['maxStock'] ?? 0,
             'unitPrice' => $validated['unitPrice'],
-            'supplierId' => $validated['supplierId'] ?? null,
+            'supplierId' => $supplierId,
             'quantity' => $validated['quantity'] ?? 0,
             'warehouseId' => null,
             'storageLocation' => null,
@@ -135,14 +183,7 @@ class InventoryController extends Controller
     public function update(Request $request, InventoryItem $inventory)
     {
         $validated = $request->validate([
-            'sku' => [
-                'sometimes',
-                'string',
-                'max:100',
-                Rule::unique('inventory_items', 'sku')
-                    ->ignore($inventory->id)
-                    ->where(fn ($query) => $query->where('warehouseId', $inventory->warehouseId)),
-            ],
+            'sku' => ['sometimes', 'string', 'max:100'],
             'name' => 'sometimes|string|max:255',
             'description' => 'nullable|string',
             'category' => 'sometimes|string|max:100',
@@ -151,13 +192,27 @@ class InventoryController extends Controller
             'reorderPoint' => 'sometimes|integer|min:0',
             'maxStock' => 'sometimes|integer|min:0',
             'unitPrice' => 'sometimes|numeric|min:0',
-            'supplierId' => 'nullable|string|max:100',
+            'supplierId' => 'nullable|exists:suppliers,id',
+            'supplierName' => 'nullable|string|max:255',
             'expiryDate' => 'nullable|date',
         ]);
+
+        $supplierId = $this->resolveSupplierId(
+            $validated['supplierId'] ?? null,
+            $validated['supplierName'] ?? null,
+        );
+
+        if (array_key_exists('supplierId', $validated) || array_key_exists('supplierName', $validated)) {
+            $validated['supplierId'] = $supplierId;
+        }
 
 
         if (!$this->supportsUnitColumn()) {
             unset($validated['unit']);
+        }
+
+        if (array_key_exists('sku', $validated)) {
+            $validated['sku'] = trim($validated['sku']);
         }
 
         DB::transaction(function () use ($inventory, $validated) {

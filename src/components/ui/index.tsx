@@ -1,6 +1,15 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { X, Check, AlertTriangle, Info, CheckCircle } from "lucide-react";
 import { useApp } from "../../context/AppContext";
+import type { InventoryItem } from "../../types";
+
+export function formatPHP(value: number) {
+  return new Intl.NumberFormat("en-PH", {
+    style: "currency",
+    currency: "PHP",
+    maximumFractionDigits: 2,
+  }).format(value);
+}
 
 // ─── Badge ───────────────────────────────────────────────────────────────────
 type BadgeVariant = "blue" | "green" | "red" | "amber" | "purple" | "gray" | "cyan";
@@ -114,15 +123,68 @@ export function Select({
   children,
   ...props
 }: React.SelectHTMLAttributes<HTMLSelectElement> & { label?: string; error?: string }) {
+  const options = React.Children.toArray(children).filter(
+    (child): child is React.ReactElement<React.OptionHTMLAttributes<HTMLOptionElement>, "option"> =>
+      React.isValidElement(child) && child.type === "option",
+  );
+  const selected = options.find((option) => String(option.props.value ?? "") === String(props.value ?? "")) ?? options[0];
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (event: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleSelect = (value: string) => {
+    const fakeEvent = { target: { value } } as React.ChangeEvent<HTMLSelectElement>;
+    props.onChange?.(fakeEvent);
+    setOpen(false);
+  };
+
   return (
-    <div className="flex flex-col gap-1">
+    <div ref={wrapperRef} className="relative flex flex-col gap-1">
       {label && <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">{label}</label>}
-      <select
-        className={`w-full px-3 py-2 rounded-lg bg-[#0B1220] border border-[#2A3445] text-slate-100 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors ${error ? "border-red-500" : ""} ${className}`}
-        {...props}
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-[#0B1220] border border-[#2A3445] text-left text-slate-100 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors ${error ? "border-red-500" : ""} ${className}`}
+        aria-haspopup="listbox"
+        aria-expanded={open}
       >
-        {children}
-      </select>
+        <span className={`${selected ? "text-slate-100" : "text-slate-500"} truncate`}>
+          {selected ? String(selected.props.children) : "Select..."}
+        </span>
+        <svg className={`shrink-0 transition-transform ${open ? "rotate-180" : ""}`} width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <path d="M5 7l5 5 5-5" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute left-0 right-0 top-full z-40 mt-1 max-h-64 overflow-y-auto rounded-xl border border-[#334155] bg-[#111827] shadow-[0_18px_40px_rgba(15,23,42,0.45)]">
+          {options.map((option) => {
+            const value = String(option.props.value ?? "");
+            const active = String(props.value ?? "") === value;
+            const optionLabel = String(option.props.children ?? "");
+            return (
+              <button
+                key={value || optionLabel}
+                type="button"
+                onClick={() => handleSelect(value)}
+                className={`w-full px-4 py-3 text-left transition-colors hover:bg-[#1E2A3A] focus:bg-[#1E2A3A] ${active ? "bg-blue-500/10" : ""}`}
+                role="option"
+                aria-selected={active}
+              >
+                <span className="block text-sm font-semibold text-slate-100">{optionLabel}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
       {error && <span className="text-xs text-red-400">{error}</span>}
     </div>
   );
@@ -403,6 +465,137 @@ export function SearchBar({
         placeholder={placeholder}
         className="pl-9 pr-4 py-2 w-full sm:w-64 rounded-lg bg-[#0B1220] border border-[#2A3445] text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 transition-colors"
       />
+    </div>
+  );
+}
+
+type SearchableOption = InventoryItem & {
+  productCode?: string;
+  product_code?: string;
+};
+
+function highlightMatch(text: string, query: string) {
+  const trimmed = query.trim();
+  if (!trimmed) return text;
+
+  const matchIndex = text.toLowerCase().indexOf(trimmed.toLowerCase());
+  if (matchIndex < 0) return text;
+
+  const before = text.slice(0, matchIndex);
+  const match = text.slice(matchIndex, matchIndex + trimmed.length);
+  const after = text.slice(matchIndex + trimmed.length);
+
+  return (
+    <>
+      {before}
+      <span className="rounded bg-blue-500/20 text-blue-300">{match}</span>
+      {after}
+    </>
+  );
+}
+
+export function SearchableSelect({
+  label,
+  value,
+  items,
+  onChange,
+  placeholder,
+  emptyMessage,
+  className = "",
+  inputClassName = "",
+  listClassName = "",
+  getSecondary,
+  getEmptyMessage,
+}: {
+  label: string;
+  value: string;
+  items: SearchableOption[];
+  onChange: (itemId: string) => void;
+  placeholder: string;
+  emptyMessage: string;
+  className?: string;
+  inputClassName?: string;
+  listClassName?: string;
+  getSecondary?: (item: SearchableOption) => string;
+  getEmptyMessage?: (query: string) => string;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const selectedItem = items.find((item) => item.id === value);
+
+  useEffect(() => {
+    if (selectedItem) {
+      setQuery(`${selectedItem.name} · ${selectedItem.sku}`);
+    }
+  }, [selectedItem]);
+
+  useEffect(() => {
+    const handler = (event: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const filteredItems = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    if (!term) return items.slice(0, 25);
+    return items.filter((item) => {
+      const productCode = String(item.productCode ?? item.product_code ?? "");
+      return [item.name, item.sku, productCode].some((part) => part.toLowerCase().includes(term));
+    }).slice(0, 25);
+  }, [items, query]);
+
+  return (
+    <div ref={wrapperRef} className={`relative ${className}`}>
+      <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400">{label}</label>
+      <input
+        value={query}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          onChange("");
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        placeholder={placeholder}
+        className={`w-full px-3 py-2 rounded-lg bg-[#0B1220] border border-[#2A3445] text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors ${inputClassName}`}
+        role="combobox"
+        aria-expanded={open}
+        aria-controls={`${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-options`}
+      />
+      {open && (
+        <div className={`absolute left-0 right-0 z-30 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-[#334155] bg-[#111827] shadow-[0_18px_40px_rgba(15,23,42,0.45)] ${listClassName}`}>
+          {filteredItems.length === 0 ? (
+            <div className="px-4 py-3 text-xs text-slate-500">{getEmptyMessage ? getEmptyMessage(query) : emptyMessage}</div>
+          ) : (
+            filteredItems.map((item) => {
+              const isSelected = item.id === value;
+              const secondary = getSecondary?.(item) ?? `${item.sku} · ${item.quantity} ${item.unit}`;
+              const hasQueryMatch = query.trim() !== "" && [item.name, item.sku, item.productCode ?? item.product_code ?? "", secondary].some((part) =>
+                String(part).toLowerCase().includes(query.trim().toLowerCase()),
+              );
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    onChange(item.id);
+                    setQuery(`${item.name} · ${item.sku}`);
+                    setOpen(false);
+                  }}
+                  className={`w-full px-4 py-3 text-left transition-colors focus:bg-[#1E2A3A] hover:bg-[#1E2A3A] ${isSelected || hasQueryMatch ? "bg-blue-500/10" : ""}`}
+                >
+                  <span className="block text-sm font-semibold text-slate-100">{highlightMatch(item.name, query)}</span>
+                  <span className="mt-0.5 block text-xs text-slate-500">{secondary}</span>
+                </button>
+              );
+            })
+          )}
+        </div>
+      )}
     </div>
   );
 }

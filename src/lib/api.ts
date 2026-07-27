@@ -254,9 +254,10 @@ export const api = {
       ]);
       const categories = categoryRows.map(normalizeCategory);
       const canManageAccounts = currentUser?.role === "admin" || currentUser?.role === "manager";
-      const [warehouseRows, itemRows, transactionRows, transferRows, userRows, reorderRows, notificationRows, settings, acknowledgedAlertIds] = await Promise.all([
+      const [warehouseRows, itemRows, assignableRows, transactionRows, transferRows, userRows, reorderRows, notificationRows, settings, acknowledgedAlertIds] = await Promise.all([
         request<ApiRecord[]>("/warehouses"),
         request<ApiRecord[]>("/inventory"),
+        request<ApiRecord[]>("/inventory/assignable"),
         request<ApiRecord[]>("/transactions"),
         request<ApiRecord[]>("/transfers"),
         canManageAccounts ? request<ApiRecord[]>("/users") : Promise.resolve([]),
@@ -270,6 +271,7 @@ export const api = {
         suppliers: supplierRows.map(normalizeSupplier),
         warehouses: warehouseRows.map(normalizeWarehouse),
         items: itemRows.map((row) => normalizeItem(row, categories)),
+        assignableItems: assignableRows.map((row) => normalizeItem(row, categories)),
         transactions: transactionRows.map(normalizeTransaction),
         transfers: transferRows.map(normalizeTransfer),
         users: userRows.map(normalizeUser),
@@ -354,15 +356,21 @@ export const api = {
       }),
   },
   inventory: {
-    create: (item: InventoryItem, categories: Category[]) =>
+    create: (item: InventoryItem, categories: Category[], supplierName?: string) =>
       request<ApiRecord>("/inventory", {
         method: "POST",
-        body: JSON.stringify(itemPayload(item, categories)),
+        body: JSON.stringify({
+          ...itemPayload(item, categories),
+          supplierName: supplierName?.trim() || null,
+        }),
       }),
-    update: (item: InventoryItem, categories: Category[]) =>
+    update: (item: InventoryItem, categories: Category[], supplierName?: string) =>
       request<ApiRecord>(`/inventory/${item.id}`, {
         method: "PUT",
-        body: JSON.stringify(itemPayload(item, categories)),
+        body: JSON.stringify({
+          ...itemPayload(item, categories),
+          supplierName: supplierName?.trim() || null,
+        }),
       }),
     delete: (id: string) => request<{ ok: boolean }>(`/inventory/${id}`, { method: "DELETE" }),
     assign: (itemId: string, warehouseId: string, zoneId: string | null) =>

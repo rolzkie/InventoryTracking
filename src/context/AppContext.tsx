@@ -15,6 +15,7 @@ import type {
 import { api } from "../lib/api";
 
 const AUTH_STORAGE_KEY = "warehouseiq.auth";
+const RECENT_LOGINS_KEY = "warehouseiq.recent-logins";
 
 interface AppState {
   currentPage: Page;
@@ -22,6 +23,7 @@ interface AppState {
   suppliers: Supplier[];
   warehouses: Warehouse[];
   items: InventoryItem[];
+  assignableItems: InventoryItem[];
   transactions: StockTransaction[];
   transfers: Transfer[];
   alerts: Alert[];
@@ -51,6 +53,7 @@ type Action =
       data: {
         warehouses: Warehouse[];
         items: InventoryItem[];
+        assignableItems: InventoryItem[];
         transactions: StockTransaction[];
         transfers: Transfer[];
         categories: Category[];
@@ -157,6 +160,16 @@ function buildAlerts(
   return alerts;
 }
 
+function mergeAlerts(
+  items: InventoryItem[],
+  acknowledgedAlertIds: string[],
+  thresholds: Record<string, unknown>,
+): Alert[] {
+  return buildAlerts(items, acknowledgedAlertIds, thresholds).sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+}
+
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case "SET_PAGE":
@@ -166,7 +179,7 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         ...action.data,
-        alerts: buildAlerts(
+        alerts: mergeAlerts(
           action.data.items,
           action.data.acknowledgedAlertIds,
           action.data.settings.thresholds,
@@ -186,16 +199,33 @@ function reducer(state: AppState, action: Action): AppState {
       };
 
     case "ADD_ITEM":
-      return { ...state, items: [...state.items, computeItemStatus(action.item)] };
-
-    case "UPDATE_ITEM":
       return {
         ...state,
-        items: state.items.map((i) => (i.id === action.item.id ? computeItemStatus(action.item) : i)),
+        items: [...state.items, computeItemStatus(action.item)],
+        alerts: mergeAlerts(
+          [...state.items, computeItemStatus(action.item)],
+          state.acknowledgedAlertIds,
+          state.settings.thresholds ?? {},
+        ),
       };
 
-    case "DELETE_ITEM":
-      return { ...state, items: state.items.filter((i) => i.id !== action.id) };
+    case "UPDATE_ITEM": {
+      const updatedItems = state.items.map((i) => (i.id === action.item.id ? computeItemStatus(action.item) : i));
+      return {
+        ...state,
+        items: updatedItems,
+        alerts: mergeAlerts(updatedItems, state.acknowledgedAlertIds, state.settings.thresholds ?? {}),
+      };
+    }
+
+    case "DELETE_ITEM": {
+      const items = state.items.filter((i) => i.id !== action.id);
+      return {
+        ...state,
+        items,
+        alerts: mergeAlerts(items, state.acknowledgedAlertIds, state.settings.thresholds ?? {}),
+      };
+    }
 
     case "ADD_WAREHOUSE":
       return { ...state, warehouses: [...state.warehouses, action.warehouse] };
@@ -230,6 +260,7 @@ function reducer(state: AppState, action: Action): AppState {
         transactions: [txn, ...state.transactions],
         items: updatedItems,
         warehouses: updatedWarehouses,
+        alerts: mergeAlerts(updatedItems, state.acknowledgedAlertIds, state.settings.thresholds ?? {}),
       };
     }
 
@@ -252,6 +283,7 @@ function reducer(state: AppState, action: Action): AppState {
         ...state,
         transfers: state.transfers.map((t) => (t.id === tr.id ? tr : t)),
         items: updatedItems,
+        alerts: mergeAlerts(updatedItems, state.acknowledgedAlertIds, state.settings.thresholds ?? {}),
       };
     }
 
@@ -259,6 +291,9 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         alerts: state.alerts.map((a) => (a.id === action.id ? { ...a, acknowledged: true } : a)),
+        acknowledgedAlertIds: state.acknowledgedAlertIds.includes(action.id)
+          ? state.acknowledgedAlertIds
+          : [...state.acknowledgedAlertIds, action.id],
       };
 
     case "ADD_ALERT":
@@ -329,6 +364,7 @@ const initialState: AppState = {
   suppliers: [],
   warehouses: [],
   items: [],
+  assignableItems: [],
   transactions: [],
   transfers: [],
   alerts: [],
@@ -369,8 +405,8 @@ interface AppContextValue {
   forgotPassword: (email: string) => Promise<{ success: boolean; message: string }>;
   logout: () => Promise<void>;
   refreshOperationalData: (currentUser?: User) => Promise<void>;
-  createItem: (item: InventoryItem) => Promise<void>;
-  updateItem: (item: InventoryItem) => Promise<void>;
+  createItem: (item: InventoryItem, supplierName?: string) => Promise<void>;
+  updateItem: (item: InventoryItem, supplierName?: string) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
   createWarehouse: (warehouse: Warehouse) => Promise<void>;
   updateWarehouse: (warehouse: Warehouse) => Promise<void>;
@@ -461,13 +497,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const getSupplier = useCallback((id: string) => state.suppliers.find((s) => s.id === id), [state.suppliers]);
   const generateId = useCallback((prefix = "id") => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, []);
 
-  const createItem = useCallback(async (item: InventoryItem) => {
-    await api.inventory.create(item, state.categories);
+  const createItem = useCallback(async (item: InventoryItem, supplierName?: string) => {
+    await api.inventory.create(item, state.categories, supplierName);
     await refreshOperationalData();
   }, [refreshOperationalData, state.categories]);
 
-  const updateItem = useCallback(async (item: InventoryItem) => {
-    await api.inventory.update(item, state.categories);
+  const updateItem = useCallback(async (item: InventoryItem, supplierName?: string) => {
+    await api.inventory.update(item, state.categories, supplierName);
     await refreshOperationalData();
   }, [refreshOperationalData, state.categories]);
 
@@ -518,6 +554,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const session = await api.auth.login(email, password);
       const { user } = session;
       window.sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+      const recentLogins = (() => {
+        try {
+          const raw = window.localStorage.getItem(RECENT_LOGINS_KEY);
+          return raw ? JSON.parse(raw) as Array<{ email: string; name: string; role: string; lastLogin: string }> : [];
+        } catch {
+          return [];
+        }
+      })();
+      const entry = { email: user.email, name: user.name, role: user.role, lastLogin: new Date().toISOString() };
+      window.localStorage.setItem(
+        RECENT_LOGINS_KEY,
+        JSON.stringify([entry, ...recentLogins.filter((loginEntry) => loginEntry.email.toLowerCase() !== user.email.toLowerCase())].slice(0, 6)),
+      );
       dispatch({ type: "LOGIN", user });
       void refreshOperationalData(user).catch(() => undefined);
       return { success: true };
