@@ -73,7 +73,7 @@ class StockAndWarehouseIntegrityTest extends TestCase
             'warehouseId' => $warehouse->id,
             'transactionType' => 'stock_in',
             'quantity' => 10,
-            'referenceNumber' => "RO-{$reorderId}",
+            'referenceNumber' => $this->referencePattern('STKIN'),
         ]);
         $this->assertDatabaseHas('app_notifications', [
             'title' => 'Out of Stock',
@@ -120,5 +120,10 @@ class StockAndWarehouseIntegrityTest extends TestCase
         ]);
 
         return [$warehouse, $item];
+    }
+
+    private function referencePattern(string $prefix): string
+    {
+        return $prefix.'-'.now()->format('Ymd').'-0001';
     }
 }

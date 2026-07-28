@@ -77,7 +77,7 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
     >
       {/* Left panel – branding */}
       <div
-        className="hidden lg:flex flex-col justify-between w-[52%] p-12 relative overflow-hidden"
+        className="hidden lg:flex w-[52%] min-w-0 flex-col justify-start gap-10 px-10 py-10 xl:px-12 xl:py-12 relative overflow-hidden"
         style={{ background: "linear-gradient(135deg, #0f1c35 0%, #111827 60%, #0B1220 100%)" }}
       >
         {/* Grid pattern */}
@@ -93,7 +93,7 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
         <div className="absolute bottom-1/4 right-0 w-64 h-64 rounded-full opacity-8" style={{ background: "radial-gradient(circle, #8B5CF6, transparent)" }} />
 
         {/* Logo */}
-        <div className="relative flex items-center gap-3">
+        <div className="relative z-10 flex items-center gap-3 shrink-0">
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
             <Box size={20} className="text-white" />
           </div>
@@ -104,64 +104,38 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
         </div>
 
         {/* Center content */}
-        <div className="relative">
+        <div className="relative z-10 flex flex-1 flex-col justify-center max-w-xl">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 mb-6">
             <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
             <span className="text-xs text-blue-400 font-medium">Live Dashboard Active</span>
           </div>
-          <h1 className="text-5xl font-black text-slate-100 leading-tight mb-4">
+          <h1 className="text-4xl xl:text-5xl font-black text-slate-100 leading-[0.95] tracking-tight mb-4 max-w-md">
             Inventory &<br />Warehouse<br />
             <span style={{ background: "linear-gradient(90deg, #3B82F6, #8B5CF6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
               System
             </span>
           </h1>
-          <p className="text-slate-400 text-base leading-relaxed max-w-sm">
+          <p className="text-sm xl:text-base text-slate-400 leading-relaxed max-w-md">
            Take full control of your inventory and warehouse operations with a centralized ERP solution. Monitor stock levels in real time, automate inventory processes, manage multiple warehouses, and generate insightful reports—all from one powerful dashboard.
           </p>
-
-          {/* Feature pills */}
-          <div className="flex flex-wrap gap-2 mt-8">
-            {["Real-time Tracking", "Auto Alerts", "PDF Reports", "Multi-Warehouse", "Stock Transfers", "PO Generation"].map((f) => (
-              <span key={f} className="px-3 py-1.5 text-xs font-medium text-slate-300 rounded-full border border-[#2A3445] bg-[#1A2232]/60">
-                {f}
-              </span>
-            ))}
-          </div>
-
-          {/* Stats row */}
-          <div className="flex gap-8 mt-10">
+          <div className="grid grid-cols-3 gap-4 sm:gap-6 mt-8 xl:mt-10 max-w-md">
             {[
               { value: "15+", label: "SKUs Tracked" },
               { value: "4", label: "Warehouses" },
               { value: "100%", label: "Live Data" },
             ].map((s) => (
-              <div key={s.label}>
-                <p className="text-2xl font-black text-slate-100">{s.value}</p>
-                <p className="text-xs text-slate-500">{s.label}</p>
+              <div key={s.label} className="min-w-0">
+                <p className="text-xl xl:text-2xl font-black text-slate-100 leading-none">{s.value}</p>
+                <p className="mt-1 text-[11px] xl:text-xs text-slate-500 leading-snug">{s.label}</p>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Bottom quote */}
-        <div className="relative p-4 rounded-2xl border border-[#2A3445] bg-[#1A2232]/50">
-          <p className="text-sm text-slate-300 italic leading-relaxed">
-            "Efficiency begins with visibility—when every item is tracked, every decision becomes smarter."
-          </p>
-          <div className="flex items-center gap-3 mt-3">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold">
-              MT
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-slate-200">Errol Miranda</p>
-            <p className="text-[10px] text-slate-500">Operations Director, Inventory and warehouse management system</p>
-          </div>
-        </div>
-        </div>
       </div>
 
       {/* Right panel – login form */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 lg:px-16 relative">
+      <div className="flex-1 flex flex-col items-center justify-start px-6 py-8 lg:px-16 lg:py-0 lg:justify-center relative">
         {/* Mobile logo */}
         <div className="lg:hidden flex items-center gap-3 mb-10">
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
@@ -172,13 +146,13 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
 
         <div className="w-full max-w-md">
           {/* Header */}
-          <div className="mb-8">
+          <div className="mb-6">
             <h2 className="text-2xl font-bold text-slate-100 mb-1">Welcome back</h2>
             <p className="text-sm text-slate-500">Sign in to access your ERP dashboard</p>
           </div>
 
           {/* Recent saved log ins */}
-          <div className="mb-6">
+          <div className="mb-5">
             <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Recent Saved Log Ins</p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {recentLogins.length > 0 ? recentLogins.map((acc) => (
@@ -206,9 +180,9 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 mb-6">
+          <div className="flex items-center gap-3 mb-5">
             <div className="flex-1 h-px bg-[#2A3445]" />
-            <span className="text-xs text-slate-600">or sign in manually</span>
+            <span className="text-xs text-slate-400">or sign in manually</span>
             <div className="flex-1 h-px bg-[#2A3445]" />
           </div>
 
@@ -227,7 +201,7 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
           )}
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3">
             {/* Email */}
             <div>
               <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">
@@ -241,7 +215,7 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
                   onChange={(e) => { setEmail(e.target.value); setError(""); }}
                   placeholder="you@company.com"
                   autoComplete="email"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#111827] border border-[#2A3445] text-slate-100 placeholder-slate-600 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#111827] border border-[#2A3445] text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
                 />
               </div>
             </div>
@@ -258,9 +232,9 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => { setPassword(e.target.value); setError(""); }}
-                  placeholder="••••••••"
+                  placeholder="Enter password"
                   autoComplete="current-password"
-                  className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-[#111827] border border-[#2A3445] text-slate-100 placeholder-slate-600 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
+                  className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-[#111827] border border-[#2A3445] text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
                 />
                 <button
                   type="button"
@@ -284,17 +258,15 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
                 boxShadow: loading ? "none" : "0 0 24px rgba(59,130,246,0.25)",
               }}
             >
-              {loading ? (
-                <><Loader2 size={15} className="animate-spin" /> Signing in…</>
-              ) : (
-                "Sign In to Dashboard"
-              )}
+                {loading ? (
+                  <><Loader2 size={15} className="animate-spin" /> Signing in…</>
+                ) : (
+                  "Sign In"
+                )}
             </button>
           </form>
 
-          {/* Hint */}
-          {/* Footer */}
-          <p className="mt-8 text-center text-xs text-slate-700">
+          <p className="mt-6 text-center text-xs text-slate-700">
             Inventory and Warehouse Management System 2026
           </p>
         </div>
