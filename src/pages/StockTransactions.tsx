@@ -102,14 +102,14 @@ function StockItemCombobox({
 }
 
 export default function StockTransactions() {
-  const { state, showToast, generateId, createTransaction } = useApp();
+  const { state, showToast, createTransaction } = useApp();
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState<"" | "stock-in" | "stock-out">("");
   const [activeTab, setActiveTab] = useState<"all" | "stock-in" | "stock-out" | "expiration">("all");
   const [showInModal, setShowInModal] = useState(false);
   const [showOutModal, setShowOutModal] = useState(false);
-  const [inForm, setInForm] = useState({ itemId: "", quantity: 0, supplierId: "", referenceNumber: "", notes: "", unitCost: 0, expirationDate: "" });
-  const [outForm, setOutForm] = useState({ itemId: "", quantity: 0, purpose: "sales", referenceNumber: "", notes: "" });
+  const [inForm, setInForm] = useState({ itemId: "", quantity: 0, supplierId: "", notes: "", unitCost: 0, expirationDate: "" });
+  const [outForm, setOutForm] = useState({ itemId: "", quantity: 0, purpose: "sales", notes: "" });
   const [inErrors, setInErrors] = useState<Record<string, string>>({});
   const [outErrors, setOutErrors] = useState<Record<string, string>>({});
 
@@ -150,7 +150,6 @@ export default function StockTransactions() {
     const errors: Record<string, string> = {};
     if (!inForm.itemId) errors.itemId = "Select an item";
     if (inForm.quantity <= 0) errors.quantity = "Quantity must be positive";
-    if (!inForm.referenceNumber.trim()) errors.referenceNumber = "Reference number required";
     return errors;
   };
 
@@ -160,7 +159,6 @@ export default function StockTransactions() {
     if (outForm.quantity <= 0) errors.quantity = "Quantity must be positive";
     const item = state.items.find((i) => i.id === outForm.itemId);
     if (item && outForm.quantity > item.quantity) errors.quantity = `Only ${item.quantity} units available (prevents negative stock)`;
-    if (!outForm.referenceNumber.trim()) errors.referenceNumber = "Reference number required";
     return errors;
   };
 
@@ -168,14 +166,12 @@ export default function StockTransactions() {
     const errors = validateIn();
     if (Object.keys(errors).length) { setInErrors(errors); return; }
     const item = state.items.find((i) => i.id === inForm.itemId);
-    const txn: StockTransaction = {
-      id: generateId("txn"),
+    const txn = {
       itemId: inForm.itemId,
-      type: "stock-in",
+      type: "stock-in" as const,
       quantity: inForm.quantity,
       date: new Date().toISOString().split("T")[0],
       supplierId: inForm.supplierId || undefined,
-      referenceNumber: inForm.referenceNumber,
       notes: inForm.notes,
       processedBy: state.currentUser.name,
       unitCost: inForm.unitCost || item?.unitCost || 0,
@@ -185,7 +181,7 @@ export default function StockTransactions() {
       await createTransaction(txn);
       showToast(`Stock-In recorded: +${inForm.quantity} units of ${item?.name}`, "success");
       setShowInModal(false);
-      setInForm({ itemId: "", quantity: 0, supplierId: "", referenceNumber: "", notes: "", unitCost: 0, expirationDate: "" });
+      setInForm({ itemId: "", quantity: 0, supplierId: "", notes: "", unitCost: 0, expirationDate: "" });
       setInErrors({});
     } catch (error) {
       showToast(error instanceof Error ? error.message : "Unable to record stock-in", "error");
@@ -196,14 +192,12 @@ export default function StockTransactions() {
     const errors = validateOut();
     if (Object.keys(errors).length) { setOutErrors(errors); return; }
     const item = state.items.find((i) => i.id === outForm.itemId);
-    const txn: StockTransaction = {
-      id: generateId("txn"),
+    const txn = {
       itemId: outForm.itemId,
-      type: "stock-out",
+      type: "stock-out" as const,
       quantity: outForm.quantity,
       date: new Date().toISOString().split("T")[0],
       purpose: outForm.purpose,
-      referenceNumber: outForm.referenceNumber,
       notes: outForm.notes,
       processedBy: state.currentUser.name,
       unitCost: item?.unitCost || 0,
@@ -212,7 +206,7 @@ export default function StockTransactions() {
       await createTransaction(txn);
       showToast(`Stock-Out recorded: -${outForm.quantity} units of ${item?.name}`, "warning");
       setShowOutModal(false);
-      setOutForm({ itemId: "", quantity: 0, purpose: "sales", referenceNumber: "", notes: "" });
+      setOutForm({ itemId: "", quantity: 0, purpose: "sales", notes: "" });
       setOutErrors({});
     } catch (error) {
       showToast(error instanceof Error ? error.message : "Unable to record stock-out", "error");
@@ -233,10 +227,10 @@ export default function StockTransactions() {
         subtitle="Manage stock movements, deliveries, and releases"
         actions={
           <div className="flex gap-2">
-            <Button variant="success" onClick={() => { setInForm({ itemId: "", quantity: 0, supplierId: "", referenceNumber: `PO-${Date.now().toString().slice(-6)}`, notes: "", unitCost: 0, expirationDate: "" }); setInErrors({}); setShowInModal(true); }}>
+            <Button variant="success" onClick={() => { setInForm({ itemId: "", quantity: 0, supplierId: "", notes: "", unitCost: 0, expirationDate: "" }); setInErrors({}); setShowInModal(true); }}>
               <PackagePlus size={15} /> Stock In
             </Button>
-            <Button variant="danger" onClick={() => { setOutForm({ itemId: "", quantity: 0, purpose: "sales", referenceNumber: `SO-${Date.now().toString().slice(-6)}`, notes: "" }); setOutErrors({}); setShowOutModal(true); }}>
+            <Button variant="danger" onClick={() => { setOutForm({ itemId: "", quantity: 0, purpose: "sales", notes: "" }); setOutErrors({}); setShowOutModal(true); }}>
               <PackageMinus size={15} /> Stock Out
             </Button>
           </div>
@@ -422,12 +416,11 @@ export default function StockTransactions() {
               <input type="number" min={0} step="0.01" value={inForm.unitCost} onChange={(e) => setInForm({ ...inForm, unitCost: parseFloat(e.target.value) || 0 })} className="w-full px-3 py-2 rounded-lg bg-[#0B1220] border border-[#2A3445] text-slate-100 text-sm focus:outline-none focus:border-blue-500" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <Select label="Supplier" value={inForm.supplierId} onChange={(e) => setInForm({ ...inForm, supplierId: e.target.value })}>
               <option value="">No supplier</option>
               {state.suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </Select>
-            <Input label="Reference Number *" value={inForm.referenceNumber} onChange={(e) => setInForm({ ...inForm, referenceNumber: e.target.value })} placeholder="PO-2024-001" error={inErrors.referenceNumber} />
           </div>
           <Input label="Expiration Date (if applicable)" type="date" value={inForm.expirationDate} onChange={(e) => setInForm({ ...inForm, expirationDate: e.target.value })} />
           <Textarea label="Notes" value={inForm.notes} onChange={(e) => setInForm({ ...inForm, notes: e.target.value })} placeholder="Delivery notes, batch number, etc." />
@@ -467,7 +460,6 @@ export default function StockTransactions() {
               {PURPOSES.map((p) => <option key={p} value={p} className="capitalize">{p}</option>)}
             </Select>
           </div>
-          <Input label="Reference Number *" value={outForm.referenceNumber} onChange={(e) => setOutForm({ ...outForm, referenceNumber: e.target.value })} placeholder="SO-2024-001" error={outErrors.referenceNumber} />
           <Textarea label="Notes" value={outForm.notes} onChange={(e) => setOutForm({ ...outForm, notes: e.target.value })} placeholder="Release notes, destination, order reference..." />
         </div>
         <div className="flex justify-end gap-3 px-6 pb-6">

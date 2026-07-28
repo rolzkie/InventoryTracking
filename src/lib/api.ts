@@ -393,7 +393,7 @@ export const api = {
     delete: (id: string) => request<{ ok: boolean }>(`/warehouses/${id}`, { method: "DELETE" }),
   },
   transactions: {
-    create: (transaction: StockTransaction, warehouseId: string) =>
+    create: (transaction: Omit<StockTransaction, "id" | "referenceNumber"> & { id?: string; referenceNumber?: string }, warehouseId: string) =>
       request<ApiRecord>("/transactions", {
         method: "POST",
         body: JSON.stringify({
@@ -404,7 +404,6 @@ export const api = {
           expirationDate: transaction.expirationDate,
           supplierId: transaction.supplierId,
           purpose: transaction.purpose,
-          referenceNumber: transaction.referenceNumber,
           processedBy: transaction.processedBy,
           unitCost: transaction.unitCost,
           notes: transaction.notes,

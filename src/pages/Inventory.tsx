@@ -46,6 +46,7 @@ export default function Inventory() {
   const { state, showToast, generateId, createItem, updateItem, deleteItem } = useApp();
   const [search, setSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
+  const [filterWarehouse, setFilterWarehouse] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [sortBy, setSortBy] = useState<"name" | "sku" | "quantity" | "unitCost">("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -66,6 +67,8 @@ export default function Inventory() {
       items = items.filter((i) => i.name.toLowerCase().includes(q) || i.sku.toLowerCase().includes(q) || state.categories.find((c) => c.id === i.categoryId)?.name.toLowerCase().includes(q));
     }
     if (filterCategory) items = items.filter((i) => i.categoryId === filterCategory);
+    if (filterWarehouse === "__unassigned__") items = items.filter((i) => !i.warehouseId);
+    else if (filterWarehouse) items = items.filter((i) => i.warehouseId === filterWarehouse);
     if (filterStatus) items = items.filter((i) => i.status === filterStatus);
     items = [...items].sort((a, b) => {
       const dir = sortDir === "asc" ? 1 : -1;
@@ -74,7 +77,7 @@ export default function Inventory() {
       return a[sortBy].localeCompare(b[sortBy]) * dir;
     });
     return items;
-  }, [state.items, state.categories, search, filterCategory, filterStatus, sortBy, sortDir]);
+  }, [state.items, state.categories, search, filterCategory, filterWarehouse, filterStatus, sortBy, sortDir]);
 
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
@@ -226,8 +229,17 @@ export default function Inventory() {
         <div className="flex flex-wrap gap-3">
           <SearchBar value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search SKU, name, category..." />
           <Select value={filterCategory} onChange={(e) => { setFilterCategory(e.target.value); setPage(1); }} className="w-40">
+            <option value="" disabled hidden>Warehouse Category</option>
             <option value="">All Categories</option>
             {state.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </Select>
+          <Select value={filterWarehouse} onChange={(e) => { setFilterWarehouse(e.target.value); setPage(1); }} className="w-44">
+            <option value="" disabled hidden>Warehouse</option>
+            <option value="">All Warehouses</option>
+            <option value="__unassigned__">Unassigned</option>
+            {state.warehouses.map((warehouse) => (
+              <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>
+            ))}
           </Select>
           <Select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }} className="w-36">
             <option value="">All Status</option>
@@ -286,7 +298,7 @@ export default function Inventory() {
                     icon={<Package size={40} />}
                     title="No items found"
                     description="Try adjusting your search or filters"
-                    action={<Button variant="primary" size="sm" onClick={() => { setSearch(""); setFilterCategory(""); setFilterStatus(""); }}>Clear Filters</Button>}
+                    action={<Button variant="primary" size="sm" onClick={() => { setSearch(""); setFilterCategory(""); setFilterWarehouse(""); setFilterStatus(""); }}>Clear Filters</Button>}
                   />
                 </td>
               </tr>

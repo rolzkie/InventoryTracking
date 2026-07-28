@@ -412,7 +412,7 @@ interface AppContextValue {
   updateWarehouse: (warehouse: Warehouse) => Promise<void>;
   deleteWarehouse: (id: string) => Promise<void>;
   assignItem: (itemId: string, warehouseId: string, zoneId: string | null) => Promise<void>;
-  createTransaction: (transaction: StockTransaction) => Promise<void>;
+  createTransaction: (transaction: Omit<StockTransaction, "id" | "referenceNumber"> & { id?: string; referenceNumber?: string }) => Promise<void>;
   createTransfer: (transfer: Transfer) => Promise<void>;
   updateTransfer: (transfer: Transfer) => Promise<void>;
   createUser: (user: User, password: string) => Promise<void>;
@@ -532,7 +532,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await refreshOperationalData();
   }, [refreshOperationalData]);
 
-  const createTransaction = useCallback(async (transaction: StockTransaction) => {
+  const createTransaction = useCallback(async (transaction: Omit<StockTransaction, "id" | "referenceNumber"> & { id?: string; referenceNumber?: string }) => {
     const item = state.items.find((entry) => entry.id === transaction.itemId);
     if (!item?.warehouseId) throw new Error("Assign this item to a warehouse before recording stock.");
     await api.transactions.create(transaction, item.warehouseId);

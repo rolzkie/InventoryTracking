@@ -10,12 +10,14 @@ use Illuminate\Validation\ValidationException;
 use App\Models\Warehouse;
 use App\Services\InventoryNotificationService;
 use App\Services\InventorySynchronizationService;
+use App\Services\StockTransactionReferenceService;
 
 class StockTransactionController extends Controller
 {
     public function __construct(
         protected InventoryNotificationService $notifications,
         protected InventorySynchronizationService $sync,
+        protected StockTransactionReferenceService $references,
     )
     {
     }
@@ -75,7 +77,6 @@ class StockTransactionController extends Controller
             'expirationDate' => 'nullable|date',
             'supplierId' => 'nullable|string|max:100',
             'purpose' => 'nullable|string|max:100',
-            'referenceNumber' => 'nullable|string|max:100',
             'processedBy' => 'nullable|string|max:255',
             'unitCost' => 'sometimes|numeric|min:0',
             'notes' => 'nullable|string',
@@ -118,11 +119,11 @@ class StockTransactionController extends Controller
                 'expirationDate' => $validated['expirationDate'] ?? null,
                 'supplierId' => $validated['supplierId'] ?? null,
                 'purpose' => $validated['purpose'] ?? null,
-                'referenceNumber' => $validated['referenceNumber'] ?? null,
                 'processedBy' => $validated['processedBy'] ?? null,
                 'unitCost' => $validated['unitCost'] ?? $item->unitPrice,
                 'notes' => $validated['notes'] ?? '',
                 'createdAt' => now(),
+                'referenceNumber' => $this->references->generate($validated['transactionType']),
             ]);
 
             $this->sync->reconcileItem($item, false);
@@ -144,7 +145,6 @@ class StockTransactionController extends Controller
             'expirationDate' => 'nullable|date',
             'supplierId' => 'nullable|string|max:100',
             'purpose' => 'nullable|string|max:100',
-            'referenceNumber' => 'nullable|string|max:100',
             'processedBy' => 'nullable|string|max:255',
             'unitCost' => 'sometimes|numeric|min:0',
             'notes' => 'nullable|string',
@@ -201,7 +201,7 @@ class StockTransactionController extends Controller
                 $newItem->save();
             }
 
-            $transaction->update($validated);
+            $transaction->update(collect($validated)->except(['referenceNumber'])->all());
 
             $affectedItemIds->each(fn ($itemId) => $this->sync->reconcileItemId((int) $itemId));
         });

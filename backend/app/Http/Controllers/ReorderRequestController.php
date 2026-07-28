@@ -7,6 +7,7 @@ use App\Models\ReorderRequest;
 use App\Models\StockTransaction;
 use App\Services\InventoryNotificationService;
 use App\Services\InventorySynchronizationService;
+use App\Services\StockTransactionReferenceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -17,6 +18,7 @@ class ReorderRequestController extends Controller
     public function __construct(
         protected InventoryNotificationService $notifications,
         protected InventorySynchronizationService $sync,
+        protected StockTransactionReferenceService $references,
     )
     {
     }
@@ -104,7 +106,7 @@ class ReorderRequestController extends Controller
                     'transactionType' => 'stock_in',
                     'quantity' => $reorder->quantity,
                     'supplierId' => $reorder->supplierId,
-                    'referenceNumber' => "RO-{$reorder->id}",
+                    'referenceNumber' => $this->references->generate('stock_in', now()),
                     'processedBy' => 'Reorder Receiving',
                     'unitCost' => $item->unitPrice,
                     'notes' => 'Reorder marked received.',
