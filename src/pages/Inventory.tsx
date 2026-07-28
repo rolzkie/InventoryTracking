@@ -59,6 +59,16 @@ export default function Inventory() {
   const [form, setForm] = useState(emptyForm());
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const normalizeSku = (value: string) => value.trim().toLowerCase();
+  const generateSku = () => {
+    const day = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const base = `SKU-${day}-`;
+    const next = state.items.reduce((highest, item) => {
+      if (!item.sku.toUpperCase().startsWith(base)) return highest;
+      const suffix = Number.parseInt(item.sku.slice(base.length), 10);
+      return Number.isFinite(suffix) ? Math.max(highest, suffix) : highest;
+    }, 0) + 1;
+    return `${base}${String(next).padStart(4, "0")}`;
+  };
 
   const filtered = useMemo(() => {
     let items = state.items;
@@ -154,6 +164,13 @@ export default function Inventory() {
     setShowEditModal(true);
   };
 
+  const openAdd = () => {
+    setSelectedItem(null);
+    setForm({ ...emptyForm(), sku: generateSku() });
+    setFormErrors({});
+    setShowAddModal(true);
+  };
+
   const handleDelete = async (id: string) => {
     const item = state.items.find((i) => i.id === id);
     try {
@@ -176,9 +193,16 @@ export default function Inventory() {
   const formSection = (
     <div className="p-6 space-y-4">
       <div className="grid grid-cols-2 gap-4">
-        <Input label="SKU *" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} placeholder="SKU-0001" error={formErrors.sku} />
+        <Input
+          label="SKU *"
+          value={form.sku}
+          onChange={(e) => setForm({ ...form, sku: e.target.value })}
+          placeholder="Auto-generated, editable"
+          error={formErrors.sku}
+        />
         <Input label="Item Name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Product name" error={formErrors.name} />
       </div>
+      <p className="text-[11px] text-slate-500 -mt-2">A unique SKU is suggested automatically, and you can still edit it before saving.</p>
       <div className="grid grid-cols-2 gap-4">
         <Select label="Category *" value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })} error={formErrors.categoryId}>
           <option value="">Select category</option>
@@ -218,7 +242,7 @@ export default function Inventory() {
         title="Inventory Management"
         subtitle={`${state.items.length} total SKUs · ${state.items.filter(i => i.status === "low-stock").length} low stock · ${state.items.filter(i => i.status === "out-of-stock").length} out of stock`}
         actions={
-          <Button variant="primary" onClick={() => { setForm(emptyForm()); setFormErrors({}); setShowAddModal(true); }}>
+          <Button variant="primary" onClick={openAdd}>
             <Plus size={15} /> Add Item
           </Button>
         }

@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
+use Carbon\CarbonInterface;
 
 class InventoryController extends Controller
 {
@@ -42,6 +43,24 @@ class InventoryController extends Controller
         }
 
         return $supplierId !== null && $supplierId !== '' ? (string) $supplierId : null;
+    }
+
+    protected function generateSku(?CarbonInterface $date = null): string
+    {
+        $day = ($date ?? now())->format('Ymd');
+        $base = "SKU-{$day}-";
+
+        $latest = InventoryItem::query()
+            ->where('sku', 'like', $base.'%')
+            ->orderByDesc('sku')
+            ->value('sku');
+
+        $next = 1;
+        if (is_string($latest) && preg_match('/-(\d{4})$/', $latest, $matches)) {
+            $next = ((int) $matches[1]) + 1;
+        }
+
+        return sprintf('%s%04d', $base, $next);
     }
 
     public function assignable()
@@ -120,12 +139,7 @@ class InventoryController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'sku' => [
-                'required',
-                'string',
-                'max:100',
-                Rule::unique('inventory_items', 'sku'),
-            ],
+            'sku' => ['nullable', 'string', 'max:100', Rule::unique('inventory_items', 'sku')],
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'category' => 'required|string|max:100',
@@ -144,8 +158,13 @@ class InventoryController extends Controller
             $validated['supplierName'] ?? null,
         );
 
+        $sku = trim((string) ($validated['sku'] ?? ''));
+        if ($sku === '') {
+            $sku = $this->generateSku();
+        }
+
         $payload = [
-            'sku' => trim($validated['sku']),
+            'sku' => $sku,
             'name' => $validated['name'],
             'description' => $validated['description'] ?? '',
             'category' => $validated['category'],
@@ -183,7 +202,7 @@ class InventoryController extends Controller
     public function update(Request $request, InventoryItem $inventory)
     {
         $validated = $request->validate([
-            'sku' => ['sometimes', 'string', 'max:100'],
+            'sku' => ['sometimes', 'nullable', 'string', 'max:100'],
             'name' => 'sometimes|string|max:255',
             'description' => 'nullable|string',
             'category' => 'sometimes|string|max:100',
