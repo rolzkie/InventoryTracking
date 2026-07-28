@@ -401,7 +401,7 @@ interface AppContextValue {
   getCategory: (id: string) => Category | undefined;
   getSupplier: (id: string) => Supplier | undefined;
   generateId: (prefix?: string) => string;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string; user?: User }>;
   forgotPassword: (email: string) => Promise<{ success: boolean; message: string }>;
   logout: () => Promise<void>;
   refreshOperationalData: (currentUser?: User) => Promise<void>;
@@ -569,7 +569,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       );
       dispatch({ type: "LOGIN", user });
       void refreshOperationalData(user).catch(() => undefined);
-      return { success: true };
+      return { success: true, user };
     } catch (error) {
       return {
         success: false,

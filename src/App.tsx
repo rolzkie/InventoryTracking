@@ -26,7 +26,7 @@ function AppContent() {
           onLogin={async (email, password) => {
             const result = await login(email, password);
             if (result.success) {
-              showToast(`Welcome back, ${state.users.find(u => u.email.toLowerCase() === email.toLowerCase())?.name ?? "User"}!`, "success");
+              showToast(`Welcome back, ${result.user?.name ?? "User"}!`, "success");
             }
             return result;
           }}
