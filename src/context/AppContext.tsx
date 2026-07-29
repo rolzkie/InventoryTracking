@@ -380,6 +380,7 @@ const initialState: AppState = {
     name: "Guest User",
     email: "",
     role: "viewer",
+    permission: "view",
     avatar: "GU",
     department: "",
     lastLogin: "Never",

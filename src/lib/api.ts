@@ -193,6 +193,7 @@ function normalizeUser(raw: ApiRecord): User {
     name,
     email: String(raw.email ?? ""),
     role: (raw.role ?? "staff") as User["role"],
+    permission: (raw.permission ?? (raw.role === "viewer" ? "view" : "manage")) as User["permission"],
     avatar: String(raw.avatar ?? name.split(" ").map((part) => part[0]).join("").slice(0, 2)),
     department: String(raw.department ?? ""),
     lastLogin: raw.last_login ? String(raw.last_login).replace("T", " ").slice(0, 16) : "Never",

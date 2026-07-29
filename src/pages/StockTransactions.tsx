@@ -103,6 +103,7 @@ function StockItemCombobox({
 
 export default function StockTransactions() {
   const { state, showToast, createTransaction } = useApp();
+  const canWrite = state.currentUser.permission !== "view";
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState<"" | "stock-in" | "stock-out">("");
   const [activeTab, setActiveTab] = useState<"all" | "stock-in" | "stock-out" | "expiration">("all");
@@ -227,10 +228,10 @@ export default function StockTransactions() {
         subtitle="Manage stock movements, deliveries, and releases"
         actions={
           <div className="flex gap-2">
-            <Button variant="success" onClick={() => { setInForm({ itemId: "", quantity: 0, supplierId: "", notes: "", unitCost: 0, expirationDate: "" }); setInErrors({}); setShowInModal(true); }}>
+            <Button variant="success" disabled={!canWrite} onClick={() => { setInForm({ itemId: "", quantity: 0, supplierId: "", notes: "", unitCost: 0, expirationDate: "" }); setInErrors({}); setShowInModal(true); }}>
               <PackagePlus size={15} /> Stock In
             </Button>
-            <Button variant="danger" onClick={() => { setOutForm({ itemId: "", quantity: 0, purpose: "sales", notes: "" }); setOutErrors({}); setShowOutModal(true); }}>
+            <Button variant="danger" disabled={!canWrite} onClick={() => { setOutForm({ itemId: "", quantity: 0, purpose: "sales", notes: "" }); setOutErrors({}); setShowOutModal(true); }}>
               <PackageMinus size={15} /> Stock Out
             </Button>
           </div>
@@ -244,6 +245,12 @@ export default function StockTransactions() {
         <StatCard title="Today's Activity" value={stats.todayCount} icon={<Calendar size={18} />} color="blue" subtitle="transactions" />
         <StatCard title="Expiring ≤90 Days" value={stats.expiringCount} icon={<AlertCircle size={18} />} color="amber" subtitle="items require attention" />
       </div>
+
+      {!canWrite && (
+        <div className="mb-4 rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-xs text-slate-300">
+          This account has view-only permission. Stock transactions can be reviewed but not created, updated, or deleted.
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 p-1 bg-[#111827] rounded-xl mb-4 w-fit">

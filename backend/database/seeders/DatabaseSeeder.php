@@ -120,12 +120,12 @@ class DatabaseSeeder extends Seeder
         ])->delete();
 
         $users = [
-            ['name' => 'Errol Miranda', 'email' => 'adminmiranda@gmail.com', 'password' => 'admin123', 'role' => 'admin', 'department' => 'Operations', 'active' => true],
-            ['name' => 'Rolando Anacta', 'email' => 'manageranacta@gmail.com', 'password' => 'manager123', 'role' => 'manager', 'department' => 'Logistics', 'active' => true],
-            ['name' => 'Thervin Ranehart Bandril', 'email' => 'thervs@gmail.com', 'password' => 'manager123', 'role' => 'manager', 'department' => 'Warehouse', 'active' => true],
-            ['name' => 'Jesreel Domaanis', 'email' => 'jes@gmail.com', 'password' => 'staff123', 'role' => 'staff', 'department' => 'Inventory', 'active' => true],
-            ['name' => 'Kevin Rei Gelle', 'email' => 'kevs@gmail.com', 'password' => 'staff123', 'role' => 'staff', 'department' => 'Receiving', 'active' => true],
-            ['name' => 'Employee', 'email' => 'employee@gmail.com', 'password' => 'staff123', 'role' => 'viewer', 'department' => 'Finance', 'active' => false],
+            ['name' => 'Errol Miranda', 'email' => 'adminmiranda@gmail.com', 'password' => 'admin123', 'role' => 'admin', 'permission' => 'manage', 'department' => 'Operations', 'active' => true],
+            ['name' => 'Rolando Anacta', 'email' => 'manageranacta@gmail.com', 'password' => 'manager123', 'role' => 'manager', 'permission' => 'manage', 'department' => 'Logistics', 'active' => true],
+            ['name' => 'Thervin Ranehart Bandril', 'email' => 'thervs@gmail.com', 'password' => 'manager123', 'role' => 'manager', 'permission' => 'manage', 'department' => 'Warehouse', 'active' => true],
+            ['name' => 'Jesreel Domaanis', 'email' => 'jes@gmail.com', 'password' => 'staff123', 'role' => 'staff', 'permission' => 'manage', 'department' => 'Inventory', 'active' => true],
+            ['name' => 'Kevin Rei Gelle', 'email' => 'kevs@gmail.com', 'password' => 'staff123', 'role' => 'staff', 'permission' => 'manage', 'department' => 'Receiving', 'active' => true],
+            ['name' => 'Employee', 'email' => 'employee@gmail.com', 'password' => 'staff123', 'role' => 'viewer', 'permission' => 'view', 'department' => 'Finance', 'active' => false],
         ];
         foreach ($users as $userData) {
             $initials = collect(explode(' ', $userData['name']))
@@ -137,6 +137,7 @@ class DatabaseSeeder extends Seeder
                     'name' => $userData['name'],
                     'password' => Hash::make($userData['password']),
                     'role' => $userData['role'],
+                    'permission' => $userData['permission'],
                     'avatar' => $initials,
                     'department' => $userData['department'],
                     'active' => $userData['active'],

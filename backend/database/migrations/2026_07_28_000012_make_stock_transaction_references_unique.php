@@ -20,13 +20,32 @@ return new class extends Migration
                 ->lockForUpdate()
                 ->get();
 
+            $usedReferences = [];
+
             foreach ($transactions as $transaction) {
-                if (!empty($transaction->referenceNumber)) {
-                    continue;
+                $reference = $transaction->referenceNumber;
+
+                if (!is_string($reference) || $reference === '') {
+                    $reference = $generator->generate((string) $transaction->transactionType, $transaction->createdAt);
                 }
 
-                $transaction->referenceNumber = $generator->generate((string) $transaction->transactionType, $transaction->createdAt);
-                $transaction->save();
+                if (isset($usedReferences[$reference])) {
+                    $base = preg_replace('/-\d{4}$/', '-', $reference) ?? '';
+                    $sequence = 1;
+                    if (preg_match('/-(\d{4})$/', $reference, $matches)) {
+                        $sequence = (int) $matches[1];
+                    }
+
+                    do {
+                        $sequence++;
+                        $reference = sprintf('%s%04d', $base, $sequence);
+                    } while (isset($usedReferences[$reference]));
+
+                    $transaction->referenceNumber = $reference;
+                    $transaction->save();
+                }
+
+                $usedReferences[$reference] = true;
             }
         });
 

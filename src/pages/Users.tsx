@@ -20,7 +20,7 @@ const roleColors: Record<UserRole, string> = {
 type UserForm = Omit<User, "id" | "createdAt" | "lastLogin"> & { password: string };
 
 function emptyForm(): UserForm {
-  return { name: "", email: "", password: "", role: "staff", avatar: "", department: "Operations", active: true };
+  return { name: "", email: "", password: "", role: "staff", permission: "manage", avatar: "", department: "Operations", active: true };
 }
 
 export default function Users() {
@@ -105,7 +105,7 @@ export default function Users() {
 
   const openEdit = (user: User) => {
     setSelectedUser(user);
-    setForm({ name: user.name, email: user.email, password: "", role: user.role, avatar: user.avatar, department: user.department, active: user.active });
+    setForm({ name: user.name, email: user.email, password: "", role: user.role, permission: user.permission, avatar: user.avatar, department: user.department, active: user.active });
     setFormErrors({});
     setShowEditModal(true);
   };
@@ -129,9 +129,13 @@ export default function Users() {
           label="Role *"
           value={form.role}
           disabled={selectedUser?.id === state.currentUser.id}
-          onChange={(e) => setForm({ ...form, role: e.target.value as UserRole })}
+          onChange={(e) => setForm({ ...form, role: e.target.value as UserRole, permission: e.target.value === "viewer" ? "view" : form.permission })}
         >
           {availableRoles.map((r) => <option key={r} value={r} className="capitalize">{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
+        </Select>
+        <Select label="Permission *" value={form.permission} disabled={form.role === "viewer"} onChange={(e) => setForm({ ...form, permission: e.target.value as User["permission"] })}>
+          <option value="manage">Manage</option>
+          <option value="view">View only</option>
         </Select>
         <Select label="Department" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })}>
           {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
@@ -191,6 +195,7 @@ export default function Users() {
               <Th>Email</Th>
               <Th>Role</Th>
               <Th>Department</Th>
+              <Th>Permission</Th>
               <Th>Last Login</Th>
               <Th>Status</Th>
               <Th>Created</Th>
@@ -200,7 +205,7 @@ export default function Users() {
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={8}>
+                <td colSpan={9}>
                   <EmptyState icon={<UserIcon size={40} />} title="No users found" description="Add a user to get started" action={<Button variant="primary" size="sm" onClick={() => { setSelectedUser(null); setForm(emptyForm()); setShowAddModal(true); }}><Plus size={14} /> Add User</Button>} />
                 </td>
               </tr>
@@ -223,6 +228,7 @@ export default function Users() {
                     <Badge variant={roleColors[user.role] as any} className="capitalize">{user.role}</Badge>
                   </Td>
                   <Td><span className="text-xs text-slate-400">{user.department}</span></Td>
+                  <Td><Badge variant={user.permission === "view" ? "gray" : "blue" as any} className="capitalize">{user.permission === "view" ? "View only" : "Manage"}</Badge></Td>
                   <Td><span className="text-xs text-slate-500">{user.lastLogin}</span></Td>
                   <Td>
                     <div className="flex items-center gap-1.5">

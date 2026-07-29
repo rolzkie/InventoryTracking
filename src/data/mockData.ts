@@ -149,12 +149,12 @@ export const initialReorderRequests: ReorderRequest[] = [
 ];
 
 export const initialUsers: User[] = [
-  { id: "user-1", name: "Michael Torres", email: "m.torres@erp.com", role: "admin", avatar: "MT", department: "Operations", lastLogin: "2024-06-24 09:15", active: true, createdAt: "2023-01-01" },
-  { id: "user-2", name: "Jessica Wong", email: "j.wong@erp.com", role: "manager", avatar: "JW", department: "Logistics", lastLogin: "2024-06-24 08:30", active: true, createdAt: "2023-02-15" },
-  { id: "user-3", name: "David Kim", email: "d.kim@erp.com", role: "manager", avatar: "DK", department: "Warehouse", lastLogin: "2024-06-23 17:45", active: true, createdAt: "2023-03-20" },
-  { id: "user-4", name: "Amanda Rodriguez", email: "a.rodriguez@erp.com", role: "staff", avatar: "AR", department: "Inventory", lastLogin: "2024-06-24 10:00", active: true, createdAt: "2023-06-01" },
-  { id: "user-5", name: "Brian Chen", email: "b.chen@erp.com", role: "staff", avatar: "BC", department: "Receiving", lastLogin: "2024-06-22 14:30", active: true, createdAt: "2023-09-10" },
-  { id: "user-6", name: "Sarah Johnson", email: "s.johnson@erp.com", role: "viewer", avatar: "SJ", department: "Finance", lastLogin: "2024-06-20 11:15", active: false, createdAt: "2024-01-05" },
+  { id: "user-1", name: "Michael Torres", email: "m.torres@erp.com", role: "admin", permission: "manage", avatar: "MT", department: "Operations", lastLogin: "2024-06-24 09:15", active: true, createdAt: "2023-01-01" },
+  { id: "user-2", name: "Jessica Wong", email: "j.wong@erp.com", role: "manager", permission: "manage", avatar: "JW", department: "Logistics", lastLogin: "2024-06-24 08:30", active: true, createdAt: "2023-02-15" },
+  { id: "user-3", name: "David Kim", email: "d.kim@erp.com", role: "manager", permission: "manage", avatar: "DK", department: "Warehouse", lastLogin: "2024-06-23 17:45", active: true, createdAt: "2023-03-20" },
+  { id: "user-4", name: "Amanda Rodriguez", email: "a.rodriguez@erp.com", role: "staff", permission: "manage", avatar: "AR", department: "Inventory", lastLogin: "2024-06-24 10:00", active: true, createdAt: "2023-06-01" },
+  { id: "user-5", name: "Brian Chen", email: "b.chen@erp.com", role: "staff", permission: "manage", avatar: "BC", department: "Receiving", lastLogin: "2024-06-22 14:30", active: true, createdAt: "2023-09-10" },
+  { id: "user-6", name: "Sarah Johnson", email: "s.johnson@erp.com", role: "viewer", permission: "view", avatar: "SJ", department: "Finance", lastLogin: "2024-06-20 11:15", active: false, createdAt: "2024-01-05" },
 ];
 
 export const initialNotifications: Notification[] = [

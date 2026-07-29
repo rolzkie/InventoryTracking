@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::table('users', function (Blueprint $table) {
             $table->string('role')->default('staff');
+            $table->string('permission')->default('manage');
             $table->string('avatar', 10)->nullable();
             $table->string('department')->nullable();
             $table->dateTime('last_login')->nullable();
@@ -85,7 +86,7 @@ return new class extends Migration
         Schema::dropIfExists('categories');
 
         Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn(['role', 'avatar', 'department', 'last_login', 'active']);
+            $table->dropColumn(['role', 'permission', 'avatar', 'department', 'last_login', 'active']);
         });
     }
 };

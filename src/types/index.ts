@@ -3,6 +3,7 @@ export type TransactionType = "stock-in" | "stock-out";
 export type TransferStatus = "pending" | "in-transit" | "completed" | "cancelled";
 export type AlertType = "low-stock" | "out-of-stock" | "expiring" | "overstock";
 export type UserRole = "admin" | "manager" | "staff" | "viewer";
+export type UserPermission = "manage" | "view";
 
 export interface Category {
   id: string;
@@ -116,6 +117,7 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  permission: UserPermission;
   avatar: string;
   department: string;
   lastLogin: string;

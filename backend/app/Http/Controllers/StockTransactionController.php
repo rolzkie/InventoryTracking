@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\InventoryItem;
 use App\Models\StockTransaction;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use App\Models\Warehouse;
@@ -69,6 +71,11 @@ class StockTransactionController extends Controller
 
     public function store(Request $request)
     {
+        $actor = $this->authenticatedUser($request);
+        if ($actor->permission === 'view') {
+            return response()->json(['message' => 'This account has view-only access.'], 403);
+        }
+
         $validated = $request->validate([
             'itemId' => 'required|exists:inventory_items,id',
             'warehouseId' => 'required|exists:warehouses,id',
@@ -137,6 +144,11 @@ class StockTransactionController extends Controller
 
     public function update(Request $request, StockTransaction $transaction)
     {
+        $actor = $this->authenticatedUser($request);
+        if ($actor->permission === 'view') {
+            return response()->json(['message' => 'This account has view-only access.'], 403);
+        }
+
         $validated = $request->validate([
             'itemId' => 'sometimes|exists:inventory_items,id',
             'warehouseId' => 'sometimes|exists:warehouses,id',
@@ -209,8 +221,13 @@ class StockTransactionController extends Controller
         return response()->json($transaction->fresh(['item', 'warehouse']));
     }
 
-    public function destroy(StockTransaction $transaction)
+    public function destroy(Request $request, StockTransaction $transaction)
     {
+        $actor = $this->authenticatedUser($request);
+        if ($actor->permission === 'view') {
+            return response()->json(['message' => 'This account has view-only access.'], 403);
+        }
+
         DB::transaction(function () use ($transaction) {
             $item = InventoryItem::whereKey($transaction->itemId)->lockForUpdate()->first();
             if ($item) {
@@ -226,5 +243,24 @@ class StockTransactionController extends Controller
         });
 
         return response()->json(['ok' => true]);
+    }
+
+    private function authenticatedUser(Request $request)
+    {
+        $user = $request->attributes->get('authenticatedUser');
+        if ($user) {
+            return $user;
+        }
+
+        $token = $request->bearerToken();
+        $user = $token
+            ? User::where('api_token', hash('sha256', $token))->first()
+            : null;
+
+        if (! $user || ! $user->active || ! $user->token_expires_at || $user->token_expires_at->isPast()) {
+            throw new HttpResponseException(response()->json(['message' => 'Authentication is required.'], 401));
+        }
+
+        return $user;
     }
 }

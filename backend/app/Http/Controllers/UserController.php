@@ -21,6 +21,7 @@ class UserController extends Controller
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8'],
             'role' => ['required', Rule::in(['admin', 'manager', 'staff', 'viewer'])],
+            'permission' => ['sometimes', Rule::in(['manage', 'view'])],
             'avatar' => ['nullable', 'string', 'max:10'],
             'department' => ['nullable', 'string', 'max:100'],
             'active' => ['sometimes', 'boolean'],
@@ -31,6 +32,9 @@ class UserController extends Controller
         }
 
         $validated['email'] = strtolower($validated['email']);
+        $validated['permission'] = $validated['role'] === 'viewer'
+            ? 'view'
+            : ($validated['permission'] ?? 'manage');
         $user = User::create($validated);
 
         return response()->json($user, 201);
@@ -54,6 +58,7 @@ class UserController extends Controller
             'email' => ['sometimes', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
             'password' => ['sometimes', 'nullable', 'string', 'min:8'],
             'role' => ['sometimes', Rule::in(['admin', 'manager', 'staff', 'viewer'])],
+            'permission' => ['sometimes', Rule::in(['manage', 'view'])],
             'avatar' => ['nullable', 'string', 'max:10'],
             'department' => ['nullable', 'string', 'max:100'],
             'active' => ['sometimes', 'boolean'],
@@ -69,12 +74,18 @@ class UserController extends Controller
         if ($actor->id === $user->id && array_key_exists('role', $validated) && $validated['role'] !== $user->role) {
             return response()->json(['message' => 'You cannot change your own account role.'], 422);
         }
+        if ($actor->id === $user->id && array_key_exists('permission', $validated) && $validated['permission'] !== $user->permission) {
+            return response()->json(['message' => 'You cannot change your own account permission.'], 422);
+        }
 
         if (array_key_exists('email', $validated)) {
             $validated['email'] = strtolower($validated['email']);
         }
         if (array_key_exists('password', $validated) && blank($validated['password'])) {
             unset($validated['password']);
+        }
+        if (($validated['role'] ?? $user->role) === 'viewer') {
+            $validated['permission'] = 'view';
         }
 
         $user->update($validated);
