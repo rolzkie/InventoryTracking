@@ -43,6 +43,7 @@ Route::middleware('api')->group(function () {
     Route::apiResource('warehouses', WarehouseController::class);
 
     // Inventory
+    Route::get('/inventory/assignable', [InventoryController::class, 'assignable']);
     Route::apiResource('inventory', InventoryController::class);
     Route::post('/inventory/{id}/adjust', [InventoryController::class, 'adjust']);
     Route::post('/inventory/{inventory}/assign', [InventoryController::class, 'assign']);

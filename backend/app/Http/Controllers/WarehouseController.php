@@ -112,13 +112,9 @@ class WarehouseController extends Controller
         }
 
         DB::transaction(function () use ($warehouse) {
-            $warehouse->inventoryItems()->update([
+            InventoryItem::where('warehouseId', $warehouse->id)->update([
                 'warehouseId' => null,
-                'storageLocation' => null,
-                'zone' => null,
-                'rack' => null,
-                'shelf' => null,
-                'assignedAt' => null,
+                'status' => 'unassigned',
             ]);
             $warehouse->delete();
         });

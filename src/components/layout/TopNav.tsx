@@ -17,9 +17,11 @@ const pageLabels: Record<Page, string> = {
 export default function TopNav({ onMenuToggle }: { onMenuToggle: () => void }) {
   const {
     state,
+    dispatch,
     navigate,
     showToast,
     logout,
+    acknowledgeAlert,
     markNotificationRead,
     markAllNotificationsRead,
     setDarkMode,
@@ -34,6 +36,51 @@ export default function TopNav({ onMenuToggle }: { onMenuToggle: () => void }) {
   const profileRef = useRef<HTMLDivElement>(null);
 
   const unreadCount = state.notifications.filter((n) => !n.read).length;
+  const recentNotifications = [...state.notifications].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const alertNotifications = [...state.alerts]
+    .filter((alert) => !alert.acknowledged)
+    .map((alert) => ({
+      id: `alert-${alert.id}`,
+      title: alert.type.replace("-", " ").replace(/\b\w/g, (char) => char.toUpperCase()),
+      message: alert.message,
+      type: alert.severity === "critical" ? "error" : alert.severity === "warning" ? "warning" : "info",
+      read: alert.acknowledged,
+      createdAt: alert.createdAt,
+      source: "alert",
+    }));
+  const combinedFeed = [...alertNotifications, ...recentNotifications].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+  const unreadFeedCount = combinedFeed.filter((entry) => !entry.read).length;
+  const formatFeedTime = (value: string) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(date);
+  };
+  const routeForNotification = (title: string) => {
+    switch (title) {
+      case "Stock In":
+      case "Stock Out":
+        return "stock-transactions" as const;
+      case "Transfer Completed":
+        return "transfers" as const;
+      case "Reorder Request":
+      case "Reorder Updated":
+        return "reports" as const;
+      case "Inventory Updated":
+      case "Low Stock":
+      case "Out of Stock":
+      case "Overstock":
+        return "inventory" as const;
+      default:
+        return "reports" as const;
+    }
+  };
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -120,9 +167,9 @@ export default function TopNav({ onMenuToggle }: { onMenuToggle: () => void }) {
           className="relative p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-[#1A2232] transition-colors"
         >
           <Bell size={16} />
-          {unreadCount > 0 && (
+          {unreadFeedCount > 0 && (
             <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-              {unreadCount}
+              {unreadFeedCount}
             </span>
           )}
         </button>
@@ -139,19 +186,42 @@ export default function TopNav({ onMenuToggle }: { onMenuToggle: () => void }) {
               </button>
             </div>
             <div className="max-h-72 overflow-y-auto divide-y divide-[#2A3445]/50">
-              {state.notifications.map((n) => (
-                <div
+              {combinedFeed.length === 0 && (
+                <div className="px-4 py-6 text-center">
+                  <p className="text-xs font-medium text-slate-300">No notifications yet</p>
+                  <p className="mt-1 text-[11px] text-slate-500">Alerts and system updates will appear here.</p>
+                </div>
+              )}
+              {combinedFeed.map((n) => (
+                <button
                   key={n.id}
-                  onClick={() => void markNotificationRead(n.id).catch((error) => showToast(error instanceof Error ? error.message : "Unable to update notification", "error"))}
-                  className={`flex gap-3 px-4 py-3 cursor-pointer hover:bg-[#2A3445]/50 transition-colors ${n.read ? "opacity-60" : ""}`}
+                  type="button"
+                  onClick={() => {
+                    if (String(n.id).startsWith("alert-")) {
+                      const alertId = String(n.id).replace(/^alert-/, "");
+                      dispatch({
+                        type: "ACKNOWLEDGE_ALERT",
+                        id: alertId,
+                      });
+                      void acknowledgeAlert(alertId).catch((error) => showToast(error instanceof Error ? error.message : "Unable to update alert", "error"));
+                      navigate("reports");
+                      setShowNotifications(false);
+                      return;
+                    }
+                    dispatch({ type: "MARK_NOTIFICATION_READ", id: n.id });
+                    navigate(routeForNotification(n.title));
+                    setShowNotifications(false);
+                    void markNotificationRead(n.id).catch((error) => showToast(error instanceof Error ? error.message : "Unable to update notification", "error"));
+                  }}
+                  className={`w-full flex gap-3 px-4 py-3 text-left transition-colors hover:bg-[#2A3445]/50 focus:bg-[#2A3445]/50 ${n.read ? "opacity-60" : ""}`}
                 >
                   <div className={`mt-0.5 w-2 h-2 rounded-full flex-shrink-0 ${n.read ? "bg-slate-600" : "bg-blue-400"}`} />
                   <div>
                     <p className="text-xs font-medium text-slate-200">{n.title}</p>
                     <p className="text-xs text-slate-500 mt-0.5">{n.message}</p>
-                    <p className="text-[10px] text-slate-600 mt-1">{n.createdAt}</p>
+                    <p className="text-[10px] text-slate-600 mt-1">{formatFeedTime(n.createdAt)}</p>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </div>

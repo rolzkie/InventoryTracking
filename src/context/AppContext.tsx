@@ -15,6 +15,7 @@ import type {
 import { api } from "../lib/api";
 
 const AUTH_STORAGE_KEY = "warehouseiq.auth";
+const RECENT_LOGINS_KEY = "warehouseiq.recent-logins";
 
 interface AppState {
   currentPage: Page;
@@ -22,6 +23,7 @@ interface AppState {
   suppliers: Supplier[];
   warehouses: Warehouse[];
   items: InventoryItem[];
+  assignableItems: InventoryItem[];
   transactions: StockTransaction[];
   transfers: Transfer[];
   alerts: Alert[];
@@ -51,6 +53,7 @@ type Action =
       data: {
         warehouses: Warehouse[];
         items: InventoryItem[];
+        assignableItems: InventoryItem[];
         transactions: StockTransaction[];
         transfers: Transfer[];
         categories: Category[];
@@ -83,23 +86,14 @@ type Action =
   | { type: "TOGGLE_DARK_MODE" }
   | { type: "ADD_TOAST"; toast: Toast }
   | { type: "REMOVE_TOAST"; id: string }
+  | { type: "SET_NOTIFICATIONS"; notifications: Notification[] }
   | { type: "MARK_NOTIFICATION_READ"; id: string }
   | { type: "MARK_ALL_NOTIFICATIONS_READ" }
   | { type: "LOGIN"; user: User }
   | { type: "LOGOUT" };
 
 function computeItemStatus(item: InventoryItem): InventoryItem {
-  let status: InventoryItem["status"] = "in-stock";
-  if (item.quantity === 0) {
-    status = "out-of-stock";
-  } else if (item.expirationDate && new Date(item.expirationDate) <= new Date()) {
-    status = "expired";
-  } else if (item.quantity <= item.reorderPoint) {
-    status = "low-stock";
-  } else if (item.quantity > item.maxStock) {
-    status = "overstock";
-  }
-  return { ...item, status };
+  return item;
 }
 
 function buildAlerts(
@@ -113,7 +107,7 @@ function buildAlerts(
 
   for (const item of items) {
     const lowStockPoint = Math.max(item.reorderPoint, lowStockMinimum);
-    if (item.quantity === 0) {
+    if (item.status === "out-of-stock") {
       alerts.push({
         id: `out-${item.id}`,
         type: "out-of-stock",
@@ -123,7 +117,7 @@ function buildAlerts(
         createdAt: new Date().toISOString(),
         acknowledged: acknowledgedAlertIds.includes(`out-${item.id}`),
       });
-    } else if (item.quantity <= lowStockPoint) {
+    } else if (item.status === "low-stock" || (lowStockMinimum > 0 && item.quantity <= lowStockPoint)) {
       alerts.push({
         id: `low-${item.id}`,
         type: "low-stock",
@@ -135,7 +129,7 @@ function buildAlerts(
       });
     }
 
-    if (overstockMaximum > 0 && item.quantity > overstockMaximum) {
+    if (item.status === "overstock" || (overstockMaximum > 0 && item.quantity > overstockMaximum)) {
       alerts.push({
         id: `over-${item.id}`,
         type: "overstock",
@@ -166,6 +160,16 @@ function buildAlerts(
   return alerts;
 }
 
+function mergeAlerts(
+  items: InventoryItem[],
+  acknowledgedAlertIds: string[],
+  thresholds: Record<string, unknown>,
+): Alert[] {
+  return buildAlerts(items, acknowledgedAlertIds, thresholds).sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+}
+
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case "SET_PAGE":
@@ -175,7 +179,7 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         ...action.data,
-        alerts: buildAlerts(
+        alerts: mergeAlerts(
           action.data.items,
           action.data.acknowledgedAlertIds,
           action.data.settings.thresholds,
@@ -195,16 +199,33 @@ function reducer(state: AppState, action: Action): AppState {
       };
 
     case "ADD_ITEM":
-      return { ...state, items: [...state.items, computeItemStatus(action.item)] };
-
-    case "UPDATE_ITEM":
       return {
         ...state,
-        items: state.items.map((i) => (i.id === action.item.id ? computeItemStatus(action.item) : i)),
+        items: [...state.items, computeItemStatus(action.item)],
+        alerts: mergeAlerts(
+          [...state.items, computeItemStatus(action.item)],
+          state.acknowledgedAlertIds,
+          state.settings.thresholds ?? {},
+        ),
       };
 
-    case "DELETE_ITEM":
-      return { ...state, items: state.items.filter((i) => i.id !== action.id) };
+    case "UPDATE_ITEM": {
+      const updatedItems = state.items.map((i) => (i.id === action.item.id ? computeItemStatus(action.item) : i));
+      return {
+        ...state,
+        items: updatedItems,
+        alerts: mergeAlerts(updatedItems, state.acknowledgedAlertIds, state.settings.thresholds ?? {}),
+      };
+    }
+
+    case "DELETE_ITEM": {
+      const items = state.items.filter((i) => i.id !== action.id);
+      return {
+        ...state,
+        items,
+        alerts: mergeAlerts(items, state.acknowledgedAlertIds, state.settings.thresholds ?? {}),
+      };
+    }
 
     case "ADD_WAREHOUSE":
       return { ...state, warehouses: [...state.warehouses, action.warehouse] };
@@ -239,6 +260,7 @@ function reducer(state: AppState, action: Action): AppState {
         transactions: [txn, ...state.transactions],
         items: updatedItems,
         warehouses: updatedWarehouses,
+        alerts: mergeAlerts(updatedItems, state.acknowledgedAlertIds, state.settings.thresholds ?? {}),
       };
     }
 
@@ -261,6 +283,7 @@ function reducer(state: AppState, action: Action): AppState {
         ...state,
         transfers: state.transfers.map((t) => (t.id === tr.id ? tr : t)),
         items: updatedItems,
+        alerts: mergeAlerts(updatedItems, state.acknowledgedAlertIds, state.settings.thresholds ?? {}),
       };
     }
 
@@ -268,6 +291,9 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         alerts: state.alerts.map((a) => (a.id === action.id ? { ...a, acknowledged: true } : a)),
+        acknowledgedAlertIds: state.acknowledgedAlertIds.includes(action.id)
+          ? state.acknowledgedAlertIds
+          : [...state.acknowledgedAlertIds, action.id],
       };
 
     case "ADD_ALERT":
@@ -306,6 +332,9 @@ function reducer(state: AppState, action: Action): AppState {
     case "REMOVE_TOAST":
       return { ...state, toasts: state.toasts.filter((t) => t.id !== action.id) };
 
+    case "SET_NOTIFICATIONS":
+      return { ...state, notifications: action.notifications };
+
     case "MARK_NOTIFICATION_READ":
       return {
         ...state,
@@ -335,6 +364,7 @@ const initialState: AppState = {
   suppliers: [],
   warehouses: [],
   items: [],
+  assignableItems: [],
   transactions: [],
   transfers: [],
   alerts: [],
@@ -350,6 +380,7 @@ const initialState: AppState = {
     name: "Guest User",
     email: "",
     role: "viewer",
+    permission: "view",
     avatar: "GU",
     department: "",
     lastLogin: "Never",
@@ -371,18 +402,18 @@ interface AppContextValue {
   getCategory: (id: string) => Category | undefined;
   getSupplier: (id: string) => Supplier | undefined;
   generateId: (prefix?: string) => string;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string; user?: User }>;
   forgotPassword: (email: string) => Promise<{ success: boolean; message: string }>;
   logout: () => Promise<void>;
-  refreshOperationalData: () => Promise<void>;
-  createItem: (item: InventoryItem) => Promise<void>;
-  updateItem: (item: InventoryItem) => Promise<void>;
+  refreshOperationalData: (currentUser?: User) => Promise<void>;
+  createItem: (item: InventoryItem, supplierName?: string) => Promise<void>;
+  updateItem: (item: InventoryItem, supplierName?: string) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
   createWarehouse: (warehouse: Warehouse) => Promise<void>;
   updateWarehouse: (warehouse: Warehouse) => Promise<void>;
   deleteWarehouse: (id: string) => Promise<void>;
   assignItem: (itemId: string, warehouseId: string, zoneId: string | null) => Promise<void>;
-  createTransaction: (transaction: StockTransaction) => Promise<void>;
+  createTransaction: (transaction: Omit<StockTransaction, "id" | "referenceNumber"> & { id?: string; referenceNumber?: string }) => Promise<void>;
   createTransfer: (transfer: Transfer) => Promise<void>;
   updateTransfer: (transfer: Transfer) => Promise<void>;
   createUser: (user: User, password: string) => Promise<void>;
@@ -404,16 +435,16 @@ const AppContext = createContext<AppContextValue | null>(null);
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
 
-  const refreshOperationalData = useCallback(async () => {
+  const refreshOperationalData = useCallback(async (currentUser = state.currentUser) => {
     try {
-      const data = await api.operational.load();
+      const data = await api.operational.load(currentUser);
       dispatch({ type: "SET_OPERATIONAL_DATA", data });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to reach the Laravel API.";
       dispatch({ type: "SET_BACKEND_ERROR", error: message });
       throw error;
     }
-  }, []);
+  }, [state.currentUser]);
 
   useEffect(() => {
     // Every new page load starts at the login screen. This also prevents a stale
@@ -425,6 +456,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     document.documentElement.classList.toggle("light-mode", !state.darkMode);
   }, [state.darkMode]);
+
+  useEffect(() => {
+    if (!state.isAuthenticated) return;
+
+    const refreshNotifications = () => {
+      void api.notifications.list()
+        .then((notifications) => dispatch({ type: "SET_NOTIFICATIONS", notifications }))
+        .catch(() => undefined);
+    };
+
+    refreshNotifications();
+    const timer = window.setInterval(refreshNotifications, 10_000);
+    return () => window.clearInterval(timer);
+  }, [state.isAuthenticated]);
+
+  useEffect(() => {
+    if (!state.isAuthenticated) return;
+
+    const timer = window.setInterval(() => {
+      void refreshOperationalData().catch(() => undefined);
+    }, 30_000);
+
+    return () => window.clearInterval(timer);
+  }, [refreshOperationalData, state.isAuthenticated]);
 
   const navigate = useCallback(
     (page: Page) => dispatch({ type: "SET_PAGE", page }),
@@ -443,13 +498,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const getSupplier = useCallback((id: string) => state.suppliers.find((s) => s.id === id), [state.suppliers]);
   const generateId = useCallback((prefix = "id") => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, []);
 
-  const createItem = useCallback(async (item: InventoryItem) => {
-    await api.inventory.create(item, state.categories);
+  const createItem = useCallback(async (item: InventoryItem, supplierName?: string) => {
+    await api.inventory.create(item, state.categories, supplierName);
     await refreshOperationalData();
   }, [refreshOperationalData, state.categories]);
 
-  const updateItem = useCallback(async (item: InventoryItem) => {
-    await api.inventory.update(item, state.categories);
+  const updateItem = useCallback(async (item: InventoryItem, supplierName?: string) => {
+    await api.inventory.update(item, state.categories, supplierName);
     await refreshOperationalData();
   }, [refreshOperationalData, state.categories]);
 
@@ -478,7 +533,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await refreshOperationalData();
   }, [refreshOperationalData]);
 
-  const createTransaction = useCallback(async (transaction: StockTransaction) => {
+  const createTransaction = useCallback(async (transaction: Omit<StockTransaction, "id" | "referenceNumber"> & { id?: string; referenceNumber?: string }) => {
     const item = state.items.find((entry) => entry.id === transaction.itemId);
     if (!item?.warehouseId) throw new Error("Assign this item to a warehouse before recording stock.");
     await api.transactions.create(transaction, item.warehouseId);
@@ -500,9 +555,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const session = await api.auth.login(email, password);
       const { user } = session;
       window.sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+      const recentLogins = (() => {
+        try {
+          const raw = window.localStorage.getItem(RECENT_LOGINS_KEY);
+          return raw ? JSON.parse(raw) as Array<{ email: string; name: string; role: string; lastLogin: string }> : [];
+        } catch {
+          return [];
+        }
+      })();
+      const entry = { email: user.email, name: user.name, role: user.role, lastLogin: new Date().toISOString() };
+      window.localStorage.setItem(
+        RECENT_LOGINS_KEY,
+        JSON.stringify([entry, ...recentLogins.filter((loginEntry) => loginEntry.email.toLowerCase() !== user.email.toLowerCase())].slice(0, 6)),
+      );
       dispatch({ type: "LOGIN", user });
-      void refreshOperationalData().catch(() => undefined);
-      return { success: true };
+      void refreshOperationalData(user).catch(() => undefined);
+      return { success: true, user };
     } catch (error) {
       return {
         success: false,
@@ -547,8 +615,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const acknowledgeAlert = useCallback(async (id: string) => {
     await api.alerts.acknowledge(id, state.currentUser.id);
-    dispatch({ type: "ACKNOWLEDGE_ALERT", id });
-  }, [state.currentUser.id]);
+    await refreshOperationalData();
+  }, [refreshOperationalData, state.currentUser.id]);
 
   const createReorder = useCallback(async (request: ReorderRequest) => {
     await api.reorders.create(request);
@@ -562,13 +630,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const markNotificationRead = useCallback(async (id: string) => {
     await api.notifications.markRead(id);
-    dispatch({ type: "MARK_NOTIFICATION_READ", id });
-  }, []);
+    await refreshOperationalData();
+  }, [refreshOperationalData]);
 
   const markAllNotificationsRead = useCallback(async () => {
     await api.notifications.markAllRead();
-    dispatch({ type: "MARK_ALL_NOTIFICATIONS_READ" });
-  }, []);
+    await refreshOperationalData();
+  }, [refreshOperationalData]);
 
   const setDarkMode = useCallback(async (value: boolean) => {
     const appearance = { ...(state.settings.appearance ?? {}), darkMode: value };

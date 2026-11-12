@@ -4,13 +4,26 @@ namespace App\Http\Controllers;
 
 use App\Models\InventoryItem;
 use App\Models\StockTransaction;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use App\Models\Warehouse;
+use App\Services\InventoryNotificationService;
+use App\Services\InventorySynchronizationService;
+use App\Services\StockTransactionReferenceService;
 
 class StockTransactionController extends Controller
 {
+    public function __construct(
+        protected InventoryNotificationService $notifications,
+        protected InventorySynchronizationService $sync,
+        protected StockTransactionReferenceService $references,
+    )
+    {
+    }
+
     public function page(Request $request)
     {
         $warehouses = Warehouse::all(['id', 'name']);
@@ -58,6 +71,11 @@ class StockTransactionController extends Controller
 
     public function store(Request $request)
     {
+        $actor = $this->authenticatedUser($request);
+        if ($actor->permission === 'view') {
+            return response()->json(['message' => 'This account has view-only access.'], 403);
+        }
+
         $validated = $request->validate([
             'itemId' => 'required|exists:inventory_items,id',
             'warehouseId' => 'required|exists:warehouses,id',
@@ -66,7 +84,6 @@ class StockTransactionController extends Controller
             'expirationDate' => 'nullable|date',
             'supplierId' => 'nullable|string|max:100',
             'purpose' => 'nullable|string|max:100',
-            'referenceNumber' => 'nullable|string|max:100',
             'processedBy' => 'nullable|string|max:255',
             'unitCost' => 'sometimes|numeric|min:0',
             'notes' => 'nullable|string',
@@ -101,7 +118,7 @@ class StockTransactionController extends Controller
             }
             $item->save();
 
-            return StockTransaction::create([
+            $transaction = StockTransaction::create([
                 'itemId' => $validated['itemId'],
                 'warehouseId' => $validated['warehouseId'],
                 'transactionType' => $validated['transactionType'],
@@ -109,12 +126,17 @@ class StockTransactionController extends Controller
                 'expirationDate' => $validated['expirationDate'] ?? null,
                 'supplierId' => $validated['supplierId'] ?? null,
                 'purpose' => $validated['purpose'] ?? null,
-                'referenceNumber' => $validated['referenceNumber'] ?? null,
                 'processedBy' => $validated['processedBy'] ?? null,
                 'unitCost' => $validated['unitCost'] ?? $item->unitPrice,
                 'notes' => $validated['notes'] ?? '',
                 'createdAt' => now(),
+                'referenceNumber' => $this->references->generate($validated['transactionType']),
             ]);
+
+            $this->sync->reconcileItem($item, false);
+            $this->notifications->stockTransactionCreated($transaction->fresh(['item', 'warehouse']));
+
+            return $transaction;
         });
 
         return response()->json($transaction->fresh(['item', 'warehouse']), 201);
@@ -122,6 +144,11 @@ class StockTransactionController extends Controller
 
     public function update(Request $request, StockTransaction $transaction)
     {
+        $actor = $this->authenticatedUser($request);
+        if ($actor->permission === 'view') {
+            return response()->json(['message' => 'This account has view-only access.'], 403);
+        }
+
         $validated = $request->validate([
             'itemId' => 'sometimes|exists:inventory_items,id',
             'warehouseId' => 'sometimes|exists:warehouses,id',
@@ -130,7 +157,6 @@ class StockTransactionController extends Controller
             'expirationDate' => 'nullable|date',
             'supplierId' => 'nullable|string|max:100',
             'purpose' => 'nullable|string|max:100',
-            'referenceNumber' => 'nullable|string|max:100',
             'processedBy' => 'nullable|string|max:255',
             'unitCost' => 'sometimes|numeric|min:0',
             'notes' => 'nullable|string',
@@ -143,10 +169,12 @@ class StockTransactionController extends Controller
         $newQuantity = $validated['quantity'] ?? $transaction->quantity;
 
         DB::transaction(function () use ($validated, $transaction, $oldTransaction, $newItemId, $newWarehouseId, $newType, $newQuantity) {
+            $affectedItemIds = collect();
             $changedStock = $newItemId !== $oldTransaction->itemId || $newWarehouseId !== $oldTransaction->warehouseId || $newType !== $oldTransaction->transactionType || $newQuantity !== $oldTransaction->quantity;
 
             if ($changedStock) {
                 $itemIds = collect([$oldTransaction->itemId, $newItemId])->unique()->sort()->values();
+                $affectedItemIds = $itemIds;
                 $lockedItems = InventoryItem::whereIn('id', $itemIds)->lockForUpdate()->get()->keyBy('id');
                 $oldItem = $lockedItems->get($oldTransaction->itemId);
                 $newItem = $lockedItems->get($newItemId);
@@ -185,14 +213,21 @@ class StockTransactionController extends Controller
                 $newItem->save();
             }
 
-            $transaction->update($validated);
+            $transaction->update(collect($validated)->except(['referenceNumber'])->all());
+
+            $affectedItemIds->each(fn ($itemId) => $this->sync->reconcileItemId((int) $itemId));
         });
 
         return response()->json($transaction->fresh(['item', 'warehouse']));
     }
 
-    public function destroy(StockTransaction $transaction)
+    public function destroy(Request $request, StockTransaction $transaction)
     {
+        $actor = $this->authenticatedUser($request);
+        if ($actor->permission === 'view') {
+            return response()->json(['message' => 'This account has view-only access.'], 403);
+        }
+
         DB::transaction(function () use ($transaction) {
             $item = InventoryItem::whereKey($transaction->itemId)->lockForUpdate()->first();
             if ($item) {
@@ -202,10 +237,30 @@ class StockTransactionController extends Controller
                     $item->quantity += $transaction->quantity;
                 }
                 $item->save();
+                $this->sync->reconcileItem($item);
             }
             $transaction->delete();
         });
 
         return response()->json(['ok' => true]);
+    }
+
+    private function authenticatedUser(Request $request)
+    {
+        $user = $request->attributes->get('authenticatedUser');
+        if ($user) {
+            return $user;
+        }
+
+        $token = $request->bearerToken();
+        $user = $token
+            ? User::where('api_token', hash('sha256', $token))->first()
+            : null;
+
+        if (! $user || ! $user->active || ! $user->token_expires_at || $user->token_expires_at->isPast()) {
+            throw new HttpResponseException(response()->json(['message' => 'Authentication is required.'], 401));
+        }
+
+        return $user;
     }
 }

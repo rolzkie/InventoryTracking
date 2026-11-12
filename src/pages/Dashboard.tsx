@@ -13,12 +13,16 @@ import {
 import { Line, Doughnut } from "react-chartjs-2";
 import {
   Package,
+  PackageMinus,
+  PackagePlus,
   Warehouse,
   AlertTriangle,
   DollarSign,
   TrendingUp,
-  Users,
   GitBranch as GithubIcon,
+  Phone,
+  AtSign,
+  Send,
   Cpu,
   Database,
   Globe,
@@ -27,7 +31,7 @@ import {
   Clock,
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
-import { StatCard, Card, Badge, StatusBadge } from "../components/ui";
+import { StatCard, Card, Badge, StatusBadge, formatPHP } from "../components/ui";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, ArcElement, Tooltip, Legend, Filler);
 
@@ -37,6 +41,45 @@ const chartDefaults = {
   plugins: { legend: { display: false } },
 };
 
+const developmentTeam = [
+  {
+    name: "Rolando Anacta Jr.",
+    role: "Full-Stack Developer",
+    phone: "+63 912 345 6789",
+    facebook: "https://www.facebook.com/sekiii",
+    instagram: "https://www.instagram.com/",
+    telegram: "https://t.me/",
+    image: "/developers/Jr.jpg",
+  },
+  {
+    name: "Jesreel Cyrus Domanais",
+    role: "Document Controller",
+    phone: "+63 918 456 7890",
+    facebook: "https://www.facebook.com/shymnn.lcy",
+    instagram: "https://www.instagram.com/",
+    telegram: "https://t.me/",
+    image: "/developers/Jes.jpg",
+  },
+  {
+    name: "Kevin Rei Gelle",
+    role: "Document Controller",
+    phone: "+63 917 567 8901",
+    facebook: "https://www.facebook.com/kev.rei.gelle",
+    instagram: "https://www.instagram.com/",
+    telegram: "https://t.me/",
+    image: "/developers/Kev.jpg",
+  },
+  {
+    name: "Errol Miranda",
+    role: "Front-End Developer",
+    phone: "+63 920 678 9012",
+    facebook: "https://www.facebook.com/",
+    instagram: "https://www.instagram.com/",
+    telegram: "https://t.me/",
+    image: "/developers/irol.jpg",
+  },
+];
+
 export default function Dashboard() {
   const { state, navigate } = useApp();
 
@@ -44,7 +87,7 @@ export default function Dashboard() {
     const totalSKUs = state.items.length;
     const totalWarehouses = state.warehouses.length;
     const activeAlerts = state.alerts.filter((a) => !a.acknowledged).length;
-    const unassigned = state.items.filter((i) => !i.warehouseId).length;
+    const unassigned = state.assignableItems.length;
     const totalValue = state.items.reduce((sum, i) => sum + i.quantity * i.unitCost, 0);
     const lowStock = state.items.filter((i) => i.status === "low-stock").length;
     const outOfStock = state.items.filter((i) => i.status === "out-of-stock").length;
@@ -193,7 +236,7 @@ export default function Dashboard() {
         />
         <StatCard
           title="Total Value"
-          value={`$${(stats.totalValue / 1000).toFixed(0)}K`}
+          value={formatPHP(stats.totalValue)}
           subtitle={`${state.items.reduce((s, i) => s + i.quantity, 0).toLocaleString()} units`}
           icon={<DollarSign size={18} />}
           color="green"
@@ -276,7 +319,11 @@ export default function Dashboard() {
               return (
                 <div key={txn.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-[#0B1220]/50 hover:bg-[#0B1220] transition-colors">
                   <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${txn.type === "stock-in" ? "bg-emerald-500/20" : "bg-red-500/20"}`}>
-                    <TrendingUp size={12} className={txn.type === "stock-in" ? "text-emerald-400" : "text-red-400 rotate-180"} />
+                    {txn.type === "stock-in" ? (
+                      <PackagePlus size={12} className="text-emerald-400" />
+                    ) : (
+                      <PackageMinus size={12} className="text-red-400" />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium text-slate-200 truncate">{item?.name ?? "Unknown"}</p>
@@ -333,8 +380,8 @@ export default function Dashboard() {
         </Card>
 
         {/* Developer Info */}
-        <div className="space-y-4">
-          <Card className="p-5">
+        <div>
+          <Card className="p-5 h-full">
             <div className="flex items-center gap-2 mb-3">
               <Cpu size={16} className="text-blue-400" />
               <h3 className="text-sm font-semibold text-slate-200">System Info</h3>
@@ -360,28 +407,92 @@ export default function Dashboard() {
             </div>
           </Card>
 
-          <Card className="p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <Users size={16} className="text-purple-400" />
-              <h3 className="text-sm font-semibold text-slate-200">Team</h3>
-            </div>
-            <div className="space-y-2">
-              {state.users.slice(0, 4).map((user) => (
-                <div key={user.id} className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
-                    {user.avatar}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-slate-200 truncate">{user.name}</p>
-                    <p className="text-[10px] text-slate-500 capitalize">{user.role} · {user.department}</p>
-                  </div>
-                  <div className={`w-1.5 h-1.5 rounded-full ${user.active ? "bg-emerald-400" : "bg-slate-600"}`} />
-                </div>
-              ))}
-            </div>
-          </Card>
         </div>
       </div>
+
+      {/* Development Team */}
+      <Card className="p-5">
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-200">Development Team</h3>
+            <p className="text-xs text-blue-400/80 mt-0.5">The engineers and designers building and maintaining StockOS</p>
+          </div>
+          <span className="inline-flex items-center rounded-full border border-[#2A3445] px-3 py-1 text-[10px] font-medium text-slate-400">
+            Team
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {developmentTeam.map((member) => (
+            <article
+              key={member.name}
+              className="rounded-xl border border-[#334155]/80 bg-[#202B3B] p-4 shadow-sm transition-colors hover:border-blue-500/40 hover:bg-[#243246]"
+            >
+              <div className="flex items-start gap-3">
+                <img
+                  src={member.image}
+                  alt={member.name}
+                  className="h-14 w-14 flex-shrink-0 rounded-full border-2 border-amber-400/70 object-cover"
+                  onError={(event) => {
+                    event.currentTarget.src = "/developers/default-avatar.svg";
+                  }}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <h4 className="truncate text-xs font-semibold text-slate-100">{member.name}</h4>
+                    <Badge variant="green" className="px-1.5 py-0 text-[9px]">Active</Badge>
+                  </div>
+                  <p className="mt-1 text-[10px] text-slate-400">{member.role}</p>
+                </div>
+              </div>
+
+              <div className="mt-3 space-y-1.5 text-[10px] text-slate-500">
+                <a href={`tel:${member.phone.replace(/\s/g, "")}`} className="flex items-center gap-2 hover:text-blue-300 transition-colors">
+                  <Phone size={11} />
+                  <span>{member.phone}</span>
+                </a>
+                <a href={member.facebook} target="_blank" rel="noreferrer" className="flex items-center gap-2 hover:text-blue-300 transition-colors">
+                  <span className="flex h-3 w-3 items-center justify-center text-[10px] font-bold">f</span>
+                  <span className="truncate">{member.facebook}</span>
+                </a>
+              </div>
+
+              <div className="mt-3 flex items-center gap-2">
+                <a
+                  href={member.facebook}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={`${member.name} Facebook`}
+                  title="Facebook"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-[#334155] bg-[#1A2232] text-slate-400 transition-colors hover:border-blue-500/50 hover:text-blue-300"
+                >
+                  <span className="text-xs font-bold">f</span>
+                </a>
+                <a
+                  href={member.instagram}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={`${member.name} Instagram`}
+                  title="Instagram"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-[#334155] bg-[#1A2232] text-slate-400 transition-colors hover:border-pink-500/50 hover:text-pink-300"
+                >
+                  <AtSign size={12} />
+                </a>
+                <a
+                  href={member.telegram}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={`${member.name} Telegram`}
+                  title="Telegram"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-[#334155] bg-[#1A2232] text-slate-400 transition-colors hover:border-sky-500/50 hover:text-sky-300"
+                >
+                  <Send size={12} />
+                </a>
+              </div>
+            </article>
+          ))}
+        </div>
+      </Card>
     </div>
   );
 }

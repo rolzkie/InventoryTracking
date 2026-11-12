@@ -1,12 +1,12 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Plus, Edit2, Trash2, MapPin, Package, Users, BarChart2, ChevronRight, ArrowLeftRight, X } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import type { Warehouse, WarehouseZone } from "../types";
 import {
-  Button, Input, Select, Textarea, Modal, ConfirmDialog,
+  Button, Input, Select, Textarea, Modal, ConfirmDialog, SearchableSelect,
   Card, Table, Th, Td, SearchBar, PageHeader, ProgressBar, Badge, EmptyState,
+  formatPHP,
 } from "../components/ui";
-
 const ZONE_TYPES = ["storage", "receiving", "shipping", "cold", "hazmat"] as const;
 
 function emptyWarehouse(): Omit<Warehouse, "id" | "zones" | "createdAt"> {
@@ -121,8 +121,31 @@ export default function Warehouses() {
     }
   };
 
-  const unassignedItems = state.items.filter((i) => !i.warehouseId);
+  const unassignedItems = state.assignableItems;
   const warehouseItems = (whId: string) => state.items.filter((i) => i.warehouseId === whId);
+  const warehouseToDelete = deleteId ? state.warehouses.find((w) => w.id === deleteId) : null;
+  const warehouseToDeleteItems = deleteId ? warehouseItems(deleteId) : [];
+
+  const handleDeleteWarehouse = async () => {
+    if (!deleteId) return;
+    const warehouse = state.warehouses.find((w) => w.id === deleteId);
+    if (warehouseToDeleteItems.length > 0) {
+      showToast("Move or remove inventory before deleting this warehouse", "error");
+      return;
+    }
+
+    try {
+      await deleteWarehouse(deleteId);
+      showToast(`Warehouse "${warehouse?.name ?? "selected"}" deleted`, "success");
+      setDeleteId(null);
+      if (selectedWarehouse?.id === deleteId) {
+        setSelectedWarehouse(null);
+        setShowDetailModal(false);
+      }
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Unable to delete warehouse", "error");
+    }
+  };
 
   const zoneTypeColor: Record<string, string> = {
     storage: "text-blue-400 bg-blue-500/10",
@@ -197,17 +220,17 @@ export default function Warehouses() {
                   <div className="flex gap-1">
                     <button
                       onClick={() => { setSelectedWarehouse(wh); setShowDetailModal(true); }}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"
+                      className="p-1.5 rounded-lg border border-[#334155]/70 bg-[#0B1220]/70 text-slate-300 transition-all hover:border-blue-500/60 hover:bg-blue-500/10 hover:text-blue-300 hover:shadow-[0_0_14px_rgba(59,130,246,0.28)] focus-visible:shadow-[0_0_14px_rgba(59,130,246,0.28)]"
                     >
                       <BarChart2 size={13} />
                     </button>
                     <button
                       onClick={() => { setSelectedWarehouse(wh); setWhForm({ name: wh.name, location: wh.location, address: wh.address, capacity: wh.capacity, used: wh.used, manager: wh.manager }); setFormErrors({}); setShowEditModal(true); }}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
+                      className="p-1.5 rounded-lg border border-[#334155]/70 bg-[#0B1220]/70 text-slate-300 transition-all hover:border-amber-500/60 hover:bg-amber-500/10 hover:text-amber-300 hover:shadow-[0_0_14px_rgba(245,158,11,0.28)] focus-visible:shadow-[0_0_14px_rgba(245,158,11,0.28)]"
                     >
                       <Edit2 size={13} />
                     </button>
-                    <button onClick={() => setDeleteId(wh.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors">
+                    <button onClick={() => setDeleteId(wh.id)} className="p-1.5 rounded-lg border border-[#334155]/70 bg-[#0B1220]/70 text-slate-300 transition-all hover:border-red-500/60 hover:bg-red-500/10 hover:text-red-300 hover:shadow-[0_0_14px_rgba(239,68,68,0.28)] focus-visible:shadow-[0_0_14px_rgba(239,68,68,0.28)]">
                       <Trash2 size={13} />
                     </button>
                   </div>
@@ -228,7 +251,7 @@ export default function Warehouses() {
                 <div className="grid grid-cols-3 gap-3 mb-3">
                   {[
                     { label: "SKUs", value: items.length, color: "text-blue-400" },
-                    { label: "Value", value: `$${(value / 1000).toFixed(0)}K`, color: "text-emerald-400" },
+                    { label: "Value", value: formatPHP(value), color: "text-emerald-400" },
                     { label: "Zones", value: wh.zones.length, color: "text-purple-400" },
                   ].map((s) => (
                     <div key={s.label} className="bg-[#0B1220]/50 rounded-xl p-2.5 text-center">
@@ -310,7 +333,7 @@ export default function Warehouses() {
                           setAssignItemId(item.id);
                           setShowAssignModal(true);
                         }}
-                        className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all"
+                        className="inline-flex items-center gap-1 rounded-lg border border-blue-500/30 bg-blue-500/10 px-2 py-1 text-xs text-blue-300 transition-all hover:border-blue-400/70 hover:bg-blue-500/20 hover:text-blue-200 hover:shadow-[0_0_14px_rgba(59,130,246,0.28)] focus-visible:shadow-[0_0_14px_rgba(59,130,246,0.28)]"
                       >
                         <ArrowLeftRight size={11} /> {item.warehouseId ? "Use Transfer" : "Assign"}
                       </button>
@@ -380,12 +403,15 @@ export default function Warehouses() {
       {/* Assign Item Modal */}
       <Modal isOpen={showAssignModal} onClose={() => { setShowAssignModal(false); setAssignItemId(""); setAssignZoneId(""); }} title="Assign Item to Warehouse" size="md">
         <div className="p-6 space-y-4">
-          <Select label="Select Item *" value={assignItemId} onChange={(e) => setAssignItemId(e.target.value)}>
-            <option value="">Choose inventory item...</option>
-            {unassignedItems.map((i) => (
-              <option key={i.id} value={i.id}>{i.sku} — {i.name} ({i.quantity} {i.unit})</option>
-            ))}
-          </Select>
+          <SearchableSelect
+            label="Select Item *"
+            value={assignItemId}
+            onChange={setAssignItemId}
+            items={unassignedItems}
+            placeholder="Search by item name, SKU, or product code..."
+            emptyMessage="No matching unassigned items"
+            getSecondary={(item) => `${item.sku} · ${item.quantity} ${item.unit}`}
+          />
           <Select label="Target Warehouse *" value={selectedWarehouse?.id ?? ""} onChange={(e) => { const wh = state.warehouses.find((w) => w.id === e.target.value); setSelectedWarehouse(wh ?? null); setAssignZoneId(""); }}>
             <option value="">Choose warehouse...</option>
             {state.warehouses.map((w) => (
@@ -468,13 +494,13 @@ export default function Warehouses() {
       <ConfirmDialog
         isOpen={!!deleteId}
         onClose={() => setDeleteId(null)}
-        onConfirm={() => {
-          void deleteWarehouse(deleteId!)
-            .then(() => showToast("Warehouse deleted", "warning"))
-            .catch((error) => showToast(error instanceof Error ? error.message : "Unable to delete warehouse", "error"));
-        }}
+        onConfirm={() => void handleDeleteWarehouse()}
         title="Delete Warehouse"
-        message="Are you sure? Items in this warehouse will become unassigned."
+        message={
+          warehouseToDeleteItems.length > 0
+            ? `"${warehouseToDelete?.name ?? "This warehouse"}" contains ${warehouseToDeleteItems.length} inventory item${warehouseToDeleteItems.length === 1 ? "" : "s"} and cannot be deleted. Move or remove the inventory first.`
+            : `Are you sure you want to delete "${warehouseToDelete?.name ?? "this warehouse"}"? This action cannot be undone.`
+        }
         confirmLabel="Delete Warehouse"
         variant="danger"
       />

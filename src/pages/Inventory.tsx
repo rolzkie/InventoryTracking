@@ -18,11 +18,16 @@ import {
   PageHeader,
   EmptyState,
   Card,
+  formatPHP,
 } from "../components/ui";
 
 const PER_PAGE = 10;
 
-const emptyForm = (): Omit<InventoryItem, "id" | "status" | "warehouseId" | "zoneId" | "createdAt" | "updatedAt"> => ({
+type InventoryForm = Omit<InventoryItem, "id" | "status" | "warehouseId" | "zoneId" | "createdAt" | "updatedAt"> & {
+  supplierName: string;
+};
+
+const emptyForm = (): InventoryForm => ({
   sku: "",
   name: "",
   categoryId: "",
@@ -32,6 +37,7 @@ const emptyForm = (): Omit<InventoryItem, "id" | "status" | "warehouseId" | "zon
   expirationDate: null,
   unitCost: 0,
   supplierId: null,
+  supplierName: "",
   description: "",
   unit: "units",
 });
@@ -40,6 +46,7 @@ export default function Inventory() {
   const { state, showToast, generateId, createItem, updateItem, deleteItem } = useApp();
   const [search, setSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
+  const [filterWarehouse, setFilterWarehouse] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [sortBy, setSortBy] = useState<"name" | "sku" | "quantity" | "unitCost">("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -51,6 +58,17 @@ export default function Inventory() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm());
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const normalizeSku = (value: string) => value.trim().toLowerCase();
+  const generateSku = () => {
+    const day = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const base = `SKU-${day}-`;
+    const next = state.items.reduce((highest, item) => {
+      if (!item.sku.toUpperCase().startsWith(base)) return highest;
+      const suffix = Number.parseInt(item.sku.slice(base.length), 10);
+      return Number.isFinite(suffix) ? Math.max(highest, suffix) : highest;
+    }, 0) + 1;
+    return `${base}${String(next).padStart(4, "0")}`;
+  };
 
   const filtered = useMemo(() => {
     let items = state.items;
@@ -59,6 +77,8 @@ export default function Inventory() {
       items = items.filter((i) => i.name.toLowerCase().includes(q) || i.sku.toLowerCase().includes(q) || state.categories.find((c) => c.id === i.categoryId)?.name.toLowerCase().includes(q));
     }
     if (filterCategory) items = items.filter((i) => i.categoryId === filterCategory);
+    if (filterWarehouse === "__unassigned__") items = items.filter((i) => !i.warehouseId);
+    else if (filterWarehouse) items = items.filter((i) => i.warehouseId === filterWarehouse);
     if (filterStatus) items = items.filter((i) => i.status === filterStatus);
     items = [...items].sort((a, b) => {
       const dir = sortDir === "asc" ? 1 : -1;
@@ -67,11 +87,11 @@ export default function Inventory() {
       return a[sortBy].localeCompare(b[sortBy]) * dir;
     });
     return items;
-  }, [state.items, state.categories, search, filterCategory, filterStatus, sortBy, sortDir]);
+  }, [state.items, state.categories, search, filterCategory, filterWarehouse, filterStatus, sortBy, sortDir]);
 
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
-  const validate = (f: typeof form) => {
+  const validate = (f: typeof form, mode: "add" | "edit" = "add") => {
     const errors: Record<string, string> = {};
     if (!f.sku.trim()) errors.sku = "SKU is required";
     if (!f.name.trim()) errors.name = "Name is required";
@@ -79,7 +99,10 @@ export default function Inventory() {
     if (f.quantity < 0) errors.quantity = "Quantity cannot be negative";
     if (f.unitCost < 0) errors.unitCost = "Unit cost cannot be negative";
     if (f.reorderPoint < 0) errors.reorderPoint = "Reorder point cannot be negative";
-    if (state.items.some((i) => i.sku === f.sku && i.id !== selectedItem?.id)) errors.sku = "SKU already exists";
+    if (mode === "add") {
+      const nextSku = normalizeSku(f.sku);
+      if (state.items.some((i) => normalizeSku(i.sku) === nextSku)) errors.sku = "SKU already exists";
+    }
     return errors;
   };
 
@@ -89,6 +112,7 @@ export default function Inventory() {
     const now = new Date().toISOString().split("T")[0];
     const newItem: InventoryItem = {
       ...form,
+      sku: form.sku.trim(),
       id: generateId("item"),
       warehouseId: null,
       zoneId: null,
@@ -99,7 +123,7 @@ export default function Inventory() {
       supplierId: form.supplierId || null,
     };
     try {
-      await createItem(newItem);
+      await createItem(newItem, form.supplierName?.trim() || undefined);
       showToast(`Item "${form.name}" added successfully`, "success");
       setShowAddModal(false);
       setForm(emptyForm());
@@ -111,16 +135,20 @@ export default function Inventory() {
 
   const handleEdit = async () => {
     if (!selectedItem) return;
-    const errors = validate(form);
+    const errors = validate(form, "edit");
     if (Object.keys(errors).length) { setFormErrors(errors); return; }
     try {
-      await updateItem({
-        ...selectedItem,
-        ...form,
-        updatedAt: new Date().toISOString().split("T")[0],
-        expirationDate: form.expirationDate || null,
-        supplierId: form.supplierId || null,
-      });
+      await updateItem(
+        {
+          ...selectedItem,
+          ...form,
+          sku: form.sku.trim(),
+          updatedAt: new Date().toISOString().split("T")[0],
+          expirationDate: form.expirationDate || null,
+          supplierId: form.supplierId || null,
+        },
+        form.supplierName?.trim() || undefined,
+      );
       showToast(`Item "${form.name}" updated successfully`, "success");
       setShowEditModal(false);
       setFormErrors({});
@@ -131,9 +159,16 @@ export default function Inventory() {
 
   const openEdit = (item: InventoryItem) => {
     setSelectedItem(item);
-    setForm({ sku: item.sku, name: item.name, categoryId: item.categoryId, quantity: item.quantity, reorderPoint: item.reorderPoint, maxStock: item.maxStock, expirationDate: item.expirationDate, unitCost: item.unitCost, supplierId: item.supplierId, description: item.description, unit: item.unit });
+    setForm({ sku: item.sku, name: item.name, categoryId: item.categoryId, quantity: item.quantity, reorderPoint: item.reorderPoint, maxStock: item.maxStock, expirationDate: item.expirationDate, unitCost: item.unitCost, supplierId: item.supplierId, supplierName: "", description: item.description, unit: item.unit });
     setFormErrors({});
     setShowEditModal(true);
+  };
+
+  const openAdd = () => {
+    setSelectedItem(null);
+    setForm({ ...emptyForm(), sku: generateSku() });
+    setFormErrors({});
+    setShowAddModal(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -158,26 +193,39 @@ export default function Inventory() {
   const formSection = (
     <div className="p-6 space-y-4">
       <div className="grid grid-cols-2 gap-4">
-        <Input label="SKU *" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} placeholder="SKU-0001" error={formErrors.sku} />
+        <Input
+          label="SKU *"
+          value={form.sku}
+          onChange={(e) => setForm({ ...form, sku: e.target.value })}
+          placeholder="Auto-generated, editable"
+          error={formErrors.sku}
+        />
         <Input label="Item Name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Product name" error={formErrors.name} />
       </div>
+      <p className="text-[11px] text-slate-500 -mt-2">A unique SKU is suggested automatically, and you can still edit it before saving.</p>
       <div className="grid grid-cols-2 gap-4">
         <Select label="Category *" value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })} error={formErrors.categoryId}>
           <option value="">Select category</option>
           {state.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </Select>
-        <Select label="Supplier" value={form.supplierId ?? ""} onChange={(e) => setForm({ ...form, supplierId: e.target.value || null })}>
+        <Select label="Supplier" value={form.supplierId ?? ""} onChange={(e) => setForm({ ...form, supplierId: e.target.value || null, supplierName: "" })}>
           <option value="">No supplier</option>
           {state.suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </Select>
       </div>
+      <Input
+        label="Or type a new supplier name"
+        value={form.supplierName ?? ""}
+        onChange={(e) => setForm({ ...form, supplierName: e.target.value })}
+        placeholder="Create a new supplier on save"
+      />
       <div className="grid grid-cols-3 gap-4">
         <Input label="Quantity *" type="number" min={0} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: parseInt(e.target.value) || 0 })} error={formErrors.quantity} />
         <Input label="Reorder Point *" type="number" min={0} value={form.reorderPoint} onChange={(e) => setForm({ ...form, reorderPoint: parseInt(e.target.value) || 0 })} error={formErrors.reorderPoint} />
         <Input label="Max Stock" type="number" min={0} value={form.maxStock} onChange={(e) => setForm({ ...form, maxStock: parseInt(e.target.value) || 0 })} />
       </div>
       <div className="grid grid-cols-3 gap-4">
-        <Input label="Unit Cost ($) *" type="number" min={0} step="0.01" value={form.unitCost} onChange={(e) => setForm({ ...form, unitCost: parseFloat(e.target.value) || 0 })} error={formErrors.unitCost} />
+        <Input label="Unit Cost (PHP) *" type="number" min={0} step="0.01" value={form.unitCost} onChange={(e) => setForm({ ...form, unitCost: parseFloat(e.target.value) || 0 })} error={formErrors.unitCost} />
         <Input label="Unit" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="units, boxes, kg..." />
         <Input label="Expiration Date" type="date" value={form.expirationDate ?? ""} onChange={(e) => setForm({ ...form, expirationDate: e.target.value || null })} />
       </div>
@@ -194,7 +242,7 @@ export default function Inventory() {
         title="Inventory Management"
         subtitle={`${state.items.length} total SKUs · ${state.items.filter(i => i.status === "low-stock").length} low stock · ${state.items.filter(i => i.status === "out-of-stock").length} out of stock`}
         actions={
-          <Button variant="primary" onClick={() => { setForm(emptyForm()); setFormErrors({}); setShowAddModal(true); }}>
+          <Button variant="primary" onClick={openAdd}>
             <Plus size={15} /> Add Item
           </Button>
         }
@@ -205,8 +253,17 @@ export default function Inventory() {
         <div className="flex flex-wrap gap-3">
           <SearchBar value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search SKU, name, category..." />
           <Select value={filterCategory} onChange={(e) => { setFilterCategory(e.target.value); setPage(1); }} className="w-40">
+            <option value="" disabled hidden>Warehouse Category</option>
             <option value="">All Categories</option>
             {state.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </Select>
+          <Select value={filterWarehouse} onChange={(e) => { setFilterWarehouse(e.target.value); setPage(1); }} className="w-44">
+            <option value="" disabled hidden>Warehouse</option>
+            <option value="">All Warehouses</option>
+            <option value="__unassigned__">Unassigned</option>
+            {state.warehouses.map((warehouse) => (
+              <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>
+            ))}
           </Select>
           <Select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }} className="w-36">
             <option value="">All Status</option>
@@ -265,7 +322,7 @@ export default function Inventory() {
                     icon={<Package size={40} />}
                     title="No items found"
                     description="Try adjusting your search or filters"
-                    action={<Button variant="primary" size="sm" onClick={() => { setSearch(""); setFilterCategory(""); setFilterStatus(""); }}>Clear Filters</Button>}
+                    action={<Button variant="primary" size="sm" onClick={() => { setSearch(""); setFilterCategory(""); setFilterWarehouse(""); setFilterStatus(""); }}>Clear Filters</Button>}
                   />
                 </td>
               </tr>
@@ -310,18 +367,18 @@ export default function Inventory() {
                         <span className="text-xs text-slate-600">—</span>
                       )}
                     </Td>
-                    <Td><span className="text-xs">${item.unitCost.toFixed(2)}</span></Td>
-                    <Td><span className="text-xs font-semibold text-emerald-400">${totalValue.toLocaleString("en-US", { maximumFractionDigits: 0 })}</span></Td>
+                    <Td><span className="text-xs">{formatPHP(item.unitCost)}</span></Td>
+                    <Td><span className="text-xs font-semibold text-emerald-400">{formatPHP(totalValue)}</span></Td>
                     <Td><StatusBadge status={item.status} /></Td>
                     <Td>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => { setSelectedItem(item); setShowViewModal(true); }} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors" title="View">
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => { setSelectedItem(item); setShowViewModal(true); }} className="p-1.5 rounded-lg border border-[#334155]/70 bg-[#0B1220]/70 text-slate-300 transition-all hover:border-blue-500/60 hover:bg-blue-500/10 hover:text-blue-300 hover:shadow-[0_0_14px_rgba(59,130,246,0.28)] focus-visible:shadow-[0_0_14px_rgba(59,130,246,0.28)]" title="View">
                           <Eye size={13} />
                         </button>
-                        <button onClick={() => openEdit(item)} className="p-1.5 rounded-lg text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 transition-colors" title="Edit">
+                        <button onClick={() => openEdit(item)} className="p-1.5 rounded-lg border border-[#334155]/70 bg-[#0B1220]/70 text-slate-300 transition-all hover:border-amber-500/60 hover:bg-amber-500/10 hover:text-amber-300 hover:shadow-[0_0_14px_rgba(245,158,11,0.28)] focus-visible:shadow-[0_0_14px_rgba(245,158,11,0.28)]" title="Edit">
                           <Edit2 size={13} />
                         </button>
-                        <button onClick={() => setDeleteId(item.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors" title="Delete">
+                        <button onClick={() => setDeleteId(item.id)} className="p-1.5 rounded-lg border border-[#334155]/70 bg-[#0B1220]/70 text-slate-300 transition-all hover:border-red-500/60 hover:bg-red-500/10 hover:text-red-300 hover:shadow-[0_0_14px_rgba(239,68,68,0.28)] focus-visible:shadow-[0_0_14px_rgba(239,68,68,0.28)]" title="Delete">
                           <Trash2 size={13} />
                         </button>
                       </div>
@@ -376,8 +433,8 @@ export default function Inventory() {
                 { label: "Quantity", value: `${selectedItem.quantity} ${selectedItem.unit}` },
                 { label: "Reorder Point", value: selectedItem.reorderPoint },
                 { label: "Max Stock", value: selectedItem.maxStock },
-                { label: "Unit Cost", value: `$${selectedItem.unitCost.toFixed(2)}` },
-                { label: "Total Value", value: `$${(selectedItem.quantity * selectedItem.unitCost).toLocaleString()}` },
+                { label: "Unit Cost", value: formatPHP(selectedItem.unitCost) },
+                { label: "Total Value", value: formatPHP(selectedItem.quantity * selectedItem.unitCost) },
                 { label: "Expiry Date", value: selectedItem.expirationDate ?? "N/A" },
                 { label: "Supplier", value: state.suppliers.find(s => s.id === selectedItem.supplierId)?.name ?? "—" },
                 { label: "Last Updated", value: selectedItem.updatedAt },

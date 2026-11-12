@@ -7,9 +7,19 @@ use App\Models\InventoryItem;
 use App\Models\Warehouse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use App\Services\InventoryNotificationService;
+use App\Services\InventorySynchronizationService;
 
 class TransferController extends Controller
 {
+    public function __construct(
+        protected InventoryNotificationService $notifications,
+        protected InventorySynchronizationService $sync,
+    )
+    {
+    }
+
     public function page(Request $request)
     {
         $search = trim((string) $request->query('search', ''));
@@ -81,14 +91,15 @@ class TransferController extends Controller
         $item->save();
     }
 
-    protected function createOrUpdateDestinationItem(InventoryItem $sourceItem, int $destinationWarehouseId, int $quantity, Transfer $transfer): void
+    protected function createOrUpdateDestinationItem(InventoryItem $sourceItem, int $destinationWarehouseId, int $quantity, Transfer $transfer): ?InventoryItem
     {
         if ($quantity <= 0) {
-            return;
+            return null;
         }
 
         $destinationItem = InventoryItem::where('sku', $sourceItem->sku)
             ->where('warehouseId', $destinationWarehouseId)
+            ->lockForUpdate()
             ->first();
 
         if ($destinationItem) {
@@ -100,15 +111,14 @@ class TransferController extends Controller
             $destinationItem->shelf = $transfer->toShelf ?: $destinationItem->shelf;
             $destinationItem->assignedAt = $destinationItem->assignedAt ?: now();
             $destinationItem->save();
-            return;
+            return $destinationItem;
         }
 
-        InventoryItem::create([
+        $payload = [
             'sku' => $sourceItem->sku,
             'name' => $sourceItem->name,
             'description' => $sourceItem->description,
             'category' => $sourceItem->category,
-            'unit' => $sourceItem->unit,
             'quantity' => $quantity,
             'reorderPoint' => $sourceItem->reorderPoint,
             'maxStock' => $sourceItem->maxStock,
@@ -122,28 +132,35 @@ class TransferController extends Controller
             'supplierId' => $sourceItem->supplierId,
             'lastRestocked' => now()->toDateString(),
             'expiryDate' => $sourceItem->expiryDate,
-        ]);
+        ];
+
+        if (Schema::hasColumn('inventory_items', 'unit')) {
+            $payload['unit'] = $sourceItem->unit ?? 'pcs';
+        }
+
+        return InventoryItem::create($payload);
     }
 
-    protected function applyStatusTransition(Transfer $transfer, string $oldStatus, string $newStatus): void
+    protected function applyStatusTransition(Transfer $transfer, string $oldStatus, string $newStatus): array
     {
         $item = $this->findItem($transfer->itemId);
 
-        if ($oldStatus !== 'in_transit' && $newStatus === 'in_transit') {
-            $this->decrementSourceQuantity($item, $transfer->quantity);
+        if ($oldStatus === $newStatus) {
+            return [];
         }
 
         if ($oldStatus !== 'completed' && $newStatus === 'completed') {
-            if ($oldStatus !== 'in_transit') {
-                $this->decrementSourceQuantity($item, $transfer->quantity);
+            if ((int) $item->warehouseId !== (int) $transfer->sourceWarehouse) {
+                throw new \DomainException('Item is no longer in the source warehouse.');
             }
 
-            $this->createOrUpdateDestinationItem($item, $transfer->destinationWarehouse, $transfer->quantity, $transfer);
+            $this->decrementSourceQuantity($item, $transfer->quantity);
+            $destinationItem = $this->createOrUpdateDestinationItem($item, $transfer->destinationWarehouse, $transfer->quantity, $transfer);
+
+            return array_values(array_filter([$item, $destinationItem]));
         }
 
-        if ($oldStatus === 'in_transit' && $newStatus === 'cancelled') {
-            $this->restoreSourceQuantity($item, $transfer->quantity);
-        }
+        return [];
     }
 
     public function index()
@@ -203,11 +220,18 @@ class TransferController extends Controller
                 'createdAt' => now(),
             ]);
 
-            $this->applyStatusTransition($transfer, 'pending', $transfer->status);
+            $affectedItems = $this->applyStatusTransition($transfer, 'pending', $transfer->status);
 
             if ($transfer->status === 'completed') {
+                foreach ($affectedItems as $affectedItem) {
+                    $this->sync->reconcileItem($affectedItem, false);
+                }
                 $transfer->completedAt = now();
                 $transfer->save();
+                $this->notifications->transferCompleted($transfer->fresh(['item', 'sourceWh', 'destinationWh']));
+                foreach ($affectedItems as $affectedItem) {
+                    $this->notifications->stockAlertChanged($affectedItem);
+                }
             }
 
             return response()->json($transfer->fresh(['item', 'sourceWh', 'destinationWh']), 201);
@@ -227,28 +251,45 @@ class TransferController extends Controller
             'approvedBy' => 'nullable|string|max:255',
         ]);
 
-        return DB::transaction(function () use ($transfer, $validated) {
-            $oldStatus = $transfer->status;
-            $transfer->update($validated);
-            $this->applyStatusTransition($transfer, $oldStatus, $transfer->status);
+        try {
+            return DB::transaction(function () use ($transfer, $validated) {
+                $transfer = Transfer::whereKey($transfer->id)->lockForUpdate()->firstOrFail();
+                $oldStatus = $transfer->status;
+                $newStatus = $validated['status'] ?? $oldStatus;
 
-            if ($transfer->status === 'completed' && !$transfer->completedAt) {
-                $transfer->completedAt = now();
+                if ($oldStatus === 'completed' && $newStatus !== 'completed') {
+                    return response()->json(['error' => 'Completed transfers cannot be changed.'], 422);
+                }
+
+                $affectedItems = $this->applyStatusTransition($transfer, $oldStatus, $newStatus);
+                $transfer->fill($validated);
+
+                if ($newStatus === 'completed' && !$transfer->completedAt) {
+                    foreach ($affectedItems as $affectedItem) {
+                        $this->sync->reconcileItem($affectedItem, false);
+                    }
+                    $transfer->completedAt = now();
+                }
+
                 $transfer->save();
-            }
 
-            return response()->json($transfer->fresh(['item', 'sourceWh', 'destinationWh']));
-        });
+                if ($oldStatus !== 'completed' && $newStatus === 'completed') {
+                    $this->notifications->transferCompleted($transfer->fresh(['item', 'sourceWh', 'destinationWh']));
+                    foreach ($affectedItems as $affectedItem) {
+                        $this->notifications->stockAlertChanged($affectedItem);
+                    }
+                }
+
+                return response()->json($transfer->fresh(['item', 'sourceWh', 'destinationWh']));
+            });
+        } catch (\DomainException $exception) {
+            return response()->json(['error' => $exception->getMessage()], 422);
+        }
     }
 
     public function destroy(Transfer $transfer)
     {
         return DB::transaction(function () use ($transfer) {
-            if ($transfer->status === 'in_transit') {
-                $item = $this->findItem($transfer->itemId);
-                $this->restoreSourceQuantity($item, $transfer->quantity);
-            }
-
             $transfer->delete();
             return response()->json(['ok' => true]);
         });

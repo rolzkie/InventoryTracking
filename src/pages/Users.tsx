@@ -20,7 +20,7 @@ const roleColors: Record<UserRole, string> = {
 type UserForm = Omit<User, "id" | "createdAt" | "lastLogin"> & { password: string };
 
 function emptyForm(): UserForm {
-  return { name: "", email: "", password: "", role: "staff", avatar: "", department: "Operations", active: true };
+  return { name: "", email: "", password: "", role: "staff", permission: "manage", avatar: "", department: "Operations", active: true };
 }
 
 export default function Users() {
@@ -105,7 +105,7 @@ export default function Users() {
 
   const openEdit = (user: User) => {
     setSelectedUser(user);
-    setForm({ name: user.name, email: user.email, password: "", role: user.role, avatar: user.avatar, department: user.department, active: user.active });
+    setForm({ name: user.name, email: user.email, password: "", role: user.role, permission: user.permission, avatar: user.avatar, department: user.department, active: user.active });
     setFormErrors({});
     setShowEditModal(true);
   };
@@ -129,9 +129,13 @@ export default function Users() {
           label="Role *"
           value={form.role}
           disabled={selectedUser?.id === state.currentUser.id}
-          onChange={(e) => setForm({ ...form, role: e.target.value as UserRole })}
+          onChange={(e) => setForm({ ...form, role: e.target.value as UserRole, permission: e.target.value === "viewer" ? "view" : form.permission })}
         >
           {availableRoles.map((r) => <option key={r} value={r} className="capitalize">{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
+        </Select>
+        <Select label="Permission *" value={form.permission} disabled={form.role === "viewer"} onChange={(e) => setForm({ ...form, permission: e.target.value as User["permission"] })}>
+          <option value="manage">Manage</option>
+          <option value="view">View only</option>
         </Select>
         <Select label="Department" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })}>
           {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
@@ -191,6 +195,7 @@ export default function Users() {
               <Th>Email</Th>
               <Th>Role</Th>
               <Th>Department</Th>
+              <Th>Permission</Th>
               <Th>Last Login</Th>
               <Th>Status</Th>
               <Th>Created</Th>
@@ -200,7 +205,7 @@ export default function Users() {
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={8}>
+                <td colSpan={9}>
                   <EmptyState icon={<UserIcon size={40} />} title="No users found" description="Add a user to get started" action={<Button variant="primary" size="sm" onClick={() => { setSelectedUser(null); setForm(emptyForm()); setShowAddModal(true); }}><Plus size={14} /> Add User</Button>} />
                 </td>
               </tr>
@@ -223,6 +228,7 @@ export default function Users() {
                     <Badge variant={roleColors[user.role] as any} className="capitalize">{user.role}</Badge>
                   </Td>
                   <Td><span className="text-xs text-slate-400">{user.department}</span></Td>
+                  <Td><Badge variant={user.permission === "view" ? "gray" : "blue" as any} className="capitalize">{user.permission === "view" ? "View only" : "Manage"}</Badge></Td>
                   <Td><span className="text-xs text-slate-500">{user.lastLogin}</span></Td>
                   <Td>
                     <div className="flex items-center gap-1.5">
@@ -232,14 +238,14 @@ export default function Users() {
                   </Td>
                   <Td><span className="text-xs text-slate-500">{user.createdAt}</span></Td>
                   <Td>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button disabled={!canModify} onClick={() => openEdit(user)} className="p-1.5 rounded-lg text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title={canModify ? "Edit" : "Administrators can only be edited by another administrator"}>
+                    <div className="flex items-center gap-1">
+                      <button disabled={!canModify} onClick={() => openEdit(user)} className="p-1.5 rounded-lg border border-[#334155]/70 bg-[#0B1220]/70 text-slate-300 transition-all hover:border-amber-500/60 hover:bg-amber-500/10 hover:text-amber-300 hover:shadow-[0_0_14px_rgba(245,158,11,0.28)] focus-visible:shadow-[0_0_14px_rgba(245,158,11,0.28)] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:shadow-none" title={canModify ? "Edit" : "Administrators can only be edited by another administrator"}>
                         <Edit2 size={13} />
                       </button>
-                      <button disabled={!canModify || isCurrentUser} onClick={() => void toggleActive(user)} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title={isCurrentUser ? "You cannot deactivate your own account" : user.active ? "Deactivate" : "Activate"}>
+                      <button disabled={!canModify || isCurrentUser} onClick={() => void toggleActive(user)} className="p-1.5 rounded-lg border border-[#334155]/70 bg-[#0B1220]/70 text-slate-300 transition-all hover:border-blue-500/60 hover:bg-blue-500/10 hover:text-blue-300 hover:shadow-[0_0_14px_rgba(59,130,246,0.28)] focus-visible:shadow-[0_0_14px_rgba(59,130,246,0.28)] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:shadow-none" title={isCurrentUser ? "You cannot deactivate your own account" : user.active ? "Deactivate" : "Activate"}>
                         {user.active ? <UserX size={13} /> : <UserCheck size={13} />}
                       </button>
-                      <button onClick={() => setDeleteId(user.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title={isCurrentUser ? "You cannot delete your own account" : "Delete"} disabled={!canModify || isCurrentUser}>
+                      <button onClick={() => setDeleteId(user.id)} className="p-1.5 rounded-lg border border-[#334155]/70 bg-[#0B1220]/70 text-slate-300 transition-all hover:border-red-500/60 hover:bg-red-500/10 hover:text-red-300 hover:shadow-[0_0_14px_rgba(239,68,68,0.28)] focus-visible:shadow-[0_0_14px_rgba(239,68,68,0.28)] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:shadow-none" title={isCurrentUser ? "You cannot delete your own account" : "Delete"} disabled={!canModify || isCurrentUser}>
                         <Trash2 size={13} />
                       </button>
                     </div>

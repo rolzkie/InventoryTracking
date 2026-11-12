@@ -1,35 +1,24 @@
 # WarehouseIQ Registered Demo Accounts
 
 These accounts are created or refreshed by `backend/database/seeders/DatabaseSeeder.php`.
-Run `php artisan migrate --seed` after installing PHP 8.4.1 or newer.
+Run `php artisan migrate --seed` after installing PHP 8.2 or newer.
 
-## Quick Demo Access
+## Registered Login Accounts
 
-Only these administrator and manager accounts appear as Quick Demo buttons on the
-login page. Selecting a button signs in immediately.
-
-| Role | Name | Email | Password |
-|---|---|---|---|
-| Administrator | Michael Torres | `m.torres@erp.com` | `admin123` |
-| Manager | Jessica Wong | `j.wong@erp.com` | `manager123` |
-
-## Other Registered Accounts
-
-These active accounts can sign in manually but are not displayed in Quick Demo Access.
-
-| Role | Name | Email | Password | Account management |
-|---|---|---|---|---|
-| Manager | David Kim | `d.kim@erp.com` | `manager123` | Yes |
-| Staff | Amanda Rodriguez | `a.rodriguez@erp.com` | `staff123` | No |
-| Staff | Brian Chen | `b.chen@erp.com` | `staff123` | No |
-
-The following seeded account is inactive and cannot sign in:
+These accounts appear on the login page. Selecting an active account signs in
+immediately. The inactive account is shown, but cannot sign in until an
+administrator or manager activates it.
 
 | Role | Name | Email | Password | Status |
 |---|---|---|---|---|
-| Viewer | Sarah Johnson | `s.johnson@erp.com` | `staff123` | Inactive |
+| Administrator | Errol Miranda | `adminmiranda@gmail.com` | `admin123` | Active |
+| Manager | Rolando Anacta | `manageranacta@gmail.com` | `manager123` | Active |
+| Manager | Thervin Ranehart Bandril | `thervs@gmail.com` | `manager123` | Active |
+| Staff | Jesreel Domaanis | `jes@gmail.com` | `staff123` | Active |
+| Staff | Kevin Rei Gelle | `kevs@gmail.com` | `staff123` | Active |
+| Viewer | Employee | `employee@gmail.com` | `staff123` | Inactive |
 
-## Account-management permissions
+## Account-management Permissions
 
 - Administrators can create and manage accounts for every role.
 - Managers can create and manage manager, staff, and viewer accounts.

@@ -3,12 +3,84 @@
 namespace App\Http\Controllers;
 
 use App\Models\InventoryItem;
+use App\Models\Supplier;
 use App\Models\Warehouse;
+use App\Services\InventoryNotificationService;
+use App\Services\InventorySynchronizationService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
+use Carbon\CarbonInterface;
 
 class InventoryController extends Controller
 {
+    public function __construct(
+        protected InventoryNotificationService $notifications,
+        protected InventorySynchronizationService $sync,
+    )
+    {
+    }
+
+    protected function supportsUnitColumn(): bool
+    {
+        return Schema::hasColumn('inventory_items', 'unit');
+    }
+
+    protected function resolveSupplierId(?string $supplierId, ?string $supplierName): ?string
+    {
+        $supplierName = trim((string) $supplierName);
+
+        if ($supplierName !== '') {
+            $normalized = mb_strtolower($supplierName);
+            $supplier = Supplier::whereRaw('LOWER(TRIM(name)) = ?', [$normalized])->first();
+
+            if (!$supplier) {
+                $supplier = Supplier::create(['name' => $supplierName]);
+            }
+
+            return (string) $supplier->id;
+        }
+
+        return $supplierId !== null && $supplierId !== '' ? (string) $supplierId : null;
+    }
+
+    protected function generateSku(?CarbonInterface $date = null): string
+    {
+        $day = ($date ?? now())->format('Ymd');
+        $base = "SKU-{$day}-";
+
+        $latest = InventoryItem::query()
+            ->where('sku', 'like', $base.'%')
+            ->orderByDesc('sku')
+            ->value('sku');
+
+        $next = 1;
+        if (is_string($latest) && preg_match('/-(\d{4})$/', $latest, $matches)) {
+            $next = ((int) $matches[1]) + 1;
+        }
+
+        return sprintf('%s%04d', $base, $next);
+    }
+
+    public function assignable()
+    {
+        return response()->json(
+            InventoryItem::with('warehouse')
+                ->whereNull('warehouseId')
+                ->whereNotNull('sku')
+                ->whereNotNull('name')
+                ->where('sku', '<>', '')
+                ->where('name', '<>', '')
+                ->where('status', '<>', 'deleted')
+                ->orderBy('name')
+                ->get()
+                ->map(function ($item) {
+                    return $item->toArray() + ['warehouseName' => $item->warehouse?->name];
+                })
+        );
+    }
+
     public function index()
     {
         return response()->json(
@@ -67,37 +139,57 @@ class InventoryController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'sku' => 'required|string|unique:inventory_items|max:100',
+            'sku' => ['nullable', 'string', 'max:100', Rule::unique('inventory_items', 'sku')],
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'category' => 'required|string|max:100',
-            'unit' => 'required|string|max:50',
+            'unit' => $this->supportsUnitColumn() ? 'required|string|max:50' : 'nullable|string|max:50',
             'quantity' => 'sometimes|integer|min:0',
             'reorderPoint' => 'required|integer|min:0',
             'maxStock' => 'sometimes|integer|min:0',
             'unitPrice' => 'required|numeric|min:0',
-            'supplierId' => 'nullable|string|max:100',
+            'supplierId' => 'nullable|exists:suppliers,id',
+            'supplierName' => 'nullable|string|max:255',
             'expiryDate' => 'nullable|date',
         ]);
 
-        $item = InventoryItem::create([
-            'sku' => $validated['sku'],
+        $supplierId = $this->resolveSupplierId(
+            $validated['supplierId'] ?? null,
+            $validated['supplierName'] ?? null,
+        );
+
+        $sku = trim((string) ($validated['sku'] ?? ''));
+        if ($sku === '') {
+            $sku = $this->generateSku();
+        }
+
+        $payload = [
+            'sku' => $sku,
             'name' => $validated['name'],
             'description' => $validated['description'] ?? '',
             'category' => $validated['category'],
-            'unit' => $validated['unit'],
             'reorderPoint' => $validated['reorderPoint'],
             'maxStock' => $validated['maxStock'] ?? 0,
             'unitPrice' => $validated['unitPrice'],
-            'supplierId' => $validated['supplierId'] ?? null,
+            'supplierId' => $supplierId,
             'quantity' => $validated['quantity'] ?? 0,
             'warehouseId' => null,
             'storageLocation' => null,
             'status' => 'unassigned',
             'lastRestocked' => null,
             'expiryDate' => $validated['expiryDate'] ?? null,
-        ]);
+        ];
 
+        if ($this->supportsUnitColumn()) {
+            $payload['unit'] = $validated['unit'] ?? 'pcs';
+        }
+
+        $item = DB::transaction(function () use ($payload) {
+            $item = InventoryItem::create($payload);
+            $this->notifications->inventoryUpdated($item);
+
+            return $item;
+        });
 
         return response()->json($item->fresh('warehouse')->toArray() + ['warehouseName' => $item->warehouse?->name], 201);
     }
@@ -110,32 +202,43 @@ class InventoryController extends Controller
     public function update(Request $request, InventoryItem $inventory)
     {
         $validated = $request->validate([
-            'sku' => [
-                'sometimes',
-                'string',
-                'max:100',
-                Rule::unique('inventory_items', 'sku')
-                    ->ignore($inventory->id)
-                    ->where(fn ($query) => $query->where('warehouseId', $inventory->warehouseId)),
-            ],
+            'sku' => ['sometimes', 'nullable', 'string', 'max:100'],
             'name' => 'sometimes|string|max:255',
             'description' => 'nullable|string',
             'category' => 'sometimes|string|max:100',
-            'unit' => 'sometimes|string|max:50',
+            'unit' => $this->supportsUnitColumn() ? 'sometimes|string|max:50' : 'nullable|string|max:50',
             'quantity' => 'sometimes|integer|min:0',
             'reorderPoint' => 'sometimes|integer|min:0',
             'maxStock' => 'sometimes|integer|min:0',
             'unitPrice' => 'sometimes|numeric|min:0',
-            'supplierId' => 'nullable|string|max:100',
+            'supplierId' => 'nullable|exists:suppliers,id',
+            'supplierName' => 'nullable|string|max:255',
             'expiryDate' => 'nullable|date',
         ]);
 
+        $supplierId = $this->resolveSupplierId(
+            $validated['supplierId'] ?? null,
+            $validated['supplierName'] ?? null,
+        );
 
-        $inventory->update($validated);
+        if (array_key_exists('supplierId', $validated) || array_key_exists('supplierName', $validated)) {
+            $validated['supplierId'] = $supplierId;
+        }
 
-        // Trigger model saving hooks to recompute status (including expiry-based status)
-        $inventory->refresh();
 
+        if (!$this->supportsUnitColumn()) {
+            unset($validated['unit']);
+        }
+
+        if (array_key_exists('sku', $validated)) {
+            $validated['sku'] = trim($validated['sku']);
+        }
+
+        DB::transaction(function () use ($inventory, $validated) {
+            $inventory = InventoryItem::whereKey($inventory->id)->lockForUpdate()->firstOrFail();
+            $inventory->update($validated);
+            $this->notifications->inventoryUpdated($inventory);
+        });
 
         return response()->json($inventory->fresh('warehouse')->toArray() + ['warehouseName' => $inventory->warehouse?->name]);
     }
@@ -152,14 +255,22 @@ class InventoryController extends Controller
             'delta' => 'required|integer',
         ]);
 
-        $item = InventoryItem::findOrFail($id);
+        $item = DB::transaction(function () use ($id, $validated) {
+            $item = InventoryItem::whereKey($id)->lockForUpdate()->firstOrFail();
 
-        if (!$item->warehouseId) {
+            if (!$item->warehouseId) {
+                return null;
+            }
+
+            $item->quantity = max(0, $item->quantity + $validated['delta']);
+            $item->save();
+
+            return $this->sync->reconcileItem($item);
+        });
+
+        if (!$item) {
             return response()->json(['error' => 'Cannot adjust stock for an unassigned item. Assign a warehouse first.'], 422);
         }
-
-        $item->quantity = max(0, $item->quantity + $validated['delta']);
-        $item->save();
 
         return response()->json($item->fresh('warehouse')->toArray() + ['warehouseName' => $item->warehouse?->name]);
     }
@@ -174,26 +285,30 @@ class InventoryController extends Controller
             'shelf' => 'nullable|string|max:100',
         ]);
 
-        $item = InventoryItem::findOrFail($id);
+        $item = DB::transaction(function () use ($id, $validated) {
+            $item = InventoryItem::whereKey($id)->lockForUpdate()->firstOrFail();
 
-        if ($item->warehouseId && $item->warehouseId != $validated['warehouseId']) {
+            if ($item->warehouseId && $item->warehouseId != $validated['warehouseId']) {
+                return null;
+            }
+
+            $item->warehouseId = $validated['warehouseId'];
+            $item->storageLocation = $validated['storageLocation'] ?? null;
+            $item->zone = $validated['zone'] ?? null;
+            $item->rack = $validated['rack'] ?? null;
+            $item->shelf = $validated['shelf'] ?? null;
+            $item->assignedAt = now();
+            $item->save();
+
+            $item = $this->sync->reconcileItem($item, false);
+            $this->notifications->inventoryAssigned($item);
+
+            return $item;
+        });
+
+        if (!$item) {
             return response()->json(['error' => 'Item already assigned to another warehouse. Use transfer instead.'], 422);
         }
-
-        $item->warehouseId = $validated['warehouseId'];
-        $item->storageLocation = $validated['storageLocation'] ?? null;
-        $item->zone = $validated['zone'] ?? null;
-        $item->rack = $validated['rack'] ?? null;
-        $item->shelf = $validated['shelf'] ?? null;
-        $item->assignedAt = now();
-        if ($item->quantity === 0) {
-            $item->status = 'out_of_stock';
-        } elseif ($item->quantity < $item->reorderPoint) {
-            $item->status = 'low_stock';
-        } else {
-            $item->status = 'in_stock';
-        }
-        $item->save();
 
         return response()->json($item->fresh('warehouse')->toArray() + ['warehouseName' => $item->warehouse?->name]);
     }

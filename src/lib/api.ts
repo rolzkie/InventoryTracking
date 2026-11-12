@@ -63,17 +63,20 @@ function dateOnly(value: unknown): string {
   return typeof value === "string" && value ? value.slice(0, 10) : "";
 }
 
-function itemStatus(item: {
-  quantity: number;
-  reorderPoint: number;
-  maxStock: number;
-  expirationDate: string | null;
-}): InventoryItem["status"] {
-  if (item.quantity === 0) return "out-of-stock";
-  if (item.expirationDate && new Date(item.expirationDate) <= new Date()) return "expired";
-  if (item.quantity <= item.reorderPoint) return "low-stock";
-  if (item.maxStock > 0 && item.quantity > item.maxStock) return "overstock";
-  return "in-stock";
+function normalizeItemStatus(rawStatus: unknown): InventoryItem["status"] {
+  const statusMap: Record<string, InventoryItem["status"]> = {
+    in_stock: "in-stock",
+    "in-stock": "in-stock",
+    low_stock: "low-stock",
+    "low-stock": "low-stock",
+    out_of_stock: "out-of-stock",
+    "out-of-stock": "out-of-stock",
+    overstock: "overstock",
+    expired: "expired",
+    unassigned: "out-of-stock",
+  };
+
+  return statusMap[String(rawStatus ?? "in_stock")] ?? "in-stock";
 }
 
 export function normalizeWarehouse(raw: ApiRecord): Warehouse {
@@ -101,7 +104,7 @@ export function normalizeItem(raw: ApiRecord, categories: Category[]): Inventory
   const reorderPoint = Number(raw.reorderPoint ?? 0);
   const maxStock = Number(raw.maxStock ?? Math.max(reorderPoint * 5, quantity, 1));
   const expirationDate = raw.expiryDate ? dateOnly(raw.expiryDate) : null;
-  const item = {
+  return {
     id: String(raw.id ?? ""),
     sku: String(raw.sku ?? ""),
     name: String(raw.name ?? ""),
@@ -114,13 +117,12 @@ export function normalizeItem(raw: ApiRecord, categories: Category[]): Inventory
     expirationDate,
     unitCost: Number(raw.unitPrice ?? 0),
     supplierId: raw.supplierId == null ? null : String(raw.supplierId),
-    status: "in-stock" as InventoryItem["status"],
+    status: normalizeItemStatus(raw.status),
     description: String(raw.description ?? ""),
     unit: String(raw.unit ?? "pcs"),
     createdAt: dateOnly(raw.created_at ?? raw.createdAt),
     updatedAt: dateOnly(raw.updated_at ?? raw.updatedAt),
   };
-  return { ...item, status: itemStatus(item) };
 }
 
 export function normalizeTransaction(raw: ApiRecord): StockTransaction {
@@ -191,6 +193,7 @@ function normalizeUser(raw: ApiRecord): User {
     name,
     email: String(raw.email ?? ""),
     role: (raw.role ?? "staff") as User["role"],
+    permission: (raw.permission ?? (raw.role === "viewer" ? "view" : "manage")) as User["permission"],
     avatar: String(raw.avatar ?? name.split(" ").map((part) => part[0]).join("").slice(0, 2)),
     department: String(raw.department ?? ""),
     lastLogin: raw.last_login ? String(raw.last_login).replace("T", " ").slice(0, 16) : "Never",
@@ -245,21 +248,20 @@ function itemPayload(item: InventoryItem, categories: Category[]) {
 
 export const api = {
   operational: {
-    async load() {
+    async load(currentUser?: User) {
       const [categoryRows, supplierRows] = await Promise.all([
         request<ApiRecord[]>("/categories"),
         request<ApiRecord[]>("/suppliers"),
       ]);
       const categories = categoryRows.map(normalizeCategory);
-      const hasAuthenticatedSession = Boolean(
-        window.sessionStorage.getItem(AUTH_STORAGE_KEY) ?? window.localStorage.getItem(AUTH_STORAGE_KEY),
-      );
-      const [warehouseRows, itemRows, transactionRows, transferRows, userRows, reorderRows, notificationRows, settings, acknowledgedAlertIds] = await Promise.all([
+      const canManageAccounts = currentUser?.role === "admin" || currentUser?.role === "manager";
+      const [warehouseRows, itemRows, assignableRows, transactionRows, transferRows, userRows, reorderRows, notificationRows, settings, acknowledgedAlertIds] = await Promise.all([
         request<ApiRecord[]>("/warehouses"),
         request<ApiRecord[]>("/inventory"),
+        request<ApiRecord[]>("/inventory/assignable"),
         request<ApiRecord[]>("/transactions"),
         request<ApiRecord[]>("/transfers"),
-        hasAuthenticatedSession ? request<ApiRecord[]>("/users") : Promise.resolve([]),
+        canManageAccounts ? request<ApiRecord[]>("/users") : Promise.resolve([]),
         request<ApiRecord[]>("/reorders"),
         request<ApiRecord[]>("/notifications"),
         request<Record<string, Record<string, unknown>>>("/settings"),
@@ -270,6 +272,7 @@ export const api = {
         suppliers: supplierRows.map(normalizeSupplier),
         warehouses: warehouseRows.map(normalizeWarehouse),
         items: itemRows.map((row) => normalizeItem(row, categories)),
+        assignableItems: assignableRows.map((row) => normalizeItem(row, categories)),
         transactions: transactionRows.map(normalizeTransaction),
         transfers: transferRows.map(normalizeTransfer),
         users: userRows.map(normalizeUser),
@@ -323,6 +326,7 @@ export const api = {
       }).then(normalizeReorder),
   },
   notifications: {
+    list: () => request<ApiRecord[]>("/notifications").then((rows) => rows.map(normalizeNotification)),
     markRead: (id: string) =>
       request<ApiRecord>(`/notifications/${id}/read`, { method: "PATCH" }).then(normalizeNotification),
     markAllRead: () => request<{ ok: boolean }>("/notifications/read-all", { method: "PATCH" }),
@@ -353,15 +357,21 @@ export const api = {
       }),
   },
   inventory: {
-    create: (item: InventoryItem, categories: Category[]) =>
+    create: (item: InventoryItem, categories: Category[], supplierName?: string) =>
       request<ApiRecord>("/inventory", {
         method: "POST",
-        body: JSON.stringify(itemPayload(item, categories)),
+        body: JSON.stringify({
+          ...itemPayload(item, categories),
+          supplierName: supplierName?.trim() || null,
+        }),
       }),
-    update: (item: InventoryItem, categories: Category[]) =>
+    update: (item: InventoryItem, categories: Category[], supplierName?: string) =>
       request<ApiRecord>(`/inventory/${item.id}`, {
         method: "PUT",
-        body: JSON.stringify(itemPayload(item, categories)),
+        body: JSON.stringify({
+          ...itemPayload(item, categories),
+          supplierName: supplierName?.trim() || null,
+        }),
       }),
     delete: (id: string) => request<{ ok: boolean }>(`/inventory/${id}`, { method: "DELETE" }),
     assign: (itemId: string, warehouseId: string, zoneId: string | null) =>
@@ -384,7 +394,7 @@ export const api = {
     delete: (id: string) => request<{ ok: boolean }>(`/warehouses/${id}`, { method: "DELETE" }),
   },
   transactions: {
-    create: (transaction: StockTransaction, warehouseId: string) =>
+    create: (transaction: Omit<StockTransaction, "id" | "referenceNumber"> & { id?: string; referenceNumber?: string }, warehouseId: string) =>
       request<ApiRecord>("/transactions", {
         method: "POST",
         body: JSON.stringify({
@@ -395,7 +405,6 @@ export const api = {
           expirationDate: transaction.expirationDate,
           supplierId: transaction.supplierId,
           purpose: transaction.purpose,
-          referenceNumber: transaction.referenceNumber,
           processedBy: transaction.processedBy,
           unitCost: transaction.unitCost,
           notes: transaction.notes,

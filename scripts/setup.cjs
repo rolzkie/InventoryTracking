@@ -8,9 +8,18 @@ const envPath = path.join(backendDir, ".env");
 const exampleEnvPath = path.join(backendDir, ".env.example");
 const xamppPhp = "C:\\xampp\\php\\php.exe";
 const composerPhar = "C:\\ProgramData\\ComposerSetup\\bin\\composer.phar";
-const php =
-  process.env.WAREHOUSEIQ_PHP_PATH ||
-  (existsSync(xamppPhp) ? xamppPhp : "php");
+
+function canRun(command) {
+  const result = spawnSync(command, ["-r", "echo PHP_VERSION;"], {
+    encoding: "utf8",
+    windowsHide: true,
+  });
+
+  return result.status === 0;
+}
+
+// Prefer a compatible PHP already on PATH over XAMPP's bundled PHP.
+const php = process.env.WAREHOUSEIQ_PHP_PATH || (canRun("php") ? "php" : xamppPhp);
 
 function run(command, args, cwd = backendDir) {
   const result = spawnSync(command, args, {
@@ -25,6 +34,18 @@ function run(command, args, cwd = backendDir) {
     process.exit(1);
   }
   if (result.status !== 0) process.exit(result.status ?? 1);
+}
+
+const phpVersion = spawnSync(php, ["-r", "echo PHP_VERSION;"], {
+  encoding: "utf8",
+  windowsHide: true,
+});
+
+const [major, minor] = (phpVersion.stdout || "").trim().split(".").map(Number);
+if (phpVersion.status !== 0 || major < 8 || (major === 8 && minor < 2)) {
+  console.error(`PHP 8.2+ is required. "${php}" resolved to ${phpVersion.stdout?.trim() || "an unavailable executable"}.`);
+  console.error("Set WAREHOUSEIQ_PHP_PATH to a compatible PHP executable and run setup again.");
+  process.exit(1);
 }
 
 if (!existsSync(envPath)) {
