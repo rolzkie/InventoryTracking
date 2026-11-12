@@ -187,7 +187,7 @@ export default function Warehouses() {
       />
 
       {/* Tabs */}
-      <div className="flex gap-1 p-1 bg-[#111827] rounded-xl mb-4 w-fit">
+      <div className="view-tabs flex gap-1 p-1 bg-[#111827] rounded-xl mb-4 w-fit">
         {(["overview", "assign", "zones"] as const).map((tab) => (
           <button
             key={tab}

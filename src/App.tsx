@@ -15,7 +15,7 @@ import Users from "./pages/Users";
 import Settings from "./pages/Settings";
 
 function AppContent() {
-  const { state, login, forgotPassword, showToast, refreshOperationalData } = useApp();
+  const { state, dispatch, login, forgotPassword, showToast, refreshOperationalData } = useApp();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // ─── Not authenticated → show login ───────────────────────────────────────
@@ -31,6 +31,8 @@ function AppContent() {
             return result;
           }}
           onForgotPassword={forgotPassword}
+          darkMode={state.darkMode}
+          onToggleTheme={() => dispatch({ type: "SET_DARK_MODE", value: !state.darkMode })}
         />
         <ToastContainer />
       </>
@@ -56,13 +58,13 @@ function AppContent() {
   })();
 
   return (
-    <div className="app-shell min-h-screen" style={{ backgroundColor: "#0B1220" }}>
+    <div className="app-shell min-h-screen bg-canvas text-content">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="lg:pl-64 flex flex-col min-h-screen">
+      <div className="lg:pl-60 flex flex-col min-h-screen min-w-0">
         <TopNav onMenuToggle={() => setSidebarOpen((v) => !v)} />
 
-        <main className="flex-1 p-4 md:p-6 overflow-auto">
+        <main className="app-main flex-1 min-w-0 p-4 md:p-6 xl:p-7 overflow-auto">
           {state.backendError && (
             <div className="mb-4 flex items-center justify-between gap-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-xs text-red-200">
               <span>Laravel API unavailable: {state.backendError}</span>
@@ -83,10 +85,10 @@ function AppContent() {
           {page}
         </main>
 
-        <footer className="px-6 py-3 border-t text-center text-xs text-slate-600" style={{ borderColor: "#2A3445" }}>
+        <footer className="app-footer px-6 py-3 border-t text-center text-xs text-slate-500" style={{ borderColor: "var(--border-subtle)" }}>
           <span className="inline-flex items-center gap-2 justify-center">
             <Box size={12} className="text-slate-500" />
-            <span>Inventory and Warehouse Management System 2026</span>
+            <span>Inventory System 2026</span>
           </span>
         </footer>
       </div>

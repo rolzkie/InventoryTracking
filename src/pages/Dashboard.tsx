@@ -29,6 +29,7 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
+  ArrowLeftRight,
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { StatCard, Card, Badge, StatusBadge, formatPHP } from "../components/ui";
@@ -92,7 +93,8 @@ export default function Dashboard() {
     const lowStock = state.items.filter((i) => i.status === "low-stock").length;
     const outOfStock = state.items.filter((i) => i.status === "out-of-stock").length;
     const pendingTransfers = state.transfers.filter((t) => t.status === "pending").length;
-    return { totalSKUs, totalWarehouses, activeAlerts, unassigned, totalValue, lowStock, outOfStock, pendingTransfers };
+    const totalUnits = state.items.reduce((sum, item) => sum + item.quantity, 0);
+    return { totalSKUs, totalWarehouses, activeAlerts, unassigned, totalValue, totalUnits, lowStock, outOfStock, pendingTransfers };
   }, [state.items, state.warehouses, state.alerts, state.transfers]);
 
   const movement = useMemo(() => {
@@ -127,22 +129,22 @@ export default function Dashboard() {
       {
         label: "Stock In",
         data: movement.inbound,
-        borderColor: "#3B82F6",
-        backgroundColor: "rgba(59,130,246,0.08)",
+        borderColor: "#42D6BB",
+        backgroundColor: "rgba(66,214,187,0.10)",
         fill: true,
         tension: 0.4,
-        pointBackgroundColor: "#3B82F6",
+        pointBackgroundColor: "#42D6BB",
         pointRadius: 4,
         borderWidth: 2,
       },
       {
         label: "Stock Out",
         data: movement.outbound,
-        borderColor: "#8B5CF6",
-        backgroundColor: "rgba(139,92,246,0.08)",
+        borderColor: "#8293AE",
+        backgroundColor: "rgba(130,147,174,0.08)",
         fill: true,
         tension: 0.4,
-        pointBackgroundColor: "#8B5CF6",
+        pointBackgroundColor: "#8293AE",
         pointRadius: 4,
         borderWidth: 2,
       },
@@ -177,8 +179,8 @@ export default function Dashboard() {
     labels: Object.keys(categoryTotals),
     datasets: [{
       data: Object.values(categoryTotals),
-      backgroundColor: ["#3B82F6", "#8B5CF6", "#10B981", "#F59E0B", "#EF4444", "#06B6D4"],
-      borderColor: "#1A2232",
+    backgroundColor: ["#42D6BB", "#6395F6", "#9B8AFB", "#F2B84B", "#F17878", "#8293AE"],
+      borderColor: "#242B34",
       borderWidth: 2,
       hoverOffset: 6,
     }],
@@ -203,44 +205,53 @@ export default function Dashboard() {
   const alertIcon = { critical: <AlertCircle size={14} className="text-red-400" />, warning: <AlertTriangle size={14} className="text-amber-400" />, info: <Clock size={14} className="text-blue-400" /> };
 
   return (
-    <div className="space-y-6">
-      {/* Summary Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+    <div className="dashboard-page space-y-4">
+      {/* Priority metrics */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
         <StatCard
-          title="Total SKUs"
-          value={stats.totalSKUs}
-          subtitle={`${stats.lowStock} low stock`}
+          title="Inventory value"
+          value={formatPHP(stats.totalValue)}
+          subtitle="Across all locations"
+          icon={<DollarSign size={18} />}
+          color="cyan"
+        />
+        <StatCard
+          title="Total units"
+          value={stats.totalUnits.toLocaleString()}
+          subtitle={`${stats.totalSKUs.toLocaleString()} active SKUs`}
           icon={<Package size={18} />}
           color="blue"
         />
         <StatCard
-          title="Warehouses"
-          value={stats.totalWarehouses}
-          subtitle="All operational"
-          icon={<Warehouse size={18} />}
-          color="purple"
-        />
-        <StatCard
-          title="Stock Alerts"
+          title="Active alerts"
           value={stats.activeAlerts}
           subtitle={`${stats.outOfStock} out of stock`}
           icon={<AlertTriangle size={18} />}
           color="red"
         />
         <StatCard
-          title="Unassigned"
-          value={stats.unassigned}
-          subtitle="Pending warehouse"
-          icon={<Package size={18} />}
+          title="Pending transfers"
+          value={String(stats.pendingTransfers).padStart(2, "0")}
+          subtitle="Awaiting review"
+          icon={<ArrowLeftRight size={18} />}
           color="amber"
         />
-        <StatCard
-          title="Total Value"
-          value={formatPHP(stats.totalValue)}
-          subtitle={`${state.items.reduce((s, i) => s + i.quantity, 0).toLocaleString()} units`}
-          icon={<DollarSign size={18} />}
-          color="green"
-        />
+      </div>
+
+      {/* Fast operational scan */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-2">
+        {[
+          { label: "Total SKUs", value: stats.totalSKUs, tone: "text-blue-300" },
+          { label: "Warehouses", value: stats.totalWarehouses, tone: "text-cyan-300" },
+          { label: "Low stock", value: stats.lowStock, tone: "text-amber-300" },
+          { label: "Out of stock", value: stats.outOfStock, tone: "text-red-300" },
+          { label: "Unassigned", value: stats.unassigned, tone: "text-slate-200" },
+        ].map((metric) => (
+          <div key={metric.label} className="flex items-center justify-between gap-3 rounded-xl border border-border-subtle bg-surface px-3.5 py-3 shadow-sm">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">{metric.label}</span>
+            <span className={`text-sm font-bold tabular-nums ${metric.tone}`}>{metric.value.toLocaleString()}</span>
+          </div>
+        ))}
       </div>
 
       {/* Charts Row */}
@@ -394,7 +405,7 @@ export default function Dashboard() {
                 { label: "Icons", value: "Lucide React", icon: <Package size={12} /> },
                 { label: "Backend", value: "Laravel 12 API", icon: <Database size={12} /> },
                 { label: "Database", value: "SQLite / MySQL", icon: <Database size={12} /> },
-                { label: "Version", value: "WarehouseIQ v2.4.0", icon: <GithubIcon size={12} /> },
+                { label: "Version", value: "Inventory System v2.4.0", icon: <GithubIcon size={12} /> },
               ].map((item) => (
                 <div key={item.label} className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-slate-500">
@@ -415,7 +426,7 @@ export default function Dashboard() {
         <div className="flex items-start justify-between gap-3 mb-4">
           <div>
             <h3 className="text-sm font-semibold text-slate-200">Development Team</h3>
-            <p className="text-xs text-blue-400/80 mt-0.5">The engineers and designers building and maintaining StockOS</p>
+            <p className="text-xs text-blue-400/80 mt-0.5">The engineers and designers building and maintaining Inventory System</p>
           </div>
           <span className="inline-flex items-center rounded-full border border-[#2A3445] px-3 py-1 text-[10px] font-medium text-slate-400">
             Team

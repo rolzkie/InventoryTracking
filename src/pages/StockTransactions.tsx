@@ -253,7 +253,7 @@ export default function StockTransactions() {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 p-1 bg-[#111827] rounded-xl mb-4 w-fit">
+      <div className="view-tabs flex gap-1 p-1 bg-[#111827] rounded-xl mb-4 w-fit">
         {([
           { id: "all", label: "All Transactions" },
           { id: "stock-in", label: "Stock In" },

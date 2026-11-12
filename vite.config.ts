@@ -15,7 +15,9 @@ export default defineConfig({
     // same-origin through this proxy, so no VITE_API_URL is required.
     host: "127.0.0.1",
     port: 5173,
-    strictPort: true,
+    // If another local Vite process still owns 5173, use the next free port
+    // instead of failing the combined API + web development command.
+    strictPort: false,
     proxy: {
       "/api": {
         target: "http://127.0.0.1:8000",

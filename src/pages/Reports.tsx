@@ -198,7 +198,7 @@ export default function Reports() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex flex-wrap gap-1 p-1 bg-[#111827] rounded-xl mb-4 w-fit">
+      <div className="view-tabs flex flex-wrap gap-1 p-1 bg-[#111827] rounded-xl mb-4 w-fit">
         {tabs.map((tab) => (
           <button
             key={tab.id}

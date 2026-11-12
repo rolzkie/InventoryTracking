@@ -3,7 +3,7 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Enhance ERP Inventory System</title>
+        <title>Inventory System</title>
         <meta name="description" content="Manage inventory and warehouse operations efficiently with a secure, scalable ERP system featuring real-time tracking, alerts, and detailed reporting.">
         <meta name="robots" content="noindex, nofollow">
         <style>
@@ -38,7 +38,7 @@
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18"/><path d="M5 7v10"/><path d="M19 7v10"/><path d="M8 17h8"/></svg>
                     </div>
                     <div>
-                        <span class="text-sm font-bold text-foreground">StockOS</span>
+                        <span class="text-sm font-bold text-foreground">Inventory System</span>
                         <span class="text-xs text-muted-foreground block leading-none" style="font-family: 'JetBrains Mono', monospace;">ERP v2.4</span>
                     </div>
                 </div>
