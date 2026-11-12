@@ -1,9 +1,22 @@
 import { useEffect, useState } from "react";
-import { Eye, EyeOff, Box, Lock, Mail, AlertCircle, Loader2 } from "lucide-react";
+import {
+  ArrowRight,
+  AlertCircle,
+  Box,
+  Eye,
+  EyeOff,
+  Lock,
+  Mail,
+  Loader2,
+  Moon,
+  Sun,
+} from "lucide-react";
 
 interface LoginProps {
   onLogin: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   onForgotPassword: (email: string) => Promise<{ success: boolean; message: string }>;
+  darkMode: boolean;
+  onToggleTheme: () => void;
 }
 
 const RECENT_LOGINS_KEY = "warehouseiq.recent-logins";
@@ -15,7 +28,22 @@ type RecentLogin = {
   lastLogin: string;
 };
 
-export default function Login({ onLogin, onForgotPassword }: LoginProps) {
+const binStatuses = [
+  { id: "A-01", level: 76, status: "Stocked" },
+  { id: "A-02", level: 48, status: "Stocked" },
+  { id: "A-03", level: 88, status: "Stocked" },
+  { id: "A-04", level: 40, status: "Stocked" },
+  { id: "B-01", level: 70, status: "Stocked" },
+  { id: "B-02", level: 16, status: "Low" },
+  { id: "B-03", level: 80, status: "Stocked" },
+  { id: "B-04", level: 60, status: "Stocked" },
+  { id: "C-01", level: 0, status: "Out" },
+  { id: "C-02", level: 63, status: "Stocked" },
+  { id: "C-03", level: 50, status: "Stocked" },
+  { id: "C-04", level: 78, status: "Stocked" },
+];
+
+export default function Login({ onLogin, onForgotPassword, darkMode, onToggleTheme }: LoginProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -34,243 +62,246 @@ export default function Login({ onLogin, onForgotPassword }: LoginProps) {
     }
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     if (!email.trim() || !password.trim()) {
-      setError("Please enter your email and password.");
+      setError("Enter your work email and password to continue.");
       return;
     }
+
     setLoading(true);
     setError("");
     setNotice("");
-    const result = await onLogin(email.trim(), password);
-    if (!result.success) {
-      setError(result.error ?? "Invalid credentials.");
+    try {
+      const result = await onLogin(email.trim(), password);
+      if (!result.success) {
+        setError(result.error ?? "Unable to sign in with those details.");
+        setLoading(false);
+      }
+    } catch (loginError) {
+      setError(loginError instanceof Error ? loginError.message : "Unable to reach the sign-in service.");
       setLoading(false);
     }
   };
 
   const handleForgotPassword = async () => {
     if (!email.trim()) {
-      setError("Enter your email address first.");
+      setError("Enter your work email first.");
       return;
     }
     setLoading(true);
     setError("");
     setNotice("");
-    const result = await onForgotPassword(email);
+    const result = await onForgotPassword(email.trim());
     setLoading(false);
     if (result.success) setNotice(result.message);
     else setError(result.message);
   };
 
-  const handleQuickLogin = (acc: RecentLogin) => {
-    setEmail(acc.email);
+  const selectRecentLogin = (account: RecentLogin) => {
+    setEmail(account.email);
+    setPassword("");
     setError("");
     setNotice("");
   };
 
   return (
-    <div
-      className="min-h-screen flex"
-      style={{ backgroundColor: "#0B1220" }}
-    >
-      {/* Left panel – branding */}
-      <div
-        className="hidden lg:flex w-[52%] min-w-0 flex-col justify-start gap-10 px-10 py-10 xl:px-12 xl:py-12 relative overflow-hidden"
-        style={{ background: "linear-gradient(135deg, #0f1c35 0%, #111827 60%, #0B1220 100%)" }}
-      >
-        {/* Grid pattern */}
-        <div
-          className="absolute inset-0 opacity-[0.04]"
-          style={{
-            backgroundImage: "linear-gradient(#3B82F6 1px, transparent 1px), linear-gradient(90deg, #3B82F6 1px, transparent 1px)",
-            backgroundSize: "40px 40px",
-          }}
-        />
-        {/* Glow blobs */}
-        <div className="absolute top-1/4 -left-24 w-96 h-96 rounded-full opacity-10" style={{ background: "radial-gradient(circle, #3B82F6, transparent)" }} />
-        <div className="absolute bottom-1/4 right-0 w-64 h-64 rounded-full opacity-8" style={{ background: "radial-gradient(circle, #8B5CF6, transparent)" }} />
+    <main className="login-shell min-h-screen bg-canvas text-content lg:grid lg:grid-cols-[minmax(0,1.04fr)_minmax(420px,0.96fr)]">
+      <section className="login-brand-panel relative hidden min-h-screen flex-col justify-center overflow-hidden px-8 py-8 md:px-12 lg:flex xl:px-16" aria-label="Inventory System overview">
+        <div className="login-grid-pattern pointer-events-none absolute inset-0" aria-hidden="true" />
+        <div className="login-brand-content relative z-10 mx-auto flex w-full max-w-2xl flex-col gap-7 xl:gap-8">
+          <div className="flex items-center gap-3">
+            <div className="login-brand-mark flex h-11 w-11 items-center justify-center rounded-2xl">
+              <Box size={21} aria-hidden="true" />
+            </div>
+            <div>
+              <p className="text-sm font-bold tracking-wide text-content">Inventory System</p>
+              <p className="mt-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-content-subtle">Inventory operations</p>
+            </div>
+          </div>
 
-        {/* Logo */}
-        <div className="relative z-10 flex items-center gap-3 shrink-0">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
-            <Box size={20} className="text-white" />
+          <div className="max-w-xl">
+            <div className="mb-3 inline-flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.2em] text-content-subtle">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_0_4px_rgba(52,211,153,0.12)]" />
+              One connected operation
+            </div>
+            <h1 className="text-3xl font-bold leading-[1.12] tracking-tight text-content sm:text-4xl xl:text-[2.7rem]">
+              Every bin, every location,
+              <span className="login-heading-accent block">one clear count.</span>
+            </h1>
+            <p className="mt-3 max-w-lg text-sm leading-relaxed text-content-muted">
+              Track stock, approve transfers, and catch shortages before they reach the shelf.
+            </p>
           </div>
-          <div>
-            <p className="text-lg font-bold text-slate-100 leading-tight">Inventory and Warehouse</p>
-            <p className="text-xs text-slate-500">Management System</p>
-          </div>
-        </div>
 
-        {/* Center content */}
-        <div className="relative z-10 flex flex-1 flex-col justify-center max-w-xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 mb-6">
-            <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-            <span className="text-xs text-blue-400 font-medium">Live Dashboard Active</span>
+          <div className="login-warehouse-preview rounded-[1.4rem] p-3.5 sm:p-4" aria-label="Illustration of live warehouse inventory bins">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-content-subtle">East DC · Aisles A–C</p>
+                <p className="mt-1 text-[11px] font-semibold text-content">Warehouse floor overview</p>
+              </div>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-[9px] font-semibold text-emerald-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Live
+              </span>
+            </div>
+
+            <div className="grid grid-cols-4 gap-2 sm:gap-2.5">
+              {binStatuses.map((bin) => (
+                <div className="login-bin" key={bin.id}>
+                  <div className="mb-1 flex items-center justify-between gap-1">
+                    <span className="text-[8px] font-semibold tracking-wide text-content-subtle">{bin.id}</span>
+                    {bin.status !== "Stocked" && (
+                      <span className={`text-[7px] font-bold uppercase ${bin.status === "Low" ? "text-amber-500" : "text-red-500"}`}>
+                        {bin.status}
+                      </span>
+                    )}
+                  </div>
+                  <div className="login-bin-well">
+                    {bin.level > 0 && (
+                      <span
+                        className={`login-bin-fill ${bin.status === "Low" ? "is-low" : ""}`}
+                        style={{ height: `${bin.level}%` }}
+                      />
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-          <h1 className="text-4xl xl:text-5xl font-black text-slate-100 leading-[0.95] tracking-tight mb-4 max-w-md">
-            Inventory &<br />Warehouse<br />
-            <span style={{ background: "linear-gradient(90deg, #3B82F6, #8B5CF6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              System
-            </span>
-          </h1>
-          <p className="text-sm xl:text-base text-slate-400 leading-relaxed max-w-md">
-           Take full control of your inventory and warehouse operations with a centralized ERP solution. Monitor stock levels in real time, automate inventory processes, manage multiple warehouses, and generate insightful reports—all from one powerful dashboard.
-          </p>
-          <div className="grid grid-cols-3 gap-4 sm:gap-6 mt-8 xl:mt-10 max-w-md">
+
+          <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
             {[
-              { value: "15+", label: "SKUs Tracked" },
-              { value: "4", label: "Warehouses" },
-              { value: "100%", label: "Live Data" },
-            ].map((s) => (
-              <div key={s.label} className="min-w-0">
-                <p className="text-xl xl:text-2xl font-black text-slate-100 leading-none">{s.value}</p>
-                <p className="mt-1 text-[11px] xl:text-xs text-slate-500 leading-snug">{s.label}</p>
+              { value: "$3.22M", label: "Inventory value" },
+              { value: "48,920", label: "Units tracked" },
+              { value: "4 online", label: "Locations" },
+            ].map((metric) => (
+              <div className="login-metric rounded-xl px-3.5 py-3" key={metric.label}>
+                <p className="text-[8px] font-bold uppercase tracking-[0.16em] text-content-subtle">{metric.label}</p>
+                <p className="mt-1.5 text-base font-bold tracking-tight text-content sm:text-lg">{metric.value}</p>
               </div>
             ))}
           </div>
         </div>
+      </section>
 
-      </div>
-
-      {/* Right panel – login form */}
-      <div className="flex-1 flex flex-col items-center justify-start px-6 py-8 lg:px-16 lg:py-0 lg:justify-center relative">
-        {/* Mobile logo */}
-        <div className="lg:hidden flex items-center gap-3 mb-10">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-            <Box size={20} className="text-white" />
+      <section className="login-form-panel flex min-h-screen items-center justify-center px-4 py-6 sm:px-8 lg:px-10 xl:px-14" aria-label="Account access">
+        <div className="login-card w-full max-w-[430px] rounded-[1.6rem] p-5 sm:p-7">
+          <div className="mb-4 flex items-center gap-2.5 lg:hidden">
+            <div className="login-brand-mark flex h-8 w-8 items-center justify-center rounded-xl"><Box size={15} aria-hidden="true" /></div>
+            <div><p className="text-xs font-bold text-content">Inventory System</p><p className="text-[8px] font-semibold uppercase tracking-[0.16em] text-content-subtle">Inventory operations</p></div>
           </div>
-          <p className="text-lg font-bold text-slate-100">Inventory Warehouse Management System</p>
-        </div>
-
-        <div className="w-full max-w-md">
-          {/* Header */}
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-slate-100 mb-1">Welcome back</h2>
-            <p className="text-sm text-slate-500">Sign in to access your ERP dashboard</p>
+          <div className="mb-5 flex items-start justify-between gap-4">
+            <div>
+              <div className="mb-2 flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.2em] text-content-subtle">
+                <Lock size={11} aria-hidden="true" /> Secure access
+              </div>
+              <h2 className="text-2xl font-bold tracking-tight text-content">Welcome back</h2>
+              <p className="mt-1 text-xs leading-relaxed text-content-muted">Sign in to your command center.</p>
+            </div>
+            <button
+              type="button"
+              onClick={onToggleTheme}
+              aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+              title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+              className="login-theme-toggle inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-colors"
+            >
+              {darkMode ? <Sun size={15} aria-hidden="true" /> : <Moon size={15} aria-hidden="true" />}
+            </button>
           </div>
 
-          {/* Recent saved log ins */}
-          <div className="mb-5">
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Recent Saved Log Ins</p>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {recentLogins.length > 0 ? recentLogins.map((acc) => (
-                <button
-                  key={acc.email}
-                  type="button"
-                  disabled={loading}
-                  onClick={() => handleQuickLogin(acc)}
-                  className="py-2 px-3 text-xs font-medium rounded-xl border border-[#2A3445] text-slate-300 transition-all duration-150 hover:border-blue-500/50 hover:bg-blue-500/5 hover:text-blue-300"
-                >
-                  <span className="block">{acc.name}</span>
-                  <span className="block mt-0.5 text-[10px] text-slate-600">{acc.role}</span>
-                  <span className="block mt-0.5 text-[10px] text-slate-600">
-                    {new Intl.DateTimeFormat("en-PH", {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    }).format(new Date(acc.lastLogin))}
-                  </span>
-                </button>
-              )) : (
-                <div className="col-span-full rounded-xl border border-[#2A3445] bg-[#111827] px-3 py-4 text-xs text-slate-500">
-                  Your recent logins will appear here after a successful sign in.
+          {recentLogins.length > 0 && (
+                <details className="login-recent mb-4 rounded-xl border border-border-subtle">
+                  <summary className="cursor-pointer px-3.5 py-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-content-subtle">Recent profiles ({recentLogins.length})</summary>
+                  <div className="grid grid-cols-1 gap-1.5 border-t border-border-subtle p-2 sm:grid-cols-2">
+                    {recentLogins.map((account) => (
+                      <button
+                        key={account.email}
+                        type="button"
+                        disabled={loading}
+                        onClick={() => selectRecentLogin(account)}
+                        className="login-recent-item rounded-lg px-3 py-2 text-left transition-colors disabled:opacity-50"
+                      >
+                        <span className="block truncate text-xs font-semibold text-content">{account.name}</span>
+                        <span className="mt-0.5 block truncate text-[10px] text-content-subtle">{account.email} · {account.role}</span>
+                      </button>
+                    ))}
+                  </div>
+                </details>
+              )}
+
+              {error && (
+                <div role="alert" className="mb-4 flex items-center gap-2.5 rounded-xl border border-red-500/25 bg-red-500/10 px-3.5 py-3">
+                  <AlertCircle size={14} className="shrink-0 text-red-500" aria-hidden="true" />
+                  <p className="text-xs text-red-500">{error}</p>
                 </div>
               )}
-            </div>
-          </div>
+              {notice && (
+                <div role="status" className="mb-4 flex items-start gap-2.5 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3.5 py-3">
+                  <Mail size={14} className="mt-0.5 shrink-0 text-emerald-500" aria-hidden="true" />
+                  <p className="text-xs text-emerald-600">{notice}</p>
+                </div>
+              )}
 
-          <div className="flex items-center gap-3 mb-5">
-            <div className="flex-1 h-px bg-[#2A3445]" />
-            <span className="text-xs text-slate-400">or sign in manually</span>
-            <div className="flex-1 h-px bg-[#2A3445]" />
-          </div>
+              <form onSubmit={handleSubmit} className="space-y-3.5">
+                <div>
+                  <label htmlFor="login-email" className="mb-1.5 block text-[10px] font-semibold text-content-muted">Work email</label>
+                  <div className="login-input-wrap relative">
+                    <Mail size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-content-subtle" aria-hidden="true" />
+                    <input
+                      id="login-email"
+                      type="email"
+                      value={email}
+                      onChange={(event) => { setEmail(event.target.value); setError(""); }}
+                      placeholder="name@company.com"
+                      autoComplete="username"
+                      required
+                      className="login-input w-full rounded-xl py-3 pl-10 pr-3 text-sm outline-none transition"
+                    />
+                  </div>
+                </div>
 
-          {/* Error */}
-          {error && (
-            <div className="flex items-center gap-2.5 px-4 py-3 mb-5 rounded-xl bg-red-500/10 border border-red-500/25">
-              <AlertCircle size={15} className="text-red-400 flex-shrink-0" />
-              <p className="text-xs text-red-300">{error}</p>
-            </div>
-          )}
-          {notice && (
-            <div className="flex items-center gap-2.5 px-4 py-3 mb-5 rounded-xl bg-emerald-500/10 border border-emerald-500/25">
-              <Mail size={15} className="text-emerald-400 flex-shrink-0" />
-              <p className="text-xs text-emerald-300">{notice}</p>
-            </div>
-          )}
+                <div>
+                  <div className="mb-1.5 flex items-center justify-between gap-3">
+                    <label htmlFor="login-password" className="text-[10px] font-semibold text-content-muted">Password</label>
+                    <button type="button" onClick={() => void handleForgotPassword()} disabled={loading} className="login-link text-[10px] font-semibold disabled:opacity-50">Forgot password?</button>
+                  </div>
+                  <div className="login-input-wrap relative">
+                    <Lock size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-content-subtle" aria-hidden="true" />
+                    <input
+                      id="login-password"
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(event) => { setPassword(event.target.value); setError(""); }}
+                      placeholder="Enter your password"
+                      autoComplete="current-password"
+                      required
+                      className="login-input w-full rounded-xl py-3 pl-10 pr-11 text-sm outline-none transition"
+                    />
+                    <button
+                      type="button"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      onClick={() => setShowPassword((visible) => !visible)}
+                      className="login-password-toggle absolute right-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg"
+                    >
+                      {showPassword ? <EyeOff size={14} aria-hidden="true" /> : <Eye size={14} aria-hidden="true" />}
+                    </button>
+                  </div>
+                </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-3">
-            {/* Email */}
-            <div>
-              <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">
-                Email Address
-              </label>
-              <div className="relative">
-                <Mail size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => { setEmail(e.target.value); setError(""); }}
-                  placeholder="you@company.com"
-                  autoComplete="email"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#111827] border border-[#2A3445] text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
-                />
-              </div>
-            </div>
-
-            {/* Password */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">Password</label>
-                <button type="button" onClick={() => void handleForgotPassword()} className="text-xs text-blue-400 hover:text-blue-300 transition-colors">Forgot password?</button>
-              </div>
-              <div className="relative">
-                <Lock size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => { setPassword(e.target.value); setError(""); }}
-                  placeholder="Enter password"
-                  autoComplete="current-password"
-                  className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-[#111827] border border-[#2A3445] text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
-                />
-                <button
-                  type="button"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3.5 top-1/2 z-10 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors pointer-events-auto"
-                >
-                  {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                <button type="submit" disabled={loading} className="login-submit flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-65">
+                  {loading ? <><Loader2 size={15} className="animate-spin" /> Signing in</> : <>Sign in <ArrowRight size={14} aria-hidden="true" /></>}
                 </button>
+              </form>
+
+              <div className="login-access-note mt-4 border-t border-border-subtle pt-3 text-center">
+                <p className="text-[10px] text-content-subtle">Need access? Contact your administrator.</p>
               </div>
-            </div>
-
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-2.5 py-2.5 rounded-xl font-semibold text-sm text-white transition-all duration-150 disabled:opacity-70 disabled:cursor-not-allowed"
-              style={{
-                background: loading ? "#2563EB" : "linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)",
-                boxShadow: loading ? "none" : "0 0 24px rgba(59,130,246,0.25)",
-              }}
-            >
-                {loading ? (
-                  <><Loader2 size={15} className="animate-spin" /> Signing in…</>
-                ) : (
-                  "Sign In"
-                )}
-            </button>
-          </form>
-
-          <p className="mt-6 text-center text-xs text-slate-700">
-            Inventory and Warehouse Management System 2026
-          </p>
         </div>
-      </div>
-    </div>
+
+        <p className="mt-4 text-center text-[10px] text-content-subtle lg:absolute lg:bottom-5">
+          Inventory System <span aria-hidden="true">·</span> Secure operations workspace
+        </p>
+      </section>
+    </main>
   );
 }

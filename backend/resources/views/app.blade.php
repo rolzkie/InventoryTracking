@@ -3,7 +3,7 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Enhance ERP Inventory System</title>
+        <title>Inventory System</title>
         <meta name="description" content="Manage inventory and warehouse operations efficiently with a secure, scalable ERP system featuring real-time tracking, alerts, and detailed reporting.">
         <meta name="robots" content="noindex, nofollow">
         <style>

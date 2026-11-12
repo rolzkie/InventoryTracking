@@ -4,14 +4,25 @@ import { useApp } from "../../context/AppContext";
 import type { Page } from "../../types";
 
 const pageLabels: Record<Page, string> = {
-  dashboard: "Dashboard",
+  dashboard: "Command center",
   inventory: "Inventory",
   warehouses: "Warehouses",
   transfers: "Transfers",
-  "stock-transactions": "Stock Transactions",
+  "stock-transactions": "Stock movements",
   reports: "Reports & Alerts",
   users: "Users",
   settings: "Settings",
+};
+
+const pageDescriptions: Record<Page, string> = {
+  dashboard: "Operational overview across every location",
+  inventory: "Track availability, value, and replenishment",
+  warehouses: "Manage facilities, capacity, and zones",
+  transfers: "Coordinate stock between locations",
+  "stock-transactions": "Review every stock movement",
+  reports: "Resolve alerts and monitor performance",
+  users: "Manage access across your operation",
+  settings: "Configure your workspace",
 };
 
 export default function TopNav({ onMenuToggle }: { onMenuToggle: () => void }) {
@@ -36,6 +47,9 @@ export default function TopNav({ onMenuToggle }: { onMenuToggle: () => void }) {
   const profileRef = useRef<HTMLDivElement>(null);
 
   const unreadCount = state.notifications.filter((n) => !n.read).length;
+  const criticalAlertCount = state.alerts.filter((alert) => !alert.acknowledged && alert.severity === "critical").length;
+  const actionAlertCount = state.alerts.filter((alert) => !alert.acknowledged && alert.severity === "warning").length;
+  const infoAlertCount = state.alerts.filter((alert) => !alert.acknowledged && alert.severity === "info").length;
   const recentNotifications = [...state.notifications].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   const alertNotifications = [...state.alerts]
     .filter((alert) => !alert.acknowledged)
@@ -52,6 +66,28 @@ export default function TopNav({ onMenuToggle }: { onMenuToggle: () => void }) {
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
   const unreadFeedCount = combinedFeed.filter((entry) => !entry.read).length;
+  const notificationState = criticalAlertCount > 0
+    ? "critical"
+    : actionAlertCount > 0
+      ? "action"
+      : unreadCount + infoAlertCount > 0
+        ? "new"
+        : "quiet";
+  const stateUnreadCount = notificationState === "critical"
+    ? criticalAlertCount
+    : notificationState === "action"
+      ? actionAlertCount
+      : unreadCount + infoAlertCount;
+  const notificationStateLabel = notificationState === "critical"
+    ? `${criticalAlertCount} critical alert${criticalAlertCount === 1 ? "" : "s"}`
+    : notificationState === "action"
+      ? `${actionAlertCount} alert${actionAlertCount === 1 ? "" : "s"} need attention`
+      : notificationState === "new"
+        ? `${stateUnreadCount} new update${stateUnreadCount === 1 ? "" : "s"}`
+        : "All caught up";
+  const notificationAccessibleLabel = notificationState === "quiet"
+    ? "Notifications. No new alerts."
+    : `Notifications. ${notificationStateLabel}. ${unreadFeedCount} unread in the feed.`;
   const formatFeedTime = (value: string) => {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return value;
@@ -110,15 +146,16 @@ export default function TopNav({ onMenuToggle }: { onMenuToggle: () => void }) {
   const notifColors = { error: "bg-red-500/20 text-red-400", warning: "bg-amber-500/20 text-amber-400", info: "bg-blue-500/20 text-blue-400", success: "bg-emerald-500/20 text-emerald-400" };
 
   return (
-    <header className="sticky top-0 z-20 bg-[#0B1220]/90 backdrop-blur-md border-b border-[#2A3445] h-14 flex items-center px-4 gap-3">
+    <header className="app-topbar sticky top-0 z-20 bg-canvas/90 backdrop-blur-md border-b border-border-subtle min-h-[68px] flex items-center px-4 md:px-6 gap-3 md:gap-5">
       {/* Mobile menu toggle */}
-      <button onClick={onMenuToggle} className="lg:hidden p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-[#1A2232] transition-colors">
+      <button onClick={onMenuToggle} aria-label="Open navigation" className="lg:hidden p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/[0.06] transition-colors">
         <Menu size={18} />
       </button>
 
       {/* Page title */}
-      <div className="hidden sm:block">
-        <span className="text-sm font-semibold text-slate-200">{pageLabels[state.currentPage]}</span>
+      <div className="min-w-0">
+        <h1 className="truncate text-base md:text-lg font-semibold tracking-tight text-slate-100">{pageLabels[state.currentPage]}</h1>
+        <p className="hidden sm:block truncate text-[11px] text-slate-500">{pageDescriptions[state.currentPage]}</p>
       </div>
 
       <div className="flex-1" />
@@ -131,8 +168,9 @@ export default function TopNav({ onMenuToggle }: { onMenuToggle: () => void }) {
             value={searchQuery}
             onChange={(e) => handleSearch(e.target.value)}
             onFocus={() => setShowSearch(true)}
-            placeholder="Quick search..."
-            className="pl-9 pr-4 py-1.5 w-48 md:w-64 rounded-lg bg-[#1A2232] border border-[#2A3445] text-slate-100 placeholder-slate-500 text-xs focus:outline-none focus:border-blue-500 transition-colors"
+            placeholder="Search anything..."
+            aria-label="Search inventory and warehouses"
+            className="pl-9 pr-3 py-2 w-36 sm:w-48 lg:w-60 rounded-lg bg-surface-raised border border-border-subtle text-content placeholder:text-content-subtle text-xs focus:outline-none focus:border-cyan-400/60 focus:ring-2 focus:ring-cyan-400/10 transition-colors"
           />
         </div>
         {showSearch && searchResults.length > 0 && (
@@ -164,20 +202,32 @@ export default function TopNav({ onMenuToggle }: { onMenuToggle: () => void }) {
       <div ref={notifRef} className="relative">
         <button
           onClick={() => { setShowNotifications((v) => !v); setShowProfile(false); }}
-          className="relative p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-[#1A2232] transition-colors"
+          type="button"
+          aria-label={notificationAccessibleLabel}
+          aria-expanded={showNotifications}
+          aria-haspopup="dialog"
+          title={notificationAccessibleLabel}
+          data-alert-state={notificationState}
+          className="notification-trigger relative inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:text-slate-200 hover:bg-[#1A2232] transition-colors"
         >
-          <Bell size={16} />
-          {unreadFeedCount > 0 && (
-            <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-              {unreadFeedCount}
+          <Bell className="notification-bell" size={17} aria-hidden="true" />
+          {notificationState === "new" && <span className="notification-dot" aria-hidden="true" />}
+          {stateUnreadCount > 0 && notificationState !== "new" && (
+            <span className="notification-count" aria-hidden="true">
+              {stateUnreadCount > 99 ? "99+" : stateUnreadCount}
             </span>
           )}
         </button>
 
         {showNotifications && (
-          <div className="absolute top-full mt-1 right-0 w-80 bg-[#1A2232] border border-[#2A3445] rounded-xl shadow-xl overflow-hidden">
+          <div role="dialog" aria-label="Notifications" className="absolute top-full mt-1 right-0 w-80 bg-[#1A2232] border border-[#2A3445] rounded-xl shadow-xl overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-[#2A3445]">
-              <span className="text-sm font-semibold text-slate-200">Notifications</span>
+              <div>
+                <span className="block text-sm font-semibold text-slate-200">Notifications</span>
+                <span className="notification-state-copy mt-1 flex items-center gap-1.5 text-[10px]" data-alert-state={notificationState}>
+                  <span className="notification-state-dot" aria-hidden="true" />{notificationStateLabel}
+                </span>
+              </div>
               <button
                 onClick={() => void markAllNotificationsRead().catch((error) => showToast(error instanceof Error ? error.message : "Unable to update notifications", "error"))}
                 className="text-xs text-blue-400 hover:text-blue-300"

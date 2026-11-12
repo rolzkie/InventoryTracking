@@ -10,16 +10,17 @@ import {
   ChevronRight,
   AlertTriangle,
   Box,
+  Activity,
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import type { Page } from "../../types";
 
 const navItems: { id: Page; label: string; icon: React.ReactNode; badge?: string }[] = [
-  { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
+  { id: "dashboard", label: "Command center", icon: <LayoutDashboard size={18} /> },
   { id: "inventory", label: "Inventory", icon: <Package size={18} /> },
   { id: "warehouses", label: "Warehouses", icon: <Warehouse size={18} /> },
   { id: "transfers", label: "Transfers", icon: <ArrowLeftRight size={18} /> },
-  { id: "stock-transactions", label: "Stock Transactions", icon: <TrendingUp size={18} /> },
+  { id: "stock-transactions", label: "Stock movements", icon: <TrendingUp size={18} /> },
   { id: "reports", label: "Reports & Alerts", icon: <BarChart3 size={18} /> },
   { id: "users", label: "Users", icon: <Users size={18} /> },
   { id: "settings", label: "Settings", icon: <Settings size={18} /> },
@@ -48,24 +49,35 @@ export default function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose:
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 h-full w-64 bg-[#111827] border-r border-[#2A3445] z-30 flex flex-col transition-transform duration-300 ${
+        className={`app-sidebar fixed top-0 left-0 h-full w-60 bg-surface border-r border-border-subtle z-30 flex flex-col transition-transform duration-300 ${
           isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
         {/* Logo */}
-        <div className="flex items-center gap-3 px-5 py-5 border-b border-[#2A3445]">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg">
-            <Box size={16} className="text-white" />
+        <div className="flex items-center gap-3 px-4 py-5 border-b border-border-subtle">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-950/30">
+            <Box size={17} className="text-white" />
           </div>
           <div>
-            <p className="text-sm font-bold text-slate-100 leading-tight">IWM System</p>
-            <p className="text-[10px] text-slate-500">ERP System v2.4</p>
+            <p className="text-sm font-bold tracking-wide text-slate-100 leading-tight">Inventory System</p>
+            <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500">Inventory OS</p>
+          </div>
+        </div>
+
+        <div className="sidebar-status-card mx-3 mt-4 mb-2 rounded-xl border border-border-subtle bg-surface-raised px-3 py-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Network status</span>
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-emerald-300"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />Live</span>
+          </div>
+          <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-500">
+            <Activity size={12} className="text-cyan-300" />
+            <span>{state.warehouses.length} locations online</span>
           </div>
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-4 overflow-y-auto">
-          <p className="px-3 mb-3 text-[10px] font-semibold text-slate-600 uppercase tracking-widest">Main Menu</p>
+          <p className="px-3 mb-2 text-[9px] font-bold text-slate-500 uppercase tracking-[0.18em]">Workspace</p>
           <ul className="space-y-0.5">
             {navItems.filter((item) => item.id !== "users" || canManageAccounts).map((item) => {
               const isActive = state.currentPage === item.id;
@@ -74,13 +86,13 @@ export default function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose:
                 <li key={item.id}>
                   <button
                     onClick={() => { navigate(item.id); onClose(); }}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group ${
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 group ${
                       isActive
-                        ? "bg-blue-600/20 text-blue-400 border border-blue-500/20"
-                        : "text-slate-400 hover:bg-[#1A2232] hover:text-slate-200"
+                        ? "bg-cyan-400/10 text-cyan-200 border border-cyan-300/15 shadow-inner shadow-cyan-950/10"
+                        : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200"
                     }`}
                   >
-                    <span className={`${isActive ? "text-blue-400" : "text-slate-500 group-hover:text-slate-300"} transition-colors`}>
+                    <span className={`${isActive ? "text-cyan-300" : "text-slate-500 group-hover:text-slate-300"} transition-colors`}>
                       {item.icon}
                     </span>
                     <span className="flex-1 text-left">{item.label}</span>
@@ -89,7 +101,7 @@ export default function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose:
                         {badge}
                       </span>
                     )}
-                    {isActive && <ChevronRight size={12} className="text-blue-500" />}
+                    {isActive && <ChevronRight size={12} className="text-cyan-300" />}
                   </button>
                 </li>
               );
@@ -115,7 +127,7 @@ export default function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose:
         </nav>
 
         {/* User Profile */}
-        <div className="px-3 py-3 border-t border-[#2A3445]">
+        <div className="px-3 py-3 border-t border-border-subtle">
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#1A2232] transition-colors cursor-pointer">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
               {state.currentUser.avatar}

@@ -16,6 +16,15 @@ import { api } from "../lib/api";
 
 const AUTH_STORAGE_KEY = "warehouseiq.auth";
 const RECENT_LOGINS_KEY = "warehouseiq.recent-logins";
+const THEME_STORAGE_KEY = "warehouseiq.theme";
+
+function getInitialDarkMode(): boolean {
+  try {
+    return window.localStorage.getItem(THEME_STORAGE_KEY) !== "light";
+  } catch {
+    return true;
+  }
+}
 
 interface AppState {
   currentPage: Page;
@@ -373,7 +382,7 @@ const initialState: AppState = {
   notifications: [],
   settings: {},
   acknowledgedAlertIds: [],
-  darkMode: true,
+  darkMode: getInitialDarkMode(),
   toasts: [],
   currentUser: {
     id: "",
@@ -454,7 +463,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    document.documentElement.classList.toggle("light-mode", !state.darkMode);
+    const root = document.documentElement;
+    root.classList.toggle("light-mode", !state.darkMode);
+    root.dataset.theme = state.darkMode ? "dark" : "light";
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, state.darkMode ? "dark" : "light");
+    } catch {
+      // Theme still applies for the current session when storage is unavailable.
+    }
   }, [state.darkMode]);
 
   useEffect(() => {

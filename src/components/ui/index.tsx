@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { X, Check, AlertTriangle, Info, CheckCircle } from "lucide-react";
+import { X, Check, AlertTriangle, Info, CheckCircle, XCircle, Clock3, ArrowDownToLine, ArrowUpFromLine, ShieldAlert } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import type { InventoryItem } from "../../types";
 
@@ -53,17 +53,35 @@ export function StatusBadge({ status }: { status: string }) {
     "stock-out": { label: "Stock Out", variant: "red" },
   };
   const config = map[status] ?? { label: status, variant: "gray" as BadgeVariant };
-  return <Badge variant={config.variant}>{config.label}</Badge>;
+  const statusIcons: Record<string, React.ReactNode> = {
+    "in-stock": <CheckCircle size={11} aria-hidden="true" />,
+    "low-stock": <AlertTriangle size={11} aria-hidden="true" />,
+    "out-of-stock": <XCircle size={11} aria-hidden="true" />,
+    expired: <ShieldAlert size={11} aria-hidden="true" />,
+    overstock: <AlertTriangle size={11} aria-hidden="true" />,
+    pending: <Clock3 size={11} aria-hidden="true" />,
+    "in-transit": <ArrowDownToLine size={11} aria-hidden="true" />,
+    completed: <CheckCircle size={11} aria-hidden="true" />,
+    cancelled: <XCircle size={11} aria-hidden="true" />,
+    approved: <CheckCircle size={11} aria-hidden="true" />,
+    ordered: <Clock3 size={11} aria-hidden="true" />,
+    received: <CheckCircle size={11} aria-hidden="true" />,
+    active: <CheckCircle size={11} aria-hidden="true" />,
+    inactive: <Clock3 size={11} aria-hidden="true" />,
+    "stock-in": <ArrowDownToLine size={11} aria-hidden="true" />,
+    "stock-out": <ArrowUpFromLine size={11} aria-hidden="true" />,
+  };
+  return <Badge variant={config.variant}>{statusIcons[status]}{config.label}</Badge>;
 }
 
 // ─── Button ──────────────────────────────────────────────────────────────────
 type BtnVariant = "primary" | "secondary" | "danger" | "ghost" | "success";
 const btnVariants: Record<BtnVariant, string> = {
-  primary: "bg-blue-600 hover:bg-blue-500 text-white hover:shadow-[0_0_18px_rgba(59,130,246,0.38)] focus-visible:shadow-[0_0_18px_rgba(59,130,246,0.38)]",
-  secondary: "bg-[#2A3445] hover:bg-[#334155] text-slate-200 border border-[#2A3445] hover:border-blue-500/50 hover:shadow-[0_0_16px_rgba(59,130,246,0.22)] focus-visible:shadow-[0_0_16px_rgba(59,130,246,0.22)]",
-  danger: "bg-red-600 hover:bg-red-500 text-white hover:shadow-[0_0_18px_rgba(239,68,68,0.38)] focus-visible:shadow-[0_0_18px_rgba(239,68,68,0.38)]",
-  ghost: "bg-transparent hover:bg-[#2A3445] text-slate-300 hover:text-white hover:shadow-[0_0_14px_rgba(148,163,184,0.18)] focus-visible:shadow-[0_0_14px_rgba(148,163,184,0.18)]",
-  success: "bg-emerald-600 hover:bg-emerald-500 text-white hover:shadow-[0_0_18px_rgba(16,185,129,0.38)] focus-visible:shadow-[0_0_18px_rgba(16,185,129,0.38)]",
+  primary: "bg-blue-600 hover:bg-blue-500 text-white shadow-sm shadow-blue-950/30 hover:shadow-md hover:shadow-blue-950/30",
+  secondary: "bg-[#303844] hover:bg-[#39424F] text-slate-100 border border-[#414B58] hover:border-slate-500/70",
+  danger: "bg-red-600 hover:bg-red-500 text-white shadow-sm shadow-red-950/25",
+  ghost: "bg-transparent hover:bg-white/[0.06] text-slate-300 hover:text-white",
+  success: "bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-950/25",
 };
 
 export function Button({
@@ -89,7 +107,7 @@ export function Button({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex items-center gap-2 rounded-lg font-medium transition-all duration-150 hover:-translate-y-0.5 focus-visible:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none ${btnVariants[variant]} ${sizes[size]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 active:translate-y-px disabled:opacity-50 disabled:cursor-not-allowed ${btnVariants[variant]} ${sizes[size]} ${className}`}
     >
       {children}
     </button>
@@ -107,7 +125,7 @@ export function Input({
     <div className="flex flex-col gap-1">
       {label && <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">{label}</label>}
       <input
-        className={`w-full px-3 py-2 rounded-lg bg-[#0B1220] border border-[#2A3445] text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors ${error ? "border-red-500" : ""} ${className}`}
+        className={`w-full px-3 py-2.5 rounded-lg bg-canvas border border-border-strong text-content placeholder:text-content-subtle text-sm focus:outline-none focus:border-cyan-400/70 focus:ring-2 focus:ring-cyan-400/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${error ? "border-red-500" : ""} ${className}`}
         {...props}
       />
       {error && <span className="text-xs text-red-400">{error}</span>}
@@ -153,7 +171,7 @@ export function Select({
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-[#0B1220] border border-[#2A3445] text-left text-slate-100 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors ${error ? "border-red-500" : ""} ${className}`}
+        className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg bg-canvas border border-border-strong text-left text-content text-sm focus:outline-none focus:border-cyan-400/70 focus:ring-2 focus:ring-cyan-400/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${error ? "border-red-500" : ""} ${className}`}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
@@ -165,7 +183,7 @@ export function Select({
         </svg>
       </button>
       {open && (
-        <div className="absolute left-0 right-0 top-full z-40 mt-1 max-h-64 overflow-y-auto rounded-xl border border-[#334155] bg-[#111827] shadow-[0_18px_40px_rgba(15,23,42,0.45)]">
+        <div className="absolute left-0 right-0 top-full z-40 mt-1 max-h-64 overflow-y-auto rounded-xl border border-border-subtle bg-surface-raised shadow-popover">
           {options.map((option) => {
             const value = String(option.props.value ?? "");
             const active = String(props.value ?? "") === value;
@@ -202,7 +220,7 @@ export function Textarea({
       {label && <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">{label}</label>}
       <textarea
         rows={3}
-        className={`w-full px-3 py-2 rounded-lg bg-[#0B1220] border border-[#2A3445] text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors resize-none ${error ? "border-red-500" : ""} ${className}`}
+        className={`w-full px-3 py-2.5 rounded-lg bg-canvas border border-border-strong text-content placeholder:text-content-subtle text-sm focus:outline-none focus:border-cyan-400/70 focus:ring-2 focus:ring-cyan-400/10 transition-colors resize-y disabled:opacity-50 disabled:cursor-not-allowed ${error ? "border-red-500" : ""} ${className}`}
         {...props}
       />
       {error && <span className="text-xs text-red-400">{error}</span>}
@@ -237,7 +255,7 @@ export function Modal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className={`relative bg-[#1A2232] border border-[#2A3445] rounded-2xl shadow-2xl w-full ${sizes[size]} max-h-[90vh] flex flex-col`}>
+      <div className={`relative bg-surface border border-border-subtle rounded-2xl shadow-popover w-full ${sizes[size]} max-h-[90vh] flex flex-col`}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#2A3445]">
           <h2 className="text-lg font-semibold text-slate-100">{title}</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-[#2A3445] transition-colors">
@@ -272,7 +290,7 @@ export function ConfirmDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-[#1A2232] border border-[#2A3445] rounded-2xl shadow-2xl w-full max-w-md p-6">
+      <div className="relative bg-surface border border-border-subtle rounded-2xl shadow-popover w-full max-w-md p-6">
         <div className="flex items-start gap-4 mb-6">
           <div className="p-2 rounded-full bg-red-500/20">
             <AlertTriangle size={20} className="text-red-400" />
@@ -309,11 +327,11 @@ const toastBg = {
 export function ToastContainer() {
   const { state, dispatch } = useApp();
   return (
-    <div className="fixed bottom-6 right-6 z-[100] flex flex-col gap-2 pointer-events-none">
+    <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[100] flex flex-col gap-2 pointer-events-none">
       {state.toasts.map((toast) => (
         <div
           key={toast.id}
-          className={`pointer-events-auto flex items-center gap-3 px-4 py-3 bg-[#1A2232] border ${toastBg[toast.type]} rounded-xl shadow-xl animate-slide-up min-w-72 max-w-sm`}
+          className={`pointer-events-auto flex items-center gap-3 px-4 py-3 bg-surface border ${toastBg[toast.type]} rounded-xl shadow-popover animate-slide-up w-[calc(100vw-2rem)] sm:w-auto min-w-72 max-w-sm`}
         >
           {toastIcons[toast.type]}
           <span className="text-sm text-slate-200 flex-1">{toast.message}</span>
@@ -329,7 +347,7 @@ export function ToastContainer() {
 // ─── Card ─────────────────────────────────────────────────────────────────────
 export function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`bg-[#1A2232] border border-[#2A3445] rounded-xl ${className}`}>
+    <div className={`bg-surface border border-border-subtle rounded-card shadow-panel ${className}`}>
       {children}
     </div>
   );
@@ -361,9 +379,9 @@ export function StatCard({
   };
 
   return (
-    <Card className="p-5 hover:border-[#334155] transition-colors">
-      <div className="flex items-start justify-between mb-4">
-        <div className={`p-2.5 rounded-xl border ${colors[color]}`}>{icon}</div>
+    <Card className="p-4 sm:p-5 hover:border-[#47515E] transition-colors">
+      <div className="flex items-start justify-between mb-3">
+        <div className={`p-2 rounded-xl border ${colors[color]}`}>{icon}</div>
         {trend && (
           <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${trend.value >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
             {trend.value >= 0 ? "+" : ""}{trend.value}% {trend.label}
@@ -371,9 +389,9 @@ export function StatCard({
         )}
       </div>
       <div>
-        <p className="text-2xl font-bold text-slate-100 mb-0.5">{value}</p>
-        <p className="text-sm font-medium text-slate-300 mb-1">{title}</p>
-        {subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
+        <p className="text-2xl font-bold tracking-tight text-slate-100 mb-1">{value}</p>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-slate-400 mb-1">{title}</p>
+        {subtitle && <p className="text-[11px] text-slate-500">{subtitle}</p>}
       </div>
     </Card>
   );
@@ -382,15 +400,15 @@ export function StatCard({
 // ─── Table ────────────────────────────────────────────────────────────────────
 export function Table({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`overflow-x-auto ${className}`}>
-      <table className="w-full text-sm">{children}</table>
+    <div className={`overflow-x-auto rounded-xl ${className}`}>
+      <table className="data-table w-full text-sm">{children}</table>
     </div>
   );
 }
 
 export function Th({ children, className = "" }: { children?: React.ReactNode; className?: string }) {
   return (
-    <th className={`px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider border-b border-[#2A3445] ${className}`}>
+    <th className={`sticky top-0 z-[1] px-4 py-3 text-left text-[10px] font-semibold text-content-subtle uppercase tracking-[0.14em] border-b border-border-subtle bg-surface-raised ${className}`}>
       {children}
     </th>
   );
@@ -398,7 +416,7 @@ export function Th({ children, className = "" }: { children?: React.ReactNode; c
 
 export function Td({ children, className = "" }: { children?: React.ReactNode; className?: string }) {
   return (
-    <td className={`px-4 py-3 text-slate-300 border-b border-[#2A3445]/50 ${className}`}>
+    <td className={`px-4 py-3 text-content-muted border-b border-border-subtle ${className}`}>
       {children}
     </td>
   );
@@ -463,7 +481,7 @@ export function SearchBar({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="pl-9 pr-4 py-2 w-full sm:w-64 rounded-lg bg-[#0B1220] border border-[#2A3445] text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 transition-colors"
+        className="pl-9 pr-4 py-2.5 w-full sm:w-64 rounded-lg bg-[#1B2028] border border-[#3A424E] text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-cyan-400/70 focus:ring-2 focus:ring-cyan-400/10 transition-colors"
       />
     </div>
   );
@@ -626,9 +644,9 @@ export function ProgressBar({ value, max, color = "blue" }: { value: number; max
 // ─── PageHeader ───────────────────────────────────────────────────────────────
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: React.ReactNode }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+    <div className="page-heading flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
       <div>
-        <h1 className="text-xl font-bold text-slate-100">{title}</h1>
+        <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-100">{title}</h1>
         {subtitle && <p className="text-sm text-slate-400 mt-0.5">{subtitle}</p>}
       </div>
       {actions && <div className="flex items-center gap-2">{actions}</div>}
