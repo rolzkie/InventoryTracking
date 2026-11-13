@@ -306,15 +306,15 @@ export const api = {
     },
   },
   users: {
-    create: (user: User, password: string) =>
+    create: (user: User, password: string, passwordConfirmation: string) =>
       request<ApiRecord>("/users", {
         method: "POST",
-        body: JSON.stringify({ ...user, password }),
+        body: JSON.stringify({ ...user, password, password_confirmation: passwordConfirmation }),
       }).then(normalizeUser),
-    update: (user: User) =>
+    update: (user: User, password?: string, passwordConfirmation?: string) =>
       request<ApiRecord>(`/users/${user.id}`, {
         method: "PUT",
-        body: JSON.stringify(user),
+        body: JSON.stringify({ ...user, ...(password ? { password, password_confirmation: passwordConfirmation } : {}) }),
       }).then(normalizeUser),
     delete: (id: string) => request<{ ok: boolean }>(`/users/${id}`, { method: "DELETE" }),
   },

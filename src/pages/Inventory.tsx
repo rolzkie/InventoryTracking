@@ -306,7 +306,6 @@ export default function Inventory() {
                 </button>
               </Th>
               <Th>Category</Th>
-              <Th>Warehouse</Th>
               <Th>
                 <button onClick={() => toggleSort("quantity")} className="hover:text-slate-200 transition-colors">
                   Qty <SortIcon field="quantity" />
@@ -327,7 +326,7 @@ export default function Inventory() {
           <tbody>
             {paginated.length === 0 ? (
               <tr>
-                <td colSpan={11}>
+                <td colSpan={10}>
                   <EmptyState
                     icon={<Package size={40} />}
                     title="No items found"
@@ -339,7 +338,6 @@ export default function Inventory() {
             ) : (
               paginated.map((item) => {
                 const cat = state.categories.find((c) => c.id === item.categoryId);
-                const wh = state.warehouses.find((w) => w.id === item.warehouseId);
                 const totalValue = item.quantity * item.unitCost;
                 const isExpiringSoon = item.expirationDate && new Date(item.expirationDate) <= new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
                 return (
@@ -357,9 +355,6 @@ export default function Inventory() {
                           {cat.name}
                         </span>
                       )}
-                    </Td>
-                    <Td>
-                      <span className="text-xs text-slate-400">{wh?.name ?? <span className="text-amber-400/70 italic">Unassigned</span>}</span>
                     </Td>
                     <Td>
                       <span className={`text-xs font-semibold ${item.quantity === 0 ? "text-red-400" : item.quantity <= item.reorderPoint ? "text-amber-400" : "text-slate-200"}`}>

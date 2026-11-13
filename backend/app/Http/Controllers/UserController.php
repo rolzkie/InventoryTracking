@@ -18,7 +18,7 @@ class UserController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:8'],
+            'password' => ['required', 'string', 'min:8', 'regex:/^(?=.*[A-Za-z])(?=.*[0-9])\\S+$/', 'confirmed'],
             'role' => ['required', Rule::in(['admin', 'staff', 'viewer'])],
             'permission' => ['sometimes', Rule::in(['manage', 'view'])],
             'avatar' => ['nullable', 'string', 'max:10'],
@@ -47,7 +47,7 @@ class UserController extends Controller
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],
             'email' => ['sometimes', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
-            'password' => ['sometimes', 'nullable', 'string', 'min:8'],
+            'password' => ['sometimes', 'nullable', 'string', 'min:8', 'regex:/^(?=.*[A-Za-z])(?=.*[0-9])\\S+$/', 'confirmed'],
             'role' => ['sometimes', Rule::in(['admin', 'staff', 'viewer'])],
             'permission' => ['sometimes', Rule::in(['manage', 'view'])],
             'avatar' => ['nullable', 'string', 'max:10'],

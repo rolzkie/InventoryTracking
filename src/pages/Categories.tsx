@@ -1,13 +1,14 @@
 import { FormEvent, useState } from "react";
 import { api } from "../lib/api";
 import { useApp } from "../context/AppContext";
-import { Button, Card, Input, PageHeader } from "../components/ui";
+import { Button, Card, ConfirmDialog, Input, PageHeader } from "../components/ui";
 
 export default function Categories() {
   const { state, showToast, refreshOperationalData } = useApp();
   const [name, setName] = useState("");
   const [color, setColor] = useState("#2563EB");
   const [busy, setBusy] = useState(false);
+  const [deleteCategoryId, setDeleteCategoryId] = useState<string | null>(null);
   const isAdmin = state.currentUser.role === "admin";
   const add = async (event: FormEvent) => {
     event.preventDefault(); setBusy(true);
@@ -36,7 +37,20 @@ export default function Categories() {
       <span className="h-4 w-4 rounded-full" style={{ backgroundColor: category.color }} />
       <span className="flex-1 text-sm text-slate-200">{category.name}</span>
       {isAdmin && <Button size="sm" variant="secondary" onClick={() => void edit(category)}>Edit</Button>}
-      {isAdmin && <Button size="sm" variant="danger" onClick={() => void remove(category.id)}>Remove</Button>}
+      {isAdmin && <Button size="sm" variant="danger" onClick={() => setDeleteCategoryId(category.id)}>Remove</Button>}
     </Card>)}</div>
+    <ConfirmDialog
+      isOpen={Boolean(deleteCategoryId)}
+      onClose={() => setDeleteCategoryId(null)}
+      onConfirm={() => {
+        const id = deleteCategoryId;
+        setDeleteCategoryId(null);
+        if (id) void remove(id);
+      }}
+      title="Remove Category"
+      message={`Are you sure you want to remove "${state.categories.find((category) => category.id === deleteCategoryId)?.name ?? "this category"}"?`}
+      confirmLabel="Remove Category"
+      variant="danger"
+    />
   </div>;
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { X, Check, AlertTriangle, Info, CheckCircle, XCircle, Clock3, ArrowDownToLine, ArrowUpFromLine, ShieldAlert, BookOpen } from "lucide-react";
+import { X, Check, AlertTriangle, AlertCircle, Info, CheckCircle, XCircle, Clock3, ArrowDownToLine, ArrowUpFromLine, ShieldAlert, BookOpen } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import type { InventoryItem } from "../../types";
 
@@ -126,17 +126,20 @@ export function Button({
 export function Input({
   label,
   error,
+  id,
   className = "",
   ...props
 }: React.InputHTMLAttributes<HTMLInputElement> & { label?: string; error?: string }) {
+  const inputId = id ?? React.useId();
   return (
     <div className="flex flex-col gap-1">
-      {label && <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">{label}</label>}
+      {label && <label htmlFor={inputId} className="text-xs font-medium text-slate-400 uppercase tracking-wide">{label}</label>}
       <input
+        id={inputId}
         className={`w-full px-3 py-2.5 rounded-lg bg-canvas border border-border-strong text-content placeholder:text-content-subtle text-sm focus:outline-none focus:border-cyan-400/70 focus:ring-2 focus:ring-cyan-400/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${error ? "border-red-500" : ""} ${className}`}
         {...props}
       />
-      {error && <span className="text-xs text-red-400">{error}</span>}
+      {error && <span className="flex items-center gap-1.5 text-xs text-red-500" role="alert"><AlertCircle size={13} aria-hidden="true" />{error}</span>}
     </div>
   );
 }
@@ -149,6 +152,7 @@ export function Select({
   children,
   ...props
 }: React.SelectHTMLAttributes<HTMLSelectElement> & { label?: string; error?: string }) {
+  const selectId = React.useId();
   const options = React.Children.toArray(children).filter(
     (child): child is React.ReactElement<React.OptionHTMLAttributes<HTMLOptionElement>, "option"> =>
       React.isValidElement(child) && child.type === "option",
@@ -175,8 +179,9 @@ export function Select({
 
   return (
     <div ref={wrapperRef} className="relative flex flex-col gap-1">
-      {label && <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">{label}</label>}
+      {label && <label htmlFor={selectId} className="text-xs font-medium text-slate-400 uppercase tracking-wide">{label}</label>}
       <button
+        id={selectId}
         type="button"
         onClick={() => setOpen((value) => !value)}
         className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg bg-canvas border border-border-strong text-left text-content text-sm focus:outline-none focus:border-cyan-400/70 focus:ring-2 focus:ring-cyan-400/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${error ? "border-red-500" : ""} ${className}`}

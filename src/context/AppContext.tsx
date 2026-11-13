@@ -425,8 +425,8 @@ interface AppContextValue {
   createTransaction: (transaction: Omit<StockTransaction, "id" | "referenceNumber"> & { id?: string; referenceNumber?: string }) => Promise<void>;
   createTransfer: (transfer: Transfer) => Promise<void>;
   updateTransfer: (transfer: Transfer) => Promise<void>;
-  createUser: (user: User, password: string) => Promise<void>;
-  updateUser: (user: User) => Promise<void>;
+  createUser: (user: User, password: string, passwordConfirmation: string) => Promise<void>;
+  updateUser: (user: User, password?: string, passwordConfirmation?: string) => Promise<void>;
   deleteUser: (id: string) => Promise<void>;
   acknowledgeAlert: (id: string) => Promise<void>;
   createReorder: (request: ReorderRequest) => Promise<void>;
@@ -614,13 +614,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: "LOGOUT" });
   }, []);
 
-  const createUser = useCallback(async (user: User, password: string) => {
-    await api.users.create(user, password);
+  const createUser = useCallback(async (user: User, password: string, passwordConfirmation: string) => {
+    await api.users.create(user, password, passwordConfirmation);
     await refreshOperationalData();
   }, [refreshOperationalData]);
 
-  const updateUser = useCallback(async (user: User) => {
-    await api.users.update(user);
+  const updateUser = useCallback(async (user: User, password?: string, passwordConfirmation?: string) => {
+    await api.users.update(user, password, passwordConfirmation);
     await refreshOperationalData();
   }, [refreshOperationalData]);
 
