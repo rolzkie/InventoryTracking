@@ -1,40 +1,40 @@
 import {
   LayoutDashboard,
   Package,
-  Warehouse,
-  ArrowLeftRight,
   TrendingUp,
   BarChart3,
   Users,
   Settings,
   ChevronRight,
   AlertTriangle,
-  Box,
-  Activity,
+  BookOpen,
+  Tags,
+  ClipboardList,
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import type { Page } from "../../types";
+import BrandLogo from "../BrandLogo";
 
 const navItems: { id: Page; label: string; icon: React.ReactNode; badge?: string }[] = [
-  { id: "dashboard", label: "Command center", icon: <LayoutDashboard size={18} /> },
-  { id: "inventory", label: "Inventory", icon: <Package size={18} /> },
-  { id: "warehouses", label: "Warehouses", icon: <Warehouse size={18} /> },
-  { id: "transfers", label: "Transfers", icon: <ArrowLeftRight size={18} /> },
-  { id: "stock-transactions", label: "Stock movements", icon: <TrendingUp size={18} /> },
-  { id: "reports", label: "Reports & Alerts", icon: <BarChart3 size={18} /> },
+  { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
+  { id: "inventory", label: "Products", icon: <Package size={18} /> },
+  { id: "categories", label: "Categories", icon: <Tags size={18} /> },
+  { id: "stock-transactions", label: "Stock In / Out", icon: <TrendingUp size={18} /> },
+  { id: "borrow-records", label: "Borrow & Return", icon: <BookOpen size={18} /> },
+  { id: "activity-logs", label: "Activity Logs", icon: <ClipboardList size={18} /> },
+  { id: "reports", label: "Reports", icon: <BarChart3 size={18} /> },
   { id: "users", label: "Users", icon: <Users size={18} /> },
   { id: "settings", label: "Settings", icon: <Settings size={18} /> },
 ];
 
 export default function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { state, navigate } = useApp();
-  const canManageAccounts = state.currentUser.role === "admin" || state.currentUser.role === "manager";
+  const isAdmin = state.currentUser.role === "admin";
+  const isViewer = state.currentUser.role === "viewer" || state.currentUser.permission === "view";
   const unacknowledgedAlerts = state.alerts.filter((a) => !a.acknowledged).length;
-  const pendingTransfers = state.transfers.filter((t) => t.status === "pending").length;
 
   const badges: Partial<Record<Page, number>> = {
     reports: unacknowledgedAlerts,
-    transfers: pendingTransfers,
   };
 
   return (
@@ -55,31 +55,19 @@ export default function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose:
       >
         {/* Logo */}
         <div className="flex items-center gap-3 px-4 py-5 border-b border-border-subtle">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-950/30">
-            <Box size={17} className="text-white" />
-          </div>
-          <div>
-            <p className="text-sm font-bold tracking-wide text-slate-100 leading-tight">Inventory System</p>
-            <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500">Inventory OS</p>
-          </div>
-        </div>
-
-        <div className="sidebar-status-card mx-3 mt-4 mb-2 rounded-xl border border-border-subtle bg-surface-raised px-3 py-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Network status</span>
-            <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-emerald-300"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />Live</span>
-          </div>
-          <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-500">
-            <Activity size={12} className="text-cyan-300" />
-            <span>{state.warehouses.length} locations online</span>
-          </div>
+          <BrandLogo className="sidebar-brand-logo" />
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-4 overflow-y-auto">
           <p className="px-3 mb-2 text-[9px] font-bold text-slate-500 uppercase tracking-[0.18em]">Workspace</p>
           <ul className="space-y-0.5">
-            {navItems.filter((item) => item.id !== "users" || canManageAccounts).map((item) => {
+            {navItems.filter((item) => {
+              if (["users", "activity-logs", "categories", "settings"].includes(item.id) && !isAdmin) return false;
+              if (isViewer && ["stock-transactions", "borrow-records"].includes(item.id)) return false;
+              if (!isAdmin && !isViewer && item.id === "reports") return false;
+              return true;
+            }).map((item) => {
               const isActive = state.currentPage === item.id;
               const badge = badges[item.id];
               return (

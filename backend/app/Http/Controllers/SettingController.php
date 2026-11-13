@@ -16,6 +16,8 @@ class SettingController extends Controller
 
     public function update(Request $request, string $section)
     {
+        $this->authorizeAdministrator($request, 'Only administrators can change system settings.');
+
         $validated = $request->validate([
             'payload' => ['required', 'array'],
         ]);

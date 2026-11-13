@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -15,24 +15,17 @@ import {
   Package,
   PackageMinus,
   PackagePlus,
-  Warehouse,
   AlertTriangle,
-  DollarSign,
   TrendingUp,
-  GitBranch as GithubIcon,
-  Phone,
-  AtSign,
-  Send,
-  Cpu,
-  Database,
-  Globe,
   AlertCircle,
   CheckCircle,
   Clock,
-  ArrowLeftRight,
+  BookOpen,
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
-import { StatCard, Card, Badge, StatusBadge, formatPHP } from "../components/ui";
+import { api } from "../lib/api";
+import type { BorrowRecord } from "../types";
+import { StatCard, Card, Badge, StatusBadge, Table, Th, Td, formatPHP } from "../components/ui";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, ArcElement, Tooltip, Legend, Filler);
 
@@ -42,60 +35,44 @@ const chartDefaults = {
   plugins: { legend: { display: false } },
 };
 
-const developmentTeam = [
-  {
-    name: "Rolando Anacta Jr.",
-    role: "Full-Stack Developer",
-    phone: "+63 912 345 6789",
-    facebook: "https://www.facebook.com/sekiii",
-    instagram: "https://www.instagram.com/",
-    telegram: "https://t.me/",
-    image: "/developers/Jr.jpg",
-  },
-  {
-    name: "Jesreel Cyrus Domanais",
-    role: "Document Controller",
-    phone: "+63 918 456 7890",
-    facebook: "https://www.facebook.com/shymnn.lcy",
-    instagram: "https://www.instagram.com/",
-    telegram: "https://t.me/",
-    image: "/developers/Jes.jpg",
-  },
-  {
-    name: "Kevin Rei Gelle",
-    role: "Document Controller",
-    phone: "+63 917 567 8901",
-    facebook: "https://www.facebook.com/kev.rei.gelle",
-    instagram: "https://www.instagram.com/",
-    telegram: "https://t.me/",
-    image: "/developers/Kev.jpg",
-  },
-  {
-    name: "Errol Miranda",
-    role: "Front-End Developer",
-    phone: "+63 920 678 9012",
-    facebook: "https://www.facebook.com/",
-    instagram: "https://www.instagram.com/",
-    telegram: "https://t.me/",
-    image: "/developers/irol.jpg",
-  },
-];
-
 export default function Dashboard() {
   const { state, navigate } = useApp();
+  const [borrowedRecords, setBorrowedRecords] = useState<BorrowRecord[]>([]);
+  const [activityRows, setActivityRows] = useState<{ id: number; action: string; created_at: string; user?: { name: string } | null }[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    void api.borrowRecords.list().then((records) => {
+      if (active) setBorrowedRecords(records);
+    }).catch(() => undefined);
+    if (state.currentUser.role === "admin") {
+      void api.activityLogs.list().then((rows) => {
+        if (active) setActivityRows(rows.slice(0, 4) as typeof activityRows);
+      }).catch(() => undefined);
+    } else {
+      setActivityRows([]);
+    }
+    return () => { active = false; };
+  }, [state.currentUser.role]);
 
   const stats = useMemo(() => {
     const totalSKUs = state.items.length;
-    const totalWarehouses = state.warehouses.length;
     const activeAlerts = state.alerts.filter((a) => !a.acknowledged).length;
     const unassigned = state.assignableItems.length;
     const totalValue = state.items.reduce((sum, i) => sum + i.quantity * i.unitCost, 0);
     const lowStock = state.items.filter((i) => i.status === "low-stock").length;
     const outOfStock = state.items.filter((i) => i.status === "out-of-stock").length;
-    const pendingTransfers = state.transfers.filter((t) => t.status === "pending").length;
     const totalUnits = state.items.reduce((sum, item) => sum + item.quantity, 0);
-    return { totalSKUs, totalWarehouses, activeAlerts, unassigned, totalValue, totalUnits, lowStock, outOfStock, pendingTransfers };
-  }, [state.items, state.warehouses, state.alerts, state.transfers]);
+    return { totalSKUs, activeAlerts, unassigned, totalValue, totalUnits, lowStock, outOfStock };
+  }, [state.items, state.alerts, state.assignableItems]);
+
+  const itemsBorrowed = borrowedRecords
+    .filter((record) => record.status === "borrowed" || record.status === "overdue")
+    .reduce((total, record) => total + record.outstandingQuantity, 0);
+  const lowStockItems = [...state.items]
+    .filter((item) => item.status === "low-stock" || item.status === "out-of-stock")
+    .sort((a, b) => a.quantity - b.quantity)
+    .slice(0, 4);
 
   const movement = useMemo(() => {
     const current = new Date();
@@ -129,22 +106,22 @@ export default function Dashboard() {
       {
         label: "Stock In",
         data: movement.inbound,
-        borderColor: "#42D6BB",
-        backgroundColor: "rgba(66,214,187,0.10)",
+        borderColor: "#1B5E20",
+        backgroundColor: "rgba(27,94,32,0.10)",
         fill: true,
         tension: 0.4,
-        pointBackgroundColor: "#42D6BB",
+        pointBackgroundColor: "#1B5E20",
         pointRadius: 4,
         borderWidth: 2,
       },
       {
         label: "Stock Out",
         data: movement.outbound,
-        borderColor: "#8293AE",
-        backgroundColor: "rgba(130,147,174,0.08)",
+        borderColor: "#F9A825",
+        backgroundColor: "rgba(249,168,37,0.10)",
         fill: true,
         tension: 0.4,
-        pointBackgroundColor: "#8293AE",
+        pointBackgroundColor: "#F9A825",
         pointRadius: 4,
         borderWidth: 2,
       },
@@ -179,8 +156,8 @@ export default function Dashboard() {
     labels: Object.keys(categoryTotals),
     datasets: [{
       data: Object.values(categoryTotals),
-    backgroundColor: ["#42D6BB", "#6395F6", "#9B8AFB", "#F2B84B", "#F17878", "#8293AE"],
-      borderColor: "#242B34",
+      backgroundColor: ["#1B5E20", "#2E7D32", "#F9A825", "#EF6C00", "#757575", "#81C784"],
+      borderColor: "#FAFAF5",
       borderWidth: 2,
       hoverOffset: 6,
     }],
@@ -207,44 +184,47 @@ export default function Dashboard() {
   return (
     <div className="dashboard-page space-y-4">
       {/* Priority metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard
-          title="Inventory value"
-          value={formatPHP(stats.totalValue)}
-          subtitle="Across all locations"
-          icon={<DollarSign size={18} />}
-          color="cyan"
-        />
-        <StatCard
-          title="Total units"
-          value={stats.totalUnits.toLocaleString()}
-          subtitle={`${stats.totalSKUs.toLocaleString()} active SKUs`}
+          title="Total Products"
+          value={stats.totalSKUs.toLocaleString()}
+          subtitle="Registered inventory items"
           icon={<Package size={18} />}
-          color="blue"
+          color="green"
+          className="dashboard-stat"
         />
         <StatCard
-          title="Active alerts"
-          value={stats.activeAlerts}
+          title="Available Stocks"
+          value={stats.totalUnits.toLocaleString()}
+          subtitle="Units currently available"
+          icon={<PackagePlus size={18} />}
+          color="green"
+          className="dashboard-stat"
+        />
+        <StatCard
+          title="Low-Stock Items"
+          value={stats.lowStock}
           subtitle={`${stats.outOfStock} out of stock`}
           icon={<AlertTriangle size={18} />}
-          color="red"
+          color="amber"
+          className="dashboard-stat dashboard-stat-warning"
         />
         <StatCard
-          title="Pending transfers"
-          value={String(stats.pendingTransfers).padStart(2, "0")}
-          subtitle="Awaiting review"
-          icon={<ArrowLeftRight size={18} />}
-          color="amber"
+          title="Items Borrowed"
+          value={itemsBorrowed.toLocaleString()}
+          subtitle="Outstanding equipment loans"
+          icon={<BookOpen size={18} />}
+          color="blue"
+          className="dashboard-stat"
         />
       </div>
 
       {/* Fast operational scan */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {[
-          { label: "Total SKUs", value: stats.totalSKUs, tone: "text-blue-300" },
-          { label: "Warehouses", value: stats.totalWarehouses, tone: "text-cyan-300" },
-          { label: "Low stock", value: stats.lowStock, tone: "text-amber-300" },
-          { label: "Out of stock", value: stats.outOfStock, tone: "text-red-300" },
+          { label: "Inventory Value", value: formatPHP(stats.totalValue), tone: "text-emerald-300" },
+          { label: "Active Alerts", value: stats.activeAlerts, tone: "text-amber-300" },
+          { label: "Out of Stock", value: stats.outOfStock, tone: "text-red-300" },
           { label: "Unassigned", value: stats.unassigned, tone: "text-slate-200" },
         ].map((metric) => (
           <div key={metric.label} className="flex items-center justify-between gap-3 rounded-xl border border-border-subtle bg-surface px-3.5 py-3 shadow-sm">
@@ -253,6 +233,62 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+        <Card className="p-5 xl:col-span-7">
+          <div className="dashboard-section-heading mb-4"><h3>Low-Stock List</h3></div>
+          <Table>
+            <thead><tr><Th>Item</Th><Th>SKU</Th><Th>Qty</Th><Th>Status</Th></tr></thead>
+            <tbody>
+              {lowStockItems.map((item) => (
+                <tr key={item.id}>
+                  <Td className="font-medium text-content">{item.name}</Td>
+                  <Td className="font-mono text-xs">{item.sku}</Td>
+                  <Td className="font-mono">{item.quantity} / {item.reorderPoint}</Td>
+                  <Td><StatusBadge status={item.status} /></Td>
+                </tr>
+              ))}
+              {lowStockItems.length === 0 && <tr><Td colSpan={4}>No low-stock products.</Td></tr>}
+            </tbody>
+          </Table>
+        </Card>
+
+        {state.currentUser.role === "admin" && <Card className="p-5 xl:col-span-5">
+          <div className="dashboard-section-heading mb-4"><h3>Recent Activity</h3></div>
+          <div className="divide-y divide-border-subtle">
+            {activityRows.map((row) => (
+              <div key={row.id} className="py-3 first:pt-0 last:pb-0">
+                <time className="block font-mono text-xs text-content-subtle">{new Date(row.created_at).toLocaleString()}</time>
+                <p className="mt-1 text-sm"><strong>{row.user?.name ?? "System"}</strong> {row.action}</p>
+              </div>
+            ))}
+            {activityRows.length === 0 && <p className="py-4 text-sm text-content-muted">No recent activity.</p>}
+          </div>
+        </Card>}
+      </div>
+
+      <Card className="dashboard-recent-transactions p-5">
+        <div className="dashboard-section-heading mb-4 flex items-center justify-between">
+          <h3>Recent Transactions</h3>
+          <button onClick={() => navigate("stock-transactions")} className="text-xs font-semibold uppercase text-content-muted hover:text-content">View all</button>
+        </div>
+        <Table>
+          <thead><tr><Th>Date</Th><Th>Type</Th><Th>Product</Th><Th>Qty</Th><Th>User</Th></tr></thead>
+          <tbody>
+            {recentTransactions.map((txn) => {
+              const item = state.items.find((i) => i.id === txn.itemId);
+              return <tr key={txn.id}>
+                <Td className="font-mono text-xs">{txn.date}</Td>
+                <Td><StatusBadge status={txn.type} /></Td>
+                <Td className="font-medium text-content">{item?.name ?? "Unknown"}</Td>
+                <Td className="font-mono">{txn.type === "stock-in" ? "+" : "−"}{txn.quantity}</Td>
+                <Td>{txn.processedBy || "—"}</Td>
+              </tr>;
+            })}
+            {recentTransactions.length === 0 && <tr><Td colSpan={5}>No recent transactions.</Td></tr>}
+          </tbody>
+        </Table>
+      </Card>
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -318,8 +354,8 @@ export default function Dashboard() {
           </div>
         </Card>
 
-        {/* Recent Transactions */}
-        <Card className="p-5">
+        {/* Existing transaction list remains on the page; the table above is its redesigned view. */}
+        <Card className="dashboard-legacy-recent-transactions p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-slate-200">Recent Transactions</h3>
             <button onClick={() => navigate("stock-transactions")} className="text-xs text-blue-400 hover:text-blue-300 transition-colors">View all</button>
@@ -353,157 +389,6 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Warehouse Overview + Dev Info */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Warehouse Overview */}
-        <Card className="lg:col-span-2 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-slate-200">Warehouse Capacity</h3>
-            <button onClick={() => navigate("warehouses")} className="text-xs text-blue-400 hover:text-blue-300 transition-colors">Manage</button>
-          </div>
-          <div className="space-y-3">
-            {state.warehouses.map((wh) => {
-              const pct = Math.round((wh.used / wh.capacity) * 100);
-              const itemCount = state.items.filter((i) => i.warehouseId === wh.id).length;
-              return (
-                <div key={wh.id} className="p-3 rounded-xl bg-[#0B1220]/50">
-                  <div className="flex items-center justify-between mb-2">
-                    <div>
-                      <p className="text-xs font-medium text-slate-200">{wh.name}</p>
-                      <p className="text-[10px] text-slate-500">{wh.location} · {itemCount} SKUs · Mgr: {wh.manager}</p>
-                    </div>
-                    <span className={`text-xs font-bold ${pct > 85 ? "text-red-400" : pct > 60 ? "text-amber-400" : "text-emerald-400"}`}>{pct}%</span>
-                  </div>
-                  <div className="w-full bg-[#2A3445] rounded-full h-1.5">
-                    <div
-                      className={`h-1.5 rounded-full transition-all ${pct > 85 ? "bg-red-500" : pct > 60 ? "bg-amber-500" : "bg-blue-500"}`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-between mt-1.5 text-[10px] text-slate-600">
-                    <span>{wh.used.toLocaleString()} used</span>
-                    <span>{wh.capacity.toLocaleString()} capacity</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-
-        {/* Developer Info */}
-        <div>
-          <Card className="p-5 h-full">
-            <div className="flex items-center gap-2 mb-3">
-              <Cpu size={16} className="text-blue-400" />
-              <h3 className="text-sm font-semibold text-slate-200">System Info</h3>
-            </div>
-            <div className="space-y-2.5">
-              {[
-                { label: "Framework", value: "React 19 + Vite 8", icon: <Globe size={12} /> },
-                { label: "Styling", value: "Tailwind CSS v4", icon: <Cpu size={12} /> },
-                { label: "Charts", value: "Chart.js + react-chartjs-2", icon: <TrendingUp size={12} /> },
-                { label: "Icons", value: "Lucide React", icon: <Package size={12} /> },
-                { label: "Backend", value: "Laravel 12 API", icon: <Database size={12} /> },
-                { label: "Database", value: "SQLite / MySQL", icon: <Database size={12} /> },
-                { label: "Version", value: "Inventory System v2.4.0", icon: <GithubIcon size={12} /> },
-              ].map((item) => (
-                <div key={item.label} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-slate-500">
-                    {item.icon}
-                    <span className="text-xs">{item.label}</span>
-                  </div>
-                  <span className="text-xs font-medium text-slate-300">{item.value}</span>
-                </div>
-              ))}
-            </div>
-          </Card>
-
-        </div>
-      </div>
-
-      {/* Development Team */}
-      <Card className="p-5">
-        <div className="flex items-start justify-between gap-3 mb-4">
-          <div>
-            <h3 className="text-sm font-semibold text-slate-200">Development Team</h3>
-            <p className="text-xs text-blue-400/80 mt-0.5">The engineers and designers building and maintaining Inventory System</p>
-          </div>
-          <span className="inline-flex items-center rounded-full border border-[#2A3445] px-3 py-1 text-[10px] font-medium text-slate-400">
-            Team
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {developmentTeam.map((member) => (
-            <article
-              key={member.name}
-              className="rounded-xl border border-[#334155]/80 bg-[#202B3B] p-4 shadow-sm transition-colors hover:border-blue-500/40 hover:bg-[#243246]"
-            >
-              <div className="flex items-start gap-3">
-                <img
-                  src={member.image}
-                  alt={member.name}
-                  className="h-14 w-14 flex-shrink-0 rounded-full border-2 border-amber-400/70 object-cover"
-                  onError={(event) => {
-                    event.currentTarget.src = "/developers/default-avatar.svg";
-                  }}
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <h4 className="truncate text-xs font-semibold text-slate-100">{member.name}</h4>
-                    <Badge variant="green" className="px-1.5 py-0 text-[9px]">Active</Badge>
-                  </div>
-                  <p className="mt-1 text-[10px] text-slate-400">{member.role}</p>
-                </div>
-              </div>
-
-              <div className="mt-3 space-y-1.5 text-[10px] text-slate-500">
-                <a href={`tel:${member.phone.replace(/\s/g, "")}`} className="flex items-center gap-2 hover:text-blue-300 transition-colors">
-                  <Phone size={11} />
-                  <span>{member.phone}</span>
-                </a>
-                <a href={member.facebook} target="_blank" rel="noreferrer" className="flex items-center gap-2 hover:text-blue-300 transition-colors">
-                  <span className="flex h-3 w-3 items-center justify-center text-[10px] font-bold">f</span>
-                  <span className="truncate">{member.facebook}</span>
-                </a>
-              </div>
-
-              <div className="mt-3 flex items-center gap-2">
-                <a
-                  href={member.facebook}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label={`${member.name} Facebook`}
-                  title="Facebook"
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-[#334155] bg-[#1A2232] text-slate-400 transition-colors hover:border-blue-500/50 hover:text-blue-300"
-                >
-                  <span className="text-xs font-bold">f</span>
-                </a>
-                <a
-                  href={member.instagram}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label={`${member.name} Instagram`}
-                  title="Instagram"
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-[#334155] bg-[#1A2232] text-slate-400 transition-colors hover:border-pink-500/50 hover:text-pink-300"
-                >
-                  <AtSign size={12} />
-                </a>
-                <a
-                  href={member.telegram}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label={`${member.name} Telegram`}
-                  title="Telegram"
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-[#334155] bg-[#1A2232] text-slate-400 transition-colors hover:border-sky-500/50 hover:text-sky-300"
-                >
-                  <Send size={12} />
-                </a>
-              </div>
-            </article>
-          ))}
-        </div>
-      </Card>
     </div>
   );
 }

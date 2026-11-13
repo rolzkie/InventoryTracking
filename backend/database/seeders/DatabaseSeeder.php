@@ -17,62 +17,82 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // Warehouses
+        // Remove only the legacy demo data from the previous generic seed.
+        $legacyWarehouseNames = [
+            'New York Distribution Center',
+            'Los Angeles Warehouse',
+            'Chicago Regional Hub',
+            'Atlanta Southeast Hub',
+            'Seattle Pacific Region',
+        ];
+        $legacySkus = [
+            'CTRL-2024-A1', 'SENS-HUM-PRO', 'RELAY-48V-100A', 'CAP-ALUM-470UF',
+            'DIODE-SCHOTT-1N4148', 'PUMP-HYD-100CC', 'BALL-BEARING-6310',
+            'MOTOR-STEP-NEMA23', 'VALVE-SOLENOID-24V', 'ISO-ALCO-99.9',
+            'LUBR-SYNTH-500ML', 'SOLDER-LEAD-500G', 'BOX-CARDBOARD-12X8X6',
+            'FOAM-PACKING-SHEET', 'TAPE-PACKING-2INCH', 'ALU-EXTRUSION-20X20',
+            'STEEL-ROD-12MM', 'COPPER-WIRE-AWG10', 'PLASTIC-SHEET-ACRYLIC',
+            'LED-RGB-5MM', 'COUPLING-FLEX-ALUMINUM', 'FLUX-SOLDERING-25G',
+        ];
+
+        $legacyItemIds = InventoryItem::whereIn('sku', $legacySkus)->pluck('id');
+        Transfer::whereIn('itemId', $legacyItemIds)->delete();
+        InventoryItem::whereIn('id', $legacyItemIds)->delete();
+
+        Warehouse::whereIn('name', $legacyWarehouseNames)
+            ->whereDoesntHave('inventoryItems')
+            ->whereDoesntHave('outgoingTransfers')
+            ->whereDoesntHave('incomingTransfers')
+            ->delete();
+
+        // School facilities used as inventory storage locations
         $warehouses = [
-            ['name' => 'New York Distribution Center', 'location' => 'Brooklyn, NY 11201', 'capacity' => 50000, 'manager' => 'John Martinez'],
-            ['name' => 'Los Angeles Warehouse', 'location' => 'Long Beach, CA 90801', 'capacity' => 45000, 'manager' => 'Sarah Johnson'],
-            ['name' => 'Chicago Regional Hub', 'location' => 'Chicago, IL 60601', 'capacity' => 40000, 'manager' => 'Michael Chen'],
-            ['name' => 'Atlanta Southeast Hub', 'location' => 'Atlanta, GA 30303', 'capacity' => 35000, 'manager' => 'Emma Rodriguez'],
-            ['name' => 'Seattle Pacific Region', 'location' => 'Seattle, WA 98101', 'capacity' => 30000, 'manager' => 'David Park'],
+            ['name' => 'Computer Laboratory 1', 'location' => 'CEIT Building, Room 101', 'capacity' => 500, 'manager' => 'Alex Reyes'],
+            ['name' => 'Computer Laboratory 2', 'location' => 'CEIT Building, Room 102', 'capacity' => 500, 'manager' => 'Jamie Santos'],
+            ['name' => 'ICT Equipment Storage', 'location' => 'CEIT Building, Stockroom', 'capacity' => 800, 'manager' => 'Taylor Cruz'],
+            ['name' => 'General Supplies Room', 'location' => 'Administration Building, Stockroom', 'capacity' => 1000, 'manager' => 'Morgan Garcia'],
         ];
 
         $warehouseIds = [];
         foreach ($warehouses as $wh) {
-            $warehouse = Warehouse::firstOrCreate(
-                ['name' => $wh['name']],
-                $wh
-            );
+            $warehouse = Warehouse::updateOrCreate(['name' => $wh['name']], $wh);
             $warehouseIds[] = $warehouse->id;
         }
 
-        // Inventory Items
+        // Inventory items based on the project description
         $items = [
-            ['sku' => 'CTRL-2024-A1', 'name' => 'Industrial Control Unit', 'description' => 'PLC-based industrial automation controller', 'category' => 'Electronics', 'quantity' => 245, 'reorderPoint' => 50, 'warehouseId' => $warehouseIds[0], 'unitPrice' => 1250],
-            ['sku' => 'SENS-HUM-PRO', 'name' => 'Humidity Sensor Pro', 'description' => 'High-precision humidity and temperature sensor', 'category' => 'Electronics', 'quantity' => 1205, 'reorderPoint' => 100, 'warehouseId' => $warehouseIds[1], 'unitPrice' => 45],
-            ['sku' => 'RELAY-48V-100A', 'name' => '48V Heavy Duty Relay', 'description' => 'Industrial relay for high-current switching', 'category' => 'Electronics', 'quantity' => 32, 'reorderPoint' => 75, 'warehouseId' => $warehouseIds[0], 'unitPrice' => 175],
-            ['sku' => 'CAP-ALUM-470UF', 'name' => 'Aluminum Electrolytic Capacitor 470µF', 'description' => 'High-capacity electrolytic capacitor for industrial use', 'category' => 'Electronics', 'quantity' => 5420, 'reorderPoint' => 500, 'warehouseId' => $warehouseIds[1], 'unitPrice' => 12],
-            ['sku' => 'DIODE-SCHOTT-1N4148', 'name' => 'Schottky Diode 1N4148', 'description' => 'Fast switching diode for high-frequency circuits', 'category' => 'Electronics', 'quantity' => 0, 'reorderPoint' => 2000, 'warehouseId' => $warehouseIds[2], 'unitPrice' => 2.5],
-            ['sku' => 'PUMP-HYD-100CC', 'name' => 'Hydraulic Pump 100cc', 'description' => 'Variable displacement hydraulic pump', 'category' => 'Hardware', 'quantity' => 12, 'reorderPoint' => 5, 'warehouseId' => $warehouseIds[0], 'unitPrice' => 2800],
-            ['sku' => 'BALL-BEARING-6310', 'name' => 'Ball Bearing 6310 (50x110x27mm)', 'description' => 'Deep groove ball bearing for high-speed applications', 'category' => 'Hardware', 'quantity' => 340, 'reorderPoint' => 50, 'warehouseId' => $warehouseIds[1], 'unitPrice' => 35],
-            ['sku' => 'MOTOR-STEP-NEMA23', 'name' => 'Stepper Motor NEMA 23', 'description' => 'High-torque stepper motor for CNC and robotics', 'category' => 'Hardware', 'quantity' => 67, 'reorderPoint' => 10, 'warehouseId' => $warehouseIds[2], 'unitPrice' => 150],
-            ['sku' => 'VALVE-SOLENOID-24V', 'name' => 'Solenoid Valve 24VDC', 'description' => '2/2 normally closed solenoid valve for fluid control', 'category' => 'Hardware', 'quantity' => 89, 'reorderPoint' => 20, 'warehouseId' => $warehouseIds[3], 'unitPrice' => 125],
-            ['sku' => 'ISO-ALCO-99.9', 'name' => 'Isopropyl Alcohol 99.9%', 'description' => 'High-purity isopropyl alcohol for cleaning and assembly', 'category' => 'Chemicals', 'quantity' => 450, 'reorderPoint' => 100, 'warehouseId' => $warehouseIds[0], 'unitPrice' => 22],
-            ['sku' => 'LUBR-SYNTH-500ML', 'name' => 'Synthetic Lubricant 500ml', 'description' => 'Advanced synthetic oil for machinery lubrication', 'category' => 'Chemicals', 'quantity' => 280, 'reorderPoint' => 50, 'warehouseId' => $warehouseIds[4], 'unitPrice' => 18],
-            ['sku' => 'SOLDER-LEAD-500G', 'name' => 'Lead-based Solder Wire 500g', 'description' => 'High-quality solder for electronics assembly', 'category' => 'Chemicals', 'quantity' => 125, 'reorderPoint' => 30, 'warehouseId' => $warehouseIds[1], 'unitPrice' => 35],
-            ['sku' => 'BOX-CARDBOARD-12X8X6', 'name' => 'Cardboard Box 12x8x6 inches', 'description' => 'Standard corrugated cardboard shipping box', 'category' => 'Packaging', 'quantity' => 8920, 'reorderPoint' => 1000, 'warehouseId' => $warehouseIds[2], 'unitPrice' => 0.85],
-            ['sku' => 'FOAM-PACKING-SHEET', 'name' => 'Foam Packing Sheet (1/4 inch)', 'description' => 'Protective foam packing material', 'category' => 'Packaging', 'quantity' => 450, 'reorderPoint' => 100, 'warehouseId' => $warehouseIds[3], 'unitPrice' => 3.5],
-            ['sku' => 'TAPE-PACKING-2INCH', 'name' => 'Packing Tape 2 inch (36 rolls)', 'description' => 'Heavy-duty acrylic packing tape', 'category' => 'Packaging', 'quantity' => 180, 'reorderPoint' => 40, 'warehouseId' => $warehouseIds[4], 'unitPrice' => 28],
-            ['sku' => 'ALU-EXTRUSION-20X20', 'name' => 'Aluminum Extrusion 20x20mm', 'description' => 'Industrial aluminum T-slot extrusion', 'category' => 'Raw Materials', 'quantity' => 2340, 'reorderPoint' => 500, 'warehouseId' => $warehouseIds[1], 'unitPrice' => 8],
-            ['sku' => 'STEEL-ROD-12MM', 'name' => 'Steel Rod 12mm Diameter', 'description' => 'High-carbon steel rod for machining', 'category' => 'Raw Materials', 'quantity' => 890, 'reorderPoint' => 200, 'warehouseId' => $warehouseIds[0], 'unitPrice' => 15],
-            ['sku' => 'COPPER-WIRE-AWG10', 'name' => 'Copper Wire AWG10', 'description' => 'Pure copper electrical wire', 'category' => 'Raw Materials', 'quantity' => 1250, 'reorderPoint' => 300, 'warehouseId' => $warehouseIds[2], 'unitPrice' => 4.5],
-            ['sku' => 'PLASTIC-SHEET-ACRYLIC', 'name' => 'Acrylic Sheet Clear 1/4 inch', 'description' => 'Cast acrylic sheet for optical applications', 'category' => 'Raw Materials', 'quantity' => 45, 'reorderPoint' => 15, 'warehouseId' => $warehouseIds[3], 'unitPrice' => 65],
-            ['sku' => 'LED-RGB-5MM', 'name' => 'RGB LED 5mm Common Anode', 'description' => 'Full-color LED for indicator applications', 'category' => 'Electronics', 'quantity' => 3240, 'reorderPoint' => 500, 'warehouseId' => $warehouseIds[4], 'unitPrice' => 0.35],
-            ['sku' => 'COUPLING-FLEX-ALUMINUM', 'name' => 'Flexible Coupling Aluminum', 'description' => 'Aluminum flexible coupling for shaft alignment', 'category' => 'Hardware', 'quantity' => 156, 'reorderPoint' => 30, 'warehouseId' => $warehouseIds[1], 'unitPrice' => 95],
-            ['sku' => 'FLUX-SOLDERING-25G', 'name' => 'Soldering Flux 25g', 'description' => 'Rosin-based soldering flux', 'category' => 'Chemicals', 'quantity' => 220, 'reorderPoint' => 40, 'warehouseId' => $warehouseIds[0], 'unitPrice' => 12],
+            ['sku' => 'ICT-KBD-001', 'name' => 'USB Keyboard', 'description' => 'Standard wired USB keyboard for desktop computers', 'category' => 'Computer Equipment', 'quantity' => 35, 'reorderPoint' => 10, 'warehouseId' => $warehouseIds[0], 'unitPrice' => 450],
+            ['sku' => 'ICT-MOU-001', 'name' => 'USB Optical Mouse', 'description' => 'Standard wired optical mouse', 'category' => 'Computer Equipment', 'quantity' => 42, 'reorderPoint' => 10, 'warehouseId' => $warehouseIds[0], 'unitPrice' => 250],
+            ['sku' => 'ICT-MON-001', 'name' => 'LED Monitor 22-inch', 'description' => 'LED monitor for computer laboratory workstations', 'category' => 'Computer Equipment', 'quantity' => 24, 'reorderPoint' => 5, 'warehouseId' => $warehouseIds[1], 'unitPrice' => 5200],
+            ['sku' => 'ICT-SYS-001', 'name' => 'Desktop System Unit', 'description' => 'Desktop computer system unit for student use', 'category' => 'Computer Equipment', 'quantity' => 25, 'reorderPoint' => 5, 'warehouseId' => $warehouseIds[1], 'unitPrice' => 18500],
+            ['sku' => 'ICT-PRJ-001', 'name' => 'Multimedia Projector', 'description' => 'Projector for classroom and laboratory presentations', 'category' => 'Computer Equipment', 'quantity' => 4, 'reorderPoint' => 2, 'warehouseId' => $warehouseIds[2], 'unitPrice' => 18500],
+            ['sku' => 'ICT-UPS-001', 'name' => 'UPS 650VA', 'description' => 'Backup power supply for computer workstations', 'category' => 'Computer Equipment', 'quantity' => 12, 'reorderPoint' => 4, 'warehouseId' => $warehouseIds[2], 'unitPrice' => 2300],
+            ['sku' => 'ICT-LAN-001', 'name' => 'LAN Cable 5m', 'description' => 'Ethernet cable for network connections', 'category' => 'Computer Accessories', 'quantity' => 18, 'reorderPoint' => 10, 'warehouseId' => $warehouseIds[2], 'unitPrice' => 180],
+            ['sku' => 'ICT-SWT-001', 'name' => '8-Port Network Switch', 'description' => 'Ethernet switch for laboratory network connections', 'category' => 'Computer Accessories', 'quantity' => 6, 'reorderPoint' => 2, 'warehouseId' => $warehouseIds[2], 'unitPrice' => 1250],
+            ['sku' => 'ICT-HDM-001', 'name' => 'HDMI Cable 3m', 'description' => 'HDMI cable for projector and monitor connections', 'category' => 'Computer Accessories', 'quantity' => 14, 'reorderPoint' => 5, 'warehouseId' => $warehouseIds[2], 'unitPrice' => 220],
+            ['sku' => 'LAB-ARD-001', 'name' => 'Arduino Uno R3', 'description' => 'Microcontroller board for basic electronics activities', 'category' => 'Laboratory Materials', 'quantity' => 20, 'reorderPoint' => 5, 'warehouseId' => $warehouseIds[2], 'unitPrice' => 650],
+            ['sku' => 'LAB-BRD-001', 'name' => 'Breadboard 830 Points', 'description' => 'Solderless breadboard for circuit prototyping', 'category' => 'Laboratory Materials', 'quantity' => 25, 'reorderPoint' => 8, 'warehouseId' => $warehouseIds[2], 'unitPrice' => 180],
+            ['sku' => 'LAB-LED-001', 'name' => 'LED Assorted Pack', 'description' => 'Assorted LEDs for electronics laboratory exercises', 'category' => 'Laboratory Materials', 'quantity' => 15, 'reorderPoint' => 5, 'warehouseId' => $warehouseIds[2], 'unitPrice' => 120],
+            ['sku' => 'LAB-RST-001', 'name' => 'Resistor Assorted Pack', 'description' => 'Assorted resistors for circuit activities', 'category' => 'Laboratory Materials', 'quantity' => 2, 'reorderPoint' => 5, 'warehouseId' => $warehouseIds[2], 'unitPrice' => 150],
+            ['sku' => 'SUP-PPR-001', 'name' => 'A4 Bond Paper Ream', 'description' => 'A4 multipurpose bond paper, 500 sheets per ream', 'category' => 'Office Supplies', 'quantity' => 30, 'reorderPoint' => 10, 'warehouseId' => $warehouseIds[3], 'unitPrice' => 250],
+            ['sku' => 'SUP-INK-001', 'name' => 'Printer Ink Bottle', 'description' => 'Black printer ink for office and laboratory printers', 'category' => 'Office Supplies', 'quantity' => 8, 'reorderPoint' => 5, 'warehouseId' => $warehouseIds[3], 'unitPrice' => 380],
+            ['sku' => 'SUP-MRK-001', 'name' => 'Whiteboard Marker Set', 'description' => 'Assorted-color whiteboard markers', 'category' => 'Office Supplies', 'quantity' => 18, 'reorderPoint' => 6, 'warehouseId' => $warehouseIds[3], 'unitPrice' => 95],
+            ['sku' => 'SUP-FLD-001', 'name' => 'Document Folder', 'description' => 'Long plastic document folder for school records', 'category' => 'Office Supplies', 'quantity' => 60, 'reorderPoint' => 15, 'warehouseId' => $warehouseIds[3], 'unitPrice' => 18],
+            ['sku' => 'FUR-CHR-001', 'name' => 'Computer Chair', 'description' => 'Basic office chair assigned to computer workstations', 'category' => 'Furniture', 'quantity' => 28, 'reorderPoint' => 5, 'warehouseId' => $warehouseIds[1], 'unitPrice' => 1800],
+            ['sku' => 'FUR-TBL-001', 'name' => 'Computer Table', 'description' => 'Computer workstation table', 'category' => 'Furniture', 'quantity' => 22, 'reorderPoint' => 5, 'warehouseId' => $warehouseIds[1], 'unitPrice' => 2500],
+            ['sku' => 'ICT-WBC-001', 'name' => 'Webcam', 'description' => 'USB webcam for online classes and meetings', 'category' => 'Computer Accessories', 'quantity' => 3, 'reorderPoint' => 5, 'warehouseId' => $warehouseIds[2], 'unitPrice' => 950],
         ];
 
         foreach ($items as $item) {
-            InventoryItem::firstOrCreate(
-                ['sku' => $item['sku']],
-                $item
-            );
+            InventoryItem::updateOrCreate(['sku' => $item['sku'], 'warehouseId' => $item['warehouseId']], $item);
         }
 
-        // Transfers
-        $allItems = InventoryItem::all();
+        // Sample stock transfers between school facilities
+        $allItems = InventoryItem::all()->keyBy('sku');
         $transfers = [
-            ['sourceWarehouse' => $warehouseIds[0], 'destinationWarehouse' => $warehouseIds[1], 'itemId' => $allItems[0]->id, 'itemName' => $allItems[0]->name, 'quantity' => 25, 'status' => 'completed', 'notes' => 'Regular stock redistribution'],
-            ['sourceWarehouse' => $warehouseIds[1], 'destinationWarehouse' => $warehouseIds[2], 'itemId' => $allItems[1]->id, 'itemName' => $allItems[1]->name, 'quantity' => 150, 'status' => 'completed', 'notes' => 'Restocking Chicago hub'],
+            ['sourceWarehouse' => $warehouseIds[2], 'destinationWarehouse' => $warehouseIds[0], 'itemId' => $allItems['ICT-KBD-001']->id, 'itemName' => $allItems['ICT-KBD-001']->name, 'quantity' => 5, 'status' => 'completed', 'notes' => 'Keyboard allocation for Computer Laboratory 1'],
+            ['sourceWarehouse' => $warehouseIds[2], 'destinationWarehouse' => $warehouseIds[1], 'itemId' => $allItems['ICT-MOU-001']->id, 'itemName' => $allItems['ICT-MOU-001']->name, 'quantity' => 8, 'status' => 'completed', 'notes' => 'Mouse replacement stock for Computer Laboratory 2'],
+            ['sourceWarehouse' => $warehouseIds[3], 'destinationWarehouse' => $warehouseIds[0], 'itemId' => $allItems['SUP-PPR-001']->id, 'itemName' => $allItems['SUP-PPR-001']->name, 'quantity' => 3, 'status' => 'pending', 'notes' => 'Bond paper request for laboratory printing activities'],
         ];
 
         foreach ($transfers as $transfer) {
@@ -87,18 +107,20 @@ class DatabaseSeeder extends Seeder
             );
         }
 
+        // Product categories
         $categoryColors = [
-            'Electronics' => '#3B82F6',
-            'Hardware' => '#8B5CF6',
-            'Chemicals' => '#10B981',
-            'Packaging' => '#F59E0B',
-            'Raw Materials' => '#EF4444',
-            'Office Supplies' => '#06B6D4',
+            'Computer Equipment' => '#3B82F6',
+            'Computer Accessories' => '#8B5CF6',
+            'Laboratory Materials' => '#10B981',
+            'Office Supplies' => '#F59E0B',
+            'Furniture' => '#EF4444',
         ];
+
         foreach ($categoryColors as $name => $color) {
             Category::updateOrCreate(['name' => $name], ['color' => $color]);
         }
 
+        // Sample suppliers
         $suppliers = [
             ['name' => 'TechCorp Industries', 'contact' => 'John Smith', 'email' => 'john@techcorp.com', 'phone' => '+1-555-0101'],
             ['name' => 'Global Industrial Supply', 'contact' => 'Sarah Lee', 'email' => 'sarah@globalindustrial.com', 'phone' => '+1-555-0102'],
@@ -121,11 +143,8 @@ class DatabaseSeeder extends Seeder
 
         $users = [
             ['name' => 'Errol Miranda', 'email' => 'adminmiranda@gmail.com', 'password' => 'admin123', 'role' => 'admin', 'permission' => 'manage', 'department' => 'Operations', 'active' => true],
-            ['name' => 'Rolando Anacta', 'email' => 'manageranacta@gmail.com', 'password' => 'manager123', 'role' => 'manager', 'permission' => 'manage', 'department' => 'Logistics', 'active' => true],
-            ['name' => 'Thervin Ranehart Bandril', 'email' => 'thervs@gmail.com', 'password' => 'manager123', 'role' => 'manager', 'permission' => 'manage', 'department' => 'Warehouse', 'active' => true],
             ['name' => 'Jesreel Domaanis', 'email' => 'jes@gmail.com', 'password' => 'staff123', 'role' => 'staff', 'permission' => 'manage', 'department' => 'Inventory', 'active' => true],
-            ['name' => 'Kevin Rei Gelle', 'email' => 'kevs@gmail.com', 'password' => 'staff123', 'role' => 'staff', 'permission' => 'manage', 'department' => 'Receiving', 'active' => true],
-            ['name' => 'Employee', 'email' => 'employee@gmail.com', 'password' => 'staff123', 'role' => 'viewer', 'permission' => 'view', 'department' => 'Finance', 'active' => false],
+            ['name' => 'Employee', 'email' => 'employee@gmail.com', 'password' => 'viewer123', 'role' => 'viewer', 'permission' => 'view', 'department' => 'Finance', 'active' => true],
         ];
         foreach ($users as $userData) {
             $initials = collect(explode(' ', $userData['name']))

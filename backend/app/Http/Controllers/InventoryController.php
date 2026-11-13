@@ -201,6 +201,9 @@ class InventoryController extends Controller
 
     public function update(Request $request, InventoryItem $inventory)
     {
+        $actor = $request->attributes->get('authenticatedUser');
+        abort_if($actor?->role !== 'admin' && $request->exists('quantity'), 403, 'Staff must use stock transactions to change item quantities.');
+
         $validated = $request->validate([
             'sku' => ['sometimes', 'nullable', 'string', 'max:100'],
             'name' => 'sometimes|string|max:255',
@@ -243,14 +246,18 @@ class InventoryController extends Controller
         return response()->json($inventory->fresh('warehouse')->toArray() + ['warehouseName' => $inventory->warehouse?->name]);
     }
 
-    public function destroy(InventoryItem $inventory)
+    public function destroy(Request $request, InventoryItem $inventory)
     {
+        $this->authorizeAdministrator($request, 'Only administrators can delete inventory records.');
+
         $inventory->delete();
         return response()->json(['ok' => true]);
     }
 
     public function adjust(Request $request, $id)
     {
+        $this->authorizeAdministrator($request, 'Only administrators can make direct stock adjustments.');
+
         $validated = $request->validate([
             'delta' => 'required|integer',
         ]);

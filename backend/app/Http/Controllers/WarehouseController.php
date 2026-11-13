@@ -52,6 +52,8 @@ class WarehouseController extends Controller
 
     public function store(Request $request)
     {
+        $this->authorizeAdministrator($request, 'Only administrators can manage storage locations.');
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'location' => 'required|string|max:255',
@@ -80,6 +82,8 @@ class WarehouseController extends Controller
 
     public function update(Request $request, Warehouse $warehouse)
     {
+        $this->authorizeAdministrator($request, 'Only administrators can manage storage locations.');
+
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
             'location' => 'sometimes|string|max:255',
@@ -98,8 +102,10 @@ class WarehouseController extends Controller
         return response()->json($warehouse);
     }
 
-    public function destroy(Warehouse $warehouse)
+    public function destroy(Request $request, Warehouse $warehouse)
     {
+        $this->authorizeAdministrator($request, 'Only administrators can manage storage locations.');
+
         $hasTransferHistory = Transfer::where('sourceWarehouse', $warehouse->id)
             ->orWhere('destinationWarehouse', $warehouse->id)
             ->exists();

@@ -7,22 +7,27 @@ import { ToastContainer } from "./components/ui";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Inventory from "./pages/Inventory";
-import Warehouses from "./pages/Warehouses";
-import Transfers from "./pages/Transfers";
 import StockTransactions from "./pages/StockTransactions";
+import BorrowReturns from "./pages/BorrowReturns";
+import Categories from "./pages/Categories";
+import ActivityLogs from "./pages/ActivityLogs";
 import Reports from "./pages/Reports";
 import Users from "./pages/Users";
 import Settings from "./pages/Settings";
+import ContactUs from "./pages/ContactUs";
+import HelpGuide from "./pages/HelpGuide";
 
 function AppContent() {
   const { state, dispatch, login, forgotPassword, showToast, refreshOperationalData } = useApp();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showPublicContact, setShowPublicContact] = useState(false);
+  const [supportPage, setSupportPage] = useState<null | "help" | "contact">(null);
 
   // ─── Not authenticated → show login ───────────────────────────────────────
   if (!state.isAuthenticated) {
     return (
       <>
-        <Login
+        {showPublicContact ? <ContactUs onBack={() => setShowPublicContact(false)} /> : <Login
           onLogin={async (email, password) => {
             const result = await login(email, password);
             if (result.success) {
@@ -31,9 +36,10 @@ function AppContent() {
             return result;
           }}
           onForgotPassword={forgotPassword}
+          onContactUs={() => setShowPublicContact(true)}
           darkMode={state.darkMode}
           onToggleTheme={() => dispatch({ type: "SET_DARK_MODE", value: !state.darkMode })}
-        />
+        />}
         <ToastContainer />
       </>
     );
@@ -44,15 +50,16 @@ function AppContent() {
     switch (state.currentPage) {
       case "dashboard": return <Dashboard />;
       case "inventory": return <Inventory />;
-      case "warehouses": return <Warehouses />;
-      case "transfers": return <Transfers />;
       case "stock-transactions": return <StockTransactions />;
+      case "borrow-records": return <BorrowReturns />;
+      case "categories": return <Categories />;
+      case "activity-logs": return state.currentUser.role === "admin" ? <ActivityLogs /> : <Dashboard />;
       case "reports": return <Reports />;
       case "users":
-        return state.currentUser.role === "admin" || state.currentUser.role === "manager"
+        return state.currentUser.role === "admin"
           ? <Users />
           : <Dashboard />;
-      case "settings": return <Settings />;
+      case "settings": return state.currentUser.role === "admin" ? <Settings /> : <Dashboard />;
       default: return <Dashboard />;
     }
   })();
@@ -62,7 +69,7 @@ function AppContent() {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="lg:pl-60 flex flex-col min-h-screen min-w-0">
-        <TopNav onMenuToggle={() => setSidebarOpen((v) => !v)} />
+        <TopNav onMenuToggle={() => setSidebarOpen((v) => !v)} onOpenHelp={() => setSupportPage("help")} helpActive={supportPage !== null} />
 
         <main className="app-main flex-1 min-w-0 p-4 md:p-6 xl:p-7 overflow-auto">
           {state.backendError && (
@@ -82,7 +89,9 @@ function AppContent() {
               Loading operational data from Laravel…
             </div>
           )}
-          {page}
+          {supportPage === "help" ? <HelpGuide onContact={() => setSupportPage("contact")} onBack={() => setSupportPage(null)} />
+            : supportPage === "contact" ? <ContactUs onBack={() => setSupportPage("help")} />
+              : page}
         </main>
 
         <footer className="app-footer px-6 py-3 border-t text-center text-xs text-slate-500" style={{ borderColor: "var(--border-subtle)" }}>

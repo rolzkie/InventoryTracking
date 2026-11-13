@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append(\Illuminate\Http\Middleware\HandleCors::class);
         $middleware->alias([
             'account.manager' => \App\Http\Middleware\EnsureAccountManager::class,
+            'api.access' => \App\Http\Middleware\AuthenticateApiUser::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

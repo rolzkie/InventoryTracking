@@ -1,31 +1,37 @@
 import { useState, useRef, useEffect } from "react";
-import { Menu, Search, Bell, Sun, Moon, ChevronDown, LogOut, User, Settings, Package, Warehouse, TrendingUp } from "lucide-react";
+import { Menu, Search, Bell, Sun, Moon, ChevronDown, LogOut, User, Settings, Package, Warehouse, TrendingUp, CircleHelp } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import type { Page } from "../../types";
 
 const pageLabels: Record<Page, string> = {
-  dashboard: "Command center",
-  inventory: "Inventory",
+  dashboard: "Dashboard",
+  inventory: "Products",
   warehouses: "Warehouses",
   transfers: "Transfers",
-  "stock-transactions": "Stock movements",
-  reports: "Reports & Alerts",
+  "stock-transactions": "Transactions",
+  "borrow-records": "Borrow & Return",
+  categories: "Categories",
+  "activity-logs": "Activity Logs",
+  reports: "Reports",
   users: "Users",
   settings: "Settings",
 };
 
 const pageDescriptions: Record<Page, string> = {
-  dashboard: "Operational overview across every location",
+  dashboard: "School inventory overview",
   inventory: "Track availability, value, and replenishment",
   warehouses: "Manage facilities, capacity, and zones",
   transfers: "Coordinate stock between locations",
-  "stock-transactions": "Review every stock movement",
+  "stock-transactions": "Review stock received, issued, borrowed, and returned",
+  "borrow-records": "Record equipment loans and returns",
+  categories: "Manage school inventory categories",
+  "activity-logs": "Review user and inventory activity",
   reports: "Resolve alerts and monitor performance",
   users: "Manage access across your operation",
   settings: "Configure your workspace",
 };
 
-export default function TopNav({ onMenuToggle }: { onMenuToggle: () => void }) {
+export default function TopNav({ onMenuToggle, onOpenHelp, helpActive = false }: { onMenuToggle: () => void; onOpenHelp: () => void; helpActive?: boolean }) {
   const {
     state,
     dispatch,
@@ -104,7 +110,7 @@ export default function TopNav({ onMenuToggle }: { onMenuToggle: () => void }) {
       case "Stock Out":
         return "stock-transactions" as const;
       case "Transfer Completed":
-        return "transfers" as const;
+        return "stock-transactions" as const;
       case "Reorder Request":
       case "Reorder Updated":
         return "reports" as const;
@@ -137,9 +143,6 @@ export default function TopNav({ onMenuToggle }: { onMenuToggle: () => void }) {
     state.items.filter((i) => i.name.toLowerCase().includes(ql) || i.sku.toLowerCase().includes(ql)).slice(0, 3).forEach((i) => {
       results.push({ label: `${i.sku} — ${i.name}`, type: "Inventory", page: "inventory" });
     });
-    state.warehouses.filter((w) => w.name.toLowerCase().includes(ql)).slice(0, 2).forEach((w) => {
-      results.push({ label: w.name, type: "Warehouse", page: "warehouses" });
-    });
     setSearchResults(results);
   };
 
@@ -168,8 +171,8 @@ export default function TopNav({ onMenuToggle }: { onMenuToggle: () => void }) {
             value={searchQuery}
             onChange={(e) => handleSearch(e.target.value)}
             onFocus={() => setShowSearch(true)}
-            placeholder="Search anything..."
-            aria-label="Search inventory and warehouses"
+            placeholder="Search products, SKUs..."
+            aria-label="Search products and SKUs"
             className="pl-9 pr-3 py-2 w-36 sm:w-48 lg:w-60 rounded-lg bg-surface-raised border border-border-subtle text-content placeholder:text-content-subtle text-xs focus:outline-none focus:border-cyan-400/60 focus:ring-2 focus:ring-cyan-400/10 transition-colors"
           />
         </div>
@@ -278,8 +281,11 @@ export default function TopNav({ onMenuToggle }: { onMenuToggle: () => void }) {
         )}
       </div>
 
-      {/* User Profile */}
-      <div ref={profileRef} className="relative">
+      <div className="relative">
+        <button type="button" aria-label="Help and FAQs" title="Help and FAQs" aria-current={helpActive ? "page" : undefined} onClick={() => { onOpenHelp(); setShowProfile(false); setShowNotifications(false); }} className={`topnav-help-button inline-flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${helpActive ? "is-active" : ""}`}>
+          <CircleHelp size={17} />
+        </button>
+      </div>      <div ref={profileRef} className="relative">
         <button
           onClick={() => { setShowProfile((v) => !v); setShowNotifications(false); }}
           className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-[#1A2232] transition-colors"

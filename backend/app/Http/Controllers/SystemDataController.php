@@ -18,8 +18,10 @@ use Illuminate\Support\Facades\DB;
 
 class SystemDataController extends Controller
 {
-    public function export()
+    public function export(Request $request)
     {
+        $this->authorizeAdministrator($request, 'Only administrators can export system data.');
+
         return response()->json([
             'exportedAt' => now()->toIso8601String(),
             'warehouses' => Warehouse::all(),
@@ -37,6 +39,8 @@ class SystemDataController extends Controller
 
     public function reset(Request $request)
     {
+        $this->authorizeAdministrator($request, 'Only administrators can reset system data.');
+
         abort_unless(app()->environment('local', 'testing'), 403, 'Demo reset is only available locally.');
 
         $request->validate(['confirmation' => ['required', 'in:RESET']]);

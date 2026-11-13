@@ -7,12 +7,11 @@ import {
   Card, Table, Th, Td, SearchBar, PageHeader, Badge, StatusBadge, EmptyState,
 } from "../components/ui";
 
-const ROLES: UserRole[] = ["admin", "manager", "staff", "viewer"];
+const ROLES: UserRole[] = ["admin", "staff", "viewer"];
 const DEPARTMENTS = ["Operations", "Logistics", "Warehouse", "Inventory", "Receiving", "Finance", "IT", "Management"];
 
 const roleColors: Record<UserRole, string> = {
   admin: "red",
-  manager: "purple",
   staff: "blue",
   viewer: "gray",
 };
@@ -33,7 +32,7 @@ export default function Users() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm());
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const availableRoles = state.currentUser.role === "admin" ? ROLES : ROLES.filter((role) => role !== "admin");
+  const availableRoles = ROLES;
 
   const filtered = useMemo(() => {
     let users = state.users;
@@ -165,7 +164,7 @@ export default function Users() {
         {ROLES.map((role) => (
           <Card key={role} className="p-4">
             <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-xl ${role === "admin" ? "bg-red-500/10 text-red-400" : role === "manager" ? "bg-purple-500/10 text-purple-400" : role === "staff" ? "bg-blue-500/10 text-blue-400" : "bg-slate-500/10 text-slate-400"}`}>
+              <div className={`p-2 rounded-xl ${role === "admin" ? "bg-red-500/10 text-red-400" : role === "staff" ? "bg-blue-500/10 text-blue-400" : "bg-slate-500/10 text-slate-400"}`}>
                 <Shield size={16} />
               </div>
               <div>

@@ -15,21 +15,16 @@ class UserController extends Controller
 
     public function store(Request $request)
     {
-        $actor = $request->attributes->get('authenticatedUser');
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8'],
-            'role' => ['required', Rule::in(['admin', 'manager', 'staff', 'viewer'])],
+            'role' => ['required', Rule::in(['admin', 'staff', 'viewer'])],
             'permission' => ['sometimes', Rule::in(['manage', 'view'])],
             'avatar' => ['nullable', 'string', 'max:10'],
             'department' => ['nullable', 'string', 'max:100'],
             'active' => ['sometimes', 'boolean'],
         ]);
-
-        if ($actor->role === 'manager' && $validated['role'] === 'admin') {
-            return response()->json(['message' => 'Managers cannot create administrator accounts.'], 403);
-        }
 
         $validated['email'] = strtolower($validated['email']);
         $validated['permission'] = $validated['role'] === 'viewer'
@@ -49,24 +44,16 @@ class UserController extends Controller
     {
         $actor = $request->attributes->get('authenticatedUser');
 
-        if ($actor->role === 'manager' && $user->role === 'admin') {
-            return response()->json(['message' => 'Managers cannot modify administrator accounts.'], 403);
-        }
-
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],
             'email' => ['sometimes', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
             'password' => ['sometimes', 'nullable', 'string', 'min:8'],
-            'role' => ['sometimes', Rule::in(['admin', 'manager', 'staff', 'viewer'])],
+            'role' => ['sometimes', Rule::in(['admin', 'staff', 'viewer'])],
             'permission' => ['sometimes', Rule::in(['manage', 'view'])],
             'avatar' => ['nullable', 'string', 'max:10'],
             'department' => ['nullable', 'string', 'max:100'],
             'active' => ['sometimes', 'boolean'],
         ]);
-
-        if ($actor->role === 'manager' && ($validated['role'] ?? null) === 'admin') {
-            return response()->json(['message' => 'Managers cannot promote accounts to administrator.'], 403);
-        }
 
         if ($actor->id === $user->id && array_key_exists('active', $validated) && ! $validated['active']) {
             return response()->json(['message' => 'You cannot deactivate your own account.'], 422);
@@ -99,10 +86,6 @@ class UserController extends Controller
 
         if ($actor->id === $user->id) {
             return response()->json(['message' => 'You cannot delete your own account.'], 422);
-        }
-
-        if ($actor->role === 'manager' && $user->role === 'admin') {
-            return response()->json(['message' => 'Managers cannot delete administrator accounts.'], 403);
         }
 
         $user->delete();

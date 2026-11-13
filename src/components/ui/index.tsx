@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { X, Check, AlertTriangle, Info, CheckCircle, XCircle, Clock3, ArrowDownToLine, ArrowUpFromLine, ShieldAlert } from "lucide-react";
+import { X, Check, AlertTriangle, Info, CheckCircle, XCircle, Clock3, ArrowDownToLine, ArrowUpFromLine, ShieldAlert, BookOpen } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import type { InventoryItem } from "../../types";
 
@@ -12,13 +12,14 @@ export function formatPHP(value: number) {
 }
 
 // ─── Badge ───────────────────────────────────────────────────────────────────
-type BadgeVariant = "blue" | "green" | "red" | "amber" | "purple" | "gray" | "cyan";
+type BadgeVariant = "blue" | "green" | "red" | "amber" | "orange" | "purple" | "gray" | "cyan";
 
 const badgeColors: Record<BadgeVariant, string> = {
   blue: "bg-blue-500/20 text-blue-400 border border-blue-500/30",
   green: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30",
   red: "bg-red-500/20 text-red-400 border border-red-500/30",
   amber: "bg-amber-500/20 text-amber-400 border border-amber-500/30",
+  orange: "bg-orange-500/20 text-orange-400 border border-orange-500/30",
   purple: "bg-purple-500/20 text-purple-400 border border-purple-500/30",
   gray: "bg-slate-500/20 text-slate-400 border border-slate-500/30",
   cyan: "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30",
@@ -51,6 +52,9 @@ export function StatusBadge({ status }: { status: string }) {
     "inactive": { label: "Inactive", variant: "gray" },
     "stock-in": { label: "Stock In", variant: "green" },
     "stock-out": { label: "Stock Out", variant: "red" },
+    borrowed: { label: "Borrowed", variant: "orange" },
+    overdue: { label: "Overdue", variant: "red" },
+    returned: { label: "Returned", variant: "gray" },
   };
   const config = map[status] ?? { label: status, variant: "gray" as BadgeVariant };
   const statusIcons: Record<string, React.ReactNode> = {
@@ -70,18 +74,22 @@ export function StatusBadge({ status }: { status: string }) {
     inactive: <Clock3 size={11} aria-hidden="true" />,
     "stock-in": <ArrowDownToLine size={11} aria-hidden="true" />,
     "stock-out": <ArrowUpFromLine size={11} aria-hidden="true" />,
+    borrowed: <BookOpen size={11} aria-hidden="true" />,
+    overdue: <Clock3 size={11} aria-hidden="true" />,
+    returned: <CheckCircle size={11} aria-hidden="true" />,
   };
   return <Badge variant={config.variant}>{statusIcons[status]}{config.label}</Badge>;
 }
 
 // ─── Button ──────────────────────────────────────────────────────────────────
-type BtnVariant = "primary" | "secondary" | "danger" | "ghost" | "success";
+type BtnVariant = "primary" | "secondary" | "accent" | "danger" | "ghost" | "success";
 const btnVariants: Record<BtnVariant, string> = {
-  primary: "bg-blue-600 hover:bg-blue-500 text-white shadow-sm shadow-blue-950/30 hover:shadow-md hover:shadow-blue-950/30",
-  secondary: "bg-[#303844] hover:bg-[#39424F] text-slate-100 border border-[#414B58] hover:border-slate-500/70",
+  primary: "bg-brand-600 hover:bg-brand-700 text-white",
+  secondary: "bg-surface-raised hover:bg-surface-muted text-content border border-border-strong",
+  accent: "bg-amber-400 hover:bg-amber-500 text-black",
   danger: "bg-red-600 hover:bg-red-500 text-white shadow-sm shadow-red-950/25",
   ghost: "bg-transparent hover:bg-white/[0.06] text-slate-300 hover:text-white",
-  success: "bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-950/25",
+  success: "bg-brand-600 hover:bg-brand-700 text-white",
 };
 
 export function Button({
@@ -107,7 +115,7 @@ export function Button({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 active:translate-y-px disabled:opacity-50 disabled:cursor-not-allowed ${btnVariants[variant]} ${sizes[size]} ${className}`}
+      className={`brutal-button inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 active:translate-y-px disabled:opacity-50 disabled:cursor-not-allowed ${btnVariants[variant]} ${sizes[size]} ${className}`}
     >
       {children}
     </button>
@@ -361,6 +369,7 @@ export function StatCard({
   icon,
   color = "blue",
   trend,
+  className = "",
 }: {
   title: string;
   value: string | number;
@@ -368,6 +377,7 @@ export function StatCard({
   icon: React.ReactNode;
   color?: "blue" | "purple" | "green" | "amber" | "red" | "cyan";
   trend?: { value: number; label: string };
+  className?: string;
 }) {
   const colors = {
     blue: "bg-blue-500/10 text-blue-400 border-blue-500/20",
@@ -379,9 +389,9 @@ export function StatCard({
   };
 
   return (
-    <Card className="p-4 sm:p-5 hover:border-[#47515E] transition-colors">
+    <Card className={`p-4 sm:p-5 hover:border-[#47515E] transition-colors ${className}`}>
       <div className="flex items-start justify-between mb-3">
-        <div className={`p-2 rounded-xl border ${colors[color]}`}>{icon}</div>
+        <div className={`stat-icon p-2 rounded-xl border ${colors[color]}`}>{icon}</div>
         {trend && (
           <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${trend.value >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
             {trend.value >= 0 ? "+" : ""}{trend.value}% {trend.label}
@@ -389,9 +399,9 @@ export function StatCard({
         )}
       </div>
       <div>
-        <p className="text-2xl font-bold tracking-tight text-slate-100 mb-1">{value}</p>
-        <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-slate-400 mb-1">{title}</p>
-        {subtitle && <p className="text-[11px] text-slate-500">{subtitle}</p>}
+        <p className="stat-value text-2xl font-bold tracking-tight text-slate-100 mb-1">{value}</p>
+        <p className="stat-title text-[10px] font-semibold uppercase tracking-[0.13em] text-slate-400 mb-1">{title}</p>
+        {subtitle && <p className="stat-subtitle text-[11px] text-slate-500">{subtitle}</p>}
       </div>
     </Card>
   );
@@ -414,9 +424,9 @@ export function Th({ children, className = "" }: { children?: React.ReactNode; c
   );
 }
 
-export function Td({ children, className = "" }: { children?: React.ReactNode; className?: string }) {
+export function Td({ children, className = "", ...props }: React.TdHTMLAttributes<HTMLTableCellElement>) {
   return (
-    <td className={`px-4 py-3 text-content-muted border-b border-border-subtle ${className}`}>
+    <td className={`px-4 py-3 text-content-muted border-b border-border-subtle ${className}`} {...props}>
       {children}
     </td>
   );

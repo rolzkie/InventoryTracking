@@ -103,7 +103,7 @@ function StockItemCombobox({
 
 export default function StockTransactions() {
   const { state, showToast, createTransaction } = useApp();
-  const canWrite = state.currentUser.permission !== "view";
+  const canWrite = state.currentUser.role !== "viewer" && state.currentUser.permission !== "view";
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState<"" | "stock-in" | "stock-out">("");
   const [activeTab, setActiveTab] = useState<"all" | "stock-in" | "stock-out" | "expiration">("all");
@@ -225,7 +225,7 @@ export default function StockTransactions() {
     <div>
       <PageHeader
         title="Stock Transactions"
-        subtitle="Manage stock movements, deliveries, and releases"
+        subtitle="Record and review school stock received and issued"
         actions={
           <div className="flex gap-2">
             <Button variant="success" disabled={!canWrite} onClick={() => { setInForm({ itemId: "", quantity: 0, supplierId: "", notes: "", unitCost: 0, expirationDate: "" }); setInErrors({}); setShowInModal(true); }}>

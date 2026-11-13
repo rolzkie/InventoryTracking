@@ -170,6 +170,8 @@ class TransferController extends Controller
 
     public function store(Request $request)
     {
+        $this->authorizeAdministrator($request, 'Only administrators can manage transfers.');
+
         $validated = $request->validate([
             'sourceWarehouse' => 'required|exists:warehouses,id',
             'destinationWarehouse' => 'required|exists:warehouses,id|different:sourceWarehouse',
@@ -245,6 +247,8 @@ class TransferController extends Controller
 
     public function update(Request $request, Transfer $transfer)
     {
+        $this->authorizeAdministrator($request, 'Only administrators can manage transfers.');
+
         $validated = $request->validate([
             'status' => 'sometimes|in:pending,in_transit,completed,cancelled',
             'notes' => 'nullable|string',
@@ -287,8 +291,10 @@ class TransferController extends Controller
         }
     }
 
-    public function destroy(Transfer $transfer)
+    public function destroy(Request $request, Transfer $transfer)
     {
+        $this->authorizeAdministrator($request, 'Only administrators can manage transfers.');
+
         return DB::transaction(function () use ($transfer) {
             $transfer->delete();
             return response()->json(['ok' => true]);

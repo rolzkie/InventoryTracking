@@ -1,5 +1,6 @@
 import type {
   Category,
+  BorrowRecord,
   InventoryItem,
   Notification,
   ReorderRequest,
@@ -27,32 +28,29 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  let token = "";
+  let csrfToken = "";
   try {
     const stored = window.sessionStorage.getItem(AUTH_STORAGE_KEY) ?? window.localStorage.getItem(AUTH_STORAGE_KEY);
-    token = stored ? String(JSON.parse(stored).token ?? "") : "";
+    csrfToken = stored ? String(JSON.parse(stored).csrfToken ?? "") : "";
   } catch {
-    token = "";
+    // Public login and password-recovery requests can proceed without stored credentials.
   }
 
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
+    // Include the HttpOnly auth cookie when Vite and Laravel run on different local ports.
+    credentials: "include",
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(csrfToken ? { "X-CSRF-TOKEN": csrfToken } : {}),
       ...options.headers,
     },
   });
-
   const body = await response.json().catch(() => null);
   if (!response.ok) {
     const validationMessage = Object.values(body?.errors ?? {}).flat().join(" ").trim();
-    const message =
-      body?.message ||
-      body?.error ||
-      validationMessage ||
-      `Request failed with status ${response.status}`;
+    const message = body?.message || body?.error || validationMessage || `Request failed with status ${response.status}`;
     throw new ApiError(String(message), response.status, body);
   }
 
@@ -230,14 +228,14 @@ function categoryName(item: InventoryItem, categories: Category[]): string {
   return categories.find((entry) => entry.id === item.categoryId)?.name ?? item.categoryId;
 }
 
-function itemPayload(item: InventoryItem, categories: Category[]) {
+function itemPayload(item: InventoryItem, categories: Category[], includeQuantity = true) {
   return {
     sku: item.sku,
     name: item.name,
     description: item.description,
     category: categoryName(item, categories),
     unit: item.unit,
-    quantity: item.quantity,
+    ...(includeQuantity ? { quantity: item.quantity } : {}),
     reorderPoint: item.reorderPoint,
     maxStock: item.maxStock,
     supplierId: item.supplierId,
@@ -254,14 +252,19 @@ export const api = {
         request<ApiRecord[]>("/suppliers"),
       ]);
       const categories = categoryRows.map(normalizeCategory);
-      const canManageAccounts = currentUser?.role === "admin" || currentUser?.role === "manager";
+      const canManageAccounts = currentUser?.role === "admin";
       const [warehouseRows, itemRows, assignableRows, transactionRows, transferRows, userRows, reorderRows, notificationRows, settings, acknowledgedAlertIds] = await Promise.all([
         request<ApiRecord[]>("/warehouses"),
         request<ApiRecord[]>("/inventory"),
         request<ApiRecord[]>("/inventory/assignable"),
         request<ApiRecord[]>("/transactions"),
         request<ApiRecord[]>("/transfers"),
-        canManageAccounts ? request<ApiRecord[]>("/users") : Promise.resolve([]),
+        // User management is an admin-only endpoint. Keep an authorization
+        // failure there from preventing inventory, transactions, and reports
+        // from loading for an otherwise authenticated administrator session.
+        canManageAccounts
+          ? request<ApiRecord[]>("/users").catch(() => [])
+          : Promise.resolve([]),
         request<ApiRecord[]>("/reorders"),
         request<ApiRecord[]>("/notifications"),
         request<Record<string, Record<string, unknown>>>("/settings"),
@@ -284,17 +287,23 @@ export const api = {
     },
   },
   auth: {
-    login: (email: string, password: string) =>
-      request<{ user: ApiRecord; token: string }>("/auth/login", {
+    login: async (email: string, password: string) => {
+      const { csrfToken: loginCsrfToken } = await request<{ csrfToken: string }>("/auth/csrf-token");
+      return request<{ user: ApiRecord; csrfToken: string }>("/auth/login", {
         method: "POST",
+        headers: { "X-CSRF-TOKEN": loginCsrfToken },
         body: JSON.stringify({ email, password }),
-      }).then((result) => ({ user: normalizeUser(result.user), token: result.token })),
+      }).then((result) => ({ user: normalizeUser(result.user), csrfToken: result.csrfToken }));
+    },
     logout: () => request<{ ok: boolean }>("/auth/logout", { method: "POST" }),
-    forgotPassword: (email: string) =>
-      request<{ message: string }>("/auth/forgot-password", {
+    forgotPassword: async (email: string) => {
+      const { csrfToken } = await request<{ csrfToken: string }>("/auth/csrf-token");
+      return request<{ message: string }>("/auth/forgot-password", {
         method: "POST",
+        headers: { "X-CSRF-TOKEN": csrfToken },
         body: JSON.stringify({ email }),
-      }),
+      });
+    },
   },
   users: {
     create: (user: User, password: string) =>
@@ -341,6 +350,34 @@ export const api = {
         }),
       }),
   },
+  borrowRecords: {
+    list: () => request<ApiRecord[]>("/borrow-records").then((rows) => rows.map((row) => ({
+      id: String(row.id),
+      itemId: String(row.itemId),
+      itemName: String((row.item as ApiRecord | undefined)?.name ?? "Unknown item"),
+      borrowerName: String(row.borrowerName ?? ""),
+      quantity: Number(row.quantity ?? 0),
+      quantityReturned: Number(row.quantityReturned ?? 0),
+      outstandingQuantity: Number(row.outstandingQuantity ?? 0),
+      borrowedAt: dateOnly(row.borrowedAt),
+      expectedReturnAt: dateOnly(row.expectedReturnAt),
+      returnedAt: typeof row.returnedAt === "string" ? row.returnedAt : null,
+      status: row.status as BorrowRecord["status"],
+      notes: String(row.notes ?? ""),
+    }))),
+    create: (payload: { itemId: number; borrowerName: string; quantity: number; borrowedAt: string; expectedReturnAt: string; notes?: string }) =>
+      request<ApiRecord>("/borrow-records", { method: "POST", body: JSON.stringify(payload) }),
+    returnItems: (id: string, quantity: number) =>
+      request<ApiRecord>(`/borrow-records/${id}/return`, { method: "POST", body: JSON.stringify({ quantity }) }),
+  },
+  categories: {
+    create: (name: string, color: string) => request<ApiRecord>("/categories", { method: "POST", body: JSON.stringify({ name, color }) }),
+    update: (id: string, name: string, color: string) => request<ApiRecord>(`/categories/${id}`, { method: "PUT", body: JSON.stringify({ name, color }) }),
+    delete: (id: string) => request<{ ok: boolean }>(`/categories/${id}`, { method: "DELETE" }),
+  },
+  activityLogs: {
+    list: () => request<{ data: ApiRecord[] }>("/activity-logs").then((result) => result.data),
+  },
   settings: {
     update: (section: string, payload: Record<string, unknown>) =>
       request<ApiRecord>(`/settings/${section}`, {
@@ -365,11 +402,11 @@ export const api = {
           supplierName: supplierName?.trim() || null,
         }),
       }),
-    update: (item: InventoryItem, categories: Category[], supplierName?: string) =>
+    update: (item: InventoryItem, categories: Category[], supplierName?: string, allowQuantity = false) =>
       request<ApiRecord>(`/inventory/${item.id}`, {
         method: "PUT",
         body: JSON.stringify({
-          ...itemPayload(item, categories),
+          ...itemPayload(item, categories, allowQuantity),
           supplierName: supplierName?.trim() || null,
         }),
       }),

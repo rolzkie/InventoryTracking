@@ -10,7 +10,7 @@ import {
   formatPHP,
 } from "../components/ui";
 
-type ReportTab = "inventory" | "movement" | "warehouse" | "low-stock" | "out-of-stock" | "expiring" | "alerts" | "reorders";
+type ReportTab = "inventory" | "movement" | "low-stock" | "out-of-stock" | "expiring" | "alerts" | "reorders";
 
 export default function Reports() {
   const {
@@ -22,6 +22,7 @@ export default function Reports() {
     updateReorder,
     saveSettings,
   } = useApp();
+  const canWrite = state.currentUser.role !== "viewer" && state.currentUser.permission !== "view";
   const [activeTab, setActiveTab] = useState<ReportTab>("inventory");
   const [showThresholdModal, setShowThresholdModal] = useState(false);
   const [thresholds, setThresholds] = useState({ lowStockMin: 10, overstockMax: 500 });
@@ -136,7 +137,6 @@ export default function Reports() {
   const tabs: { id: ReportTab; label: string; badge?: number }[] = [
     { id: "inventory", label: "Inventory Report" },
     { id: "movement", label: "Stock Movement" },
-    { id: "warehouse", label: "Warehouse Report" },
     { id: "low-stock", label: "Low Stock", badge: stats.lowStock.length },
     { id: "out-of-stock", label: "Out of Stock", badge: stats.outOfStock.length },
     { id: "expiring", label: "Expiring Items", badge: stats.expiring.length },
@@ -164,9 +164,9 @@ export default function Reports() {
         subtitle="Comprehensive inventory analytics and automated alerts"
         actions={
           <div className="flex gap-2">
-            <Button variant="secondary" size="sm" onClick={() => setShowThresholdModal(true)}>
+            {canWrite && <Button variant="secondary" size="sm" onClick={() => setShowThresholdModal(true)}>
               <Settings size={13} /> Thresholds
-            </Button>
+            </Button>}
             <Button variant="secondary" size="sm" onClick={handleExportCSV}>
               <Download size={13} /> Export CSV
             </Button>
@@ -311,44 +311,6 @@ export default function Reports() {
         </Card>
       )}
 
-      {/* Warehouse Report */}
-      {activeTab === "warehouse" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {state.warehouses.map((wh) => {
-            const items = state.items.filter((i) => i.warehouseId === wh.id);
-            const value = items.reduce((s, i) => s + i.quantity * i.unitCost, 0);
-            const pct = Math.round((wh.used / wh.capacity) * 100);
-            return (
-              <Card key={wh.id} className="p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-sm font-semibold text-slate-200">{wh.name}</h3>
-                    <p className="text-xs text-slate-500">{wh.location} · {wh.address}</p>
-                  </div>
-                  <span className={`text-xs font-bold ${pct > 85 ? "text-red-400" : pct > 60 ? "text-amber-400" : "text-emerald-400"}`}>{pct}% full</span>
-                </div>
-                <div className="w-full bg-[#2A3445] rounded-full h-2 mb-3">
-                  <div className={`h-2 rounded-full ${pct > 85 ? "bg-red-500" : pct > 60 ? "bg-amber-500" : "bg-blue-500"}`} style={{ width: `${pct}%` }} />
-                </div>
-                <div className="grid grid-cols-3 gap-3 mb-3">
-                  {[
-                    { label: "Total SKUs", value: items.length },
-                    { label: "Total Value", value: formatPHP(value) },
-                    { label: "Low Stock", value: items.filter(i => i.status === "low-stock" || i.status === "out-of-stock").length },
-                  ].map((s) => (
-                    <div key={s.label} className="bg-[#0B1220]/50 rounded-xl p-2 text-center">
-                      <p className="text-sm font-bold text-slate-100">{s.value}</p>
-                      <p className="text-[10px] text-slate-500">{s.label}</p>
-                    </div>
-                  ))}
-                </div>
-                <div className="text-xs text-slate-500">Manager: {wh.manager || "—"} · {wh.zones.length} zones</div>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-
       {/* Low Stock Report */}
       {activeTab === "low-stock" && (
         <Card>
@@ -390,7 +352,7 @@ export default function Reports() {
                       {hasReorder ? (
                         <Badge variant="amber">Reorder Pending</Badge>
                       ) : (
-                        <Button variant="primary" size="sm" onClick={() => handleGenerateReorder(item.id)}>
+                        canWrite && <Button variant="primary" size="sm" onClick={() => handleGenerateReorder(item.id)}>
                           <FileText size={11} /> Generate PO
                         </Button>
                       )}
@@ -441,7 +403,7 @@ export default function Reports() {
                       {hasReorder ? (
                         <Badge variant="blue">Reorder In Progress</Badge>
                       ) : (
-                        <Button variant="danger" size="sm" onClick={() => handleGenerateReorder(item.id)}>
+                        canWrite && <Button variant="danger" size="sm" onClick={() => handleGenerateReorder(item.id)}>
                           <AlertCircle size={11} /> Urgent Reorder
                         </Button>
                       )}
@@ -527,10 +489,10 @@ export default function Reports() {
                 </div>
                 {!alert.acknowledged && (
                   <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => void handleAcknowledge(alert.id)}>
+                    {canWrite && <Button variant="ghost" size="sm" onClick={() => void handleAcknowledge(alert.id)}>
                       <CheckCircle size={12} /> Acknowledge
-                    </Button>
-                    {(alert.type === "low-stock" || alert.type === "out-of-stock") && (
+                    </Button>}
+                    {(alert.type === "low-stock" || alert.type === "out-of-stock") && canWrite && (
                       <Button variant="primary" size="sm" onClick={() => void handleGenerateReorder(alert.itemId)}>
                         <FileText size={12} /> Generate PO
                       </Button>
@@ -581,17 +543,17 @@ export default function Reports() {
                     <Td><span className="text-xs text-slate-500">{req.estimatedDelivery ?? "—"}</span></Td>
                     <Td><span className="text-xs text-slate-500 max-w-40 truncate block">{req.notes}</span></Td>
                     <Td>
-                      {req.status === "pending" && (
+                      {canWrite && req.status === "pending" && (
                         <Button variant="success" size="sm" onClick={() => void handleReorderStatus(req, "approved", "Reorder approved")}>
                           Approve
                         </Button>
                       )}
-                      {req.status === "approved" && (
+                      {canWrite && req.status === "approved" && (
                         <Button variant="primary" size="sm" onClick={() => void handleReorderStatus(req, "ordered", "Purchase order sent")}>
                           Mark Ordered
                         </Button>
                       )}
-                      {req.status === "ordered" && (
+                      {canWrite && req.status === "ordered" && (
                         <Button variant="secondary" size="sm" onClick={() => void handleReorderStatus(req, "received", "Order received")}>
                           Mark Received
                         </Button>
@@ -616,9 +578,9 @@ export default function Reports() {
         </div>
         <div className="flex justify-end gap-3 px-6 pb-6">
           <Button variant="secondary" onClick={() => setShowThresholdModal(false)}>Cancel</Button>
-          <Button variant="primary" onClick={() => void handleSaveThresholds()}>
+          {canWrite && <Button variant="primary" onClick={() => void handleSaveThresholds()}>
             <Settings size={14} /> Save Thresholds
-          </Button>
+          </Button>}
         </div>
       </Modal>
     </div>

@@ -44,6 +44,8 @@ const emptyForm = (): InventoryForm => ({
 
 export default function Inventory() {
   const { state, showToast, generateId, createItem, updateItem, deleteItem } = useApp();
+  const canWrite = state.currentUser.role !== "viewer" && state.currentUser.permission !== "view";
+  const isAdmin = state.currentUser.role === "admin";
   const [search, setSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
   const [filterWarehouse, setFilterWarehouse] = useState("");
@@ -190,7 +192,7 @@ export default function Inventory() {
     <ChevronDown size={12} className={`inline ml-1 transition-transform ${sortBy === field ? (sortDir === "desc" ? "rotate-180" : "") : "opacity-30"}`} />
   );
 
-  const formSection = (
+  const formSection = (isEditing: boolean) => (
     <div className="p-6 space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <Input
@@ -220,7 +222,15 @@ export default function Inventory() {
         placeholder="Create a new supplier on save"
       />
       <div className="grid grid-cols-3 gap-4">
-        <Input label="Quantity *" type="number" min={0} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: parseInt(e.target.value) || 0 })} error={formErrors.quantity} />
+        {isEditing && !isAdmin ? (
+          <div className="flex flex-col justify-center rounded-lg border border-[#2A3445] bg-[#0B1220] px-3 py-2">
+            <span className="text-xs text-slate-500">Current Quantity</span>
+            <span className="text-sm font-semibold text-slate-200">{selectedItem?.quantity ?? 0} {selectedItem?.unit ?? "units"}</span>
+            <span className="text-[10px] text-slate-500">Change stock using Stock In or Stock Out.</span>
+          </div>
+        ) : (
+          <Input label={isEditing ? "Quantity" : "Starting Quantity *"} type="number" min={0} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: parseInt(e.target.value) || 0 })} error={formErrors.quantity} />
+        )}
         <Input label="Reorder Point *" type="number" min={0} value={form.reorderPoint} onChange={(e) => setForm({ ...form, reorderPoint: parseInt(e.target.value) || 0 })} error={formErrors.reorderPoint} />
         <Input label="Max Stock" type="number" min={0} value={form.maxStock} onChange={(e) => setForm({ ...form, maxStock: parseInt(e.target.value) || 0 })} />
       </div>
@@ -241,11 +251,11 @@ export default function Inventory() {
       <PageHeader
         title="Inventory Management"
         subtitle={`${state.items.length} total SKUs · ${state.items.filter(i => i.status === "low-stock").length} low stock · ${state.items.filter(i => i.status === "out-of-stock").length} out of stock`}
-        actions={
+        actions={canWrite ? (
           <Button variant="primary" onClick={openAdd}>
             <Plus size={15} /> Add Item
           </Button>
-        }
+        ) : undefined}
       />
 
       {/* Filters */}
@@ -253,7 +263,7 @@ export default function Inventory() {
         <div className="flex flex-wrap gap-3">
           <SearchBar value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search SKU, name, category..." />
           <Select value={filterCategory} onChange={(e) => { setFilterCategory(e.target.value); setPage(1); }} className="w-40">
-            <option value="" disabled hidden>Warehouse Category</option>
+            <option value="" disabled hidden>Category</option>
             <option value="">All Categories</option>
             {state.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </Select>
@@ -375,12 +385,12 @@ export default function Inventory() {
                         <button onClick={() => { setSelectedItem(item); setShowViewModal(true); }} className="p-1.5 rounded-lg border border-[#334155]/70 bg-[#0B1220]/70 text-slate-300 transition-all hover:border-blue-500/60 hover:bg-blue-500/10 hover:text-blue-300 hover:shadow-[0_0_14px_rgba(59,130,246,0.28)] focus-visible:shadow-[0_0_14px_rgba(59,130,246,0.28)]" title="View">
                           <Eye size={13} />
                         </button>
-                        <button onClick={() => openEdit(item)} className="p-1.5 rounded-lg border border-[#334155]/70 bg-[#0B1220]/70 text-slate-300 transition-all hover:border-amber-500/60 hover:bg-amber-500/10 hover:text-amber-300 hover:shadow-[0_0_14px_rgba(245,158,11,0.28)] focus-visible:shadow-[0_0_14px_rgba(245,158,11,0.28)]" title="Edit">
+                        {canWrite && <button onClick={() => openEdit(item)} className="p-1.5 rounded-lg border border-[#334155]/70 bg-[#0B1220]/70 text-slate-300 transition-all hover:border-amber-500/60 hover:bg-amber-500/10 hover:text-amber-300 hover:shadow-[0_0_14px_rgba(245,158,11,0.28)] focus-visible:shadow-[0_0_14px_rgba(245,158,11,0.28)]" title="Edit">
                           <Edit2 size={13} />
-                        </button>
-                        <button onClick={() => setDeleteId(item.id)} className="p-1.5 rounded-lg border border-[#334155]/70 bg-[#0B1220]/70 text-slate-300 transition-all hover:border-red-500/60 hover:bg-red-500/10 hover:text-red-300 hover:shadow-[0_0_14px_rgba(239,68,68,0.28)] focus-visible:shadow-[0_0_14px_rgba(239,68,68,0.28)]" title="Delete">
+                        </button>}
+                        {isAdmin && <button onClick={() => setDeleteId(item.id)} className="p-1.5 rounded-lg border border-[#334155]/70 bg-[#0B1220]/70 text-slate-300 transition-all hover:border-red-500/60 hover:bg-red-500/10 hover:text-red-300 hover:shadow-[0_0_14px_rgba(239,68,68,0.28)] focus-visible:shadow-[0_0_14px_rgba(239,68,68,0.28)]" title="Delete">
                           <Trash2 size={13} />
-                        </button>
+                        </button>}
                       </div>
                     </Td>
                   </tr>
@@ -396,7 +406,7 @@ export default function Inventory() {
 
       {/* Add Modal */}
       <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title="Add New Inventory Item" size="lg">
-        {formSection}
+        {formSection(false)}
         <div className="flex justify-end gap-3 px-6 pb-6">
           <Button variant="secondary" onClick={() => setShowAddModal(false)}>Cancel</Button>
           <Button variant="primary" onClick={handleAdd}><Plus size={14} /> Add Item</Button>
@@ -405,7 +415,7 @@ export default function Inventory() {
 
       {/* Edit Modal */}
       <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Edit Inventory Item" size="lg">
-        {formSection}
+        {formSection(true)}
         <div className="flex justify-end gap-3 px-6 pb-6">
           <Button variant="secondary" onClick={() => setShowEditModal(false)}>Cancel</Button>
           <Button variant="primary" onClick={handleEdit}><Edit2 size={14} /> Save Changes</Button>

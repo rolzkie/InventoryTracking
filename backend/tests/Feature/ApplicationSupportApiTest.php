@@ -46,17 +46,15 @@ class ApplicationSupportApiTest extends TestCase
         ]);
         $supplier = Supplier::create(['name' => 'Test Supplier']);
 
-        $login = $this->postJson('/api/auth/login', [
-            'email' => 'admin@example.com',
-            'password' => 'password123',
-        ])->assertOk()->assertJsonPath('user.id', $user->id);
+        $login = $this->loginApi('admin@example.com', 'password123')->assertOk()->assertJsonPath('user.id', $user->id);
 
-        $token = $login->json('token');
-        $this->withToken($token)->getJson('/api/users')
+        $token = $login->getCookie('inventory_auth', false)->getValue();
+        $csrf = $login->json('csrfToken');
+        $this->withUnencryptedCookie('inventory_auth', $token)->withHeader('X-CSRF-TOKEN', $csrf)->getJson('/api/users')
             ->assertOk()
             ->assertJsonFragment(['email' => 'admin@example.com']);
 
-        $this->patchJson("/api/notifications/{$notification->id}/read")
+        $this->withToken($token)->patchJson("/api/notifications/{$notification->id}/read")
             ->assertOk()
             ->assertJsonPath('read', true);
 
@@ -89,18 +87,15 @@ class ApplicationSupportApiTest extends TestCase
             'active' => true,
         ]);
 
-        $this->postJson('/api/auth/login', [
-            'email' => 'admin@example.com',
-            'password' => 'wrong-password',
-        ])->assertUnprocessable();
+        $this->loginApi('admin@example.com', 'wrong-password')->assertUnprocessable();
     }
 
-    public function test_only_admins_and_managers_can_create_accounts(): void
+    public function test_only_admins_can_create_accounts(): void
     {
-        $manager = User::factory()->create([
-            'email' => 'manager@example.com',
+        $staffManager = User::factory()->create([
+            'email' => 'staff-manager@example.com',
             'password' => Hash::make('password123'),
-            'role' => 'manager',
+            'role' => 'staff',
             'active' => true,
         ]);
         $staff = User::factory()->create([
@@ -110,30 +105,33 @@ class ApplicationSupportApiTest extends TestCase
             'active' => true,
         ]);
 
-        $managerToken = $this->postJson('/api/auth/login', [
-            'email' => $manager->email,
-            'password' => 'password123',
-        ])->json('token');
-        $staffToken = $this->postJson('/api/auth/login', [
-            'email' => $staff->email,
-            'password' => 'password123',
-        ])->json('token');
+        $staffManagerToken = $this->issueToken($staffManager);
+        $staffToken = $this->issueToken($staff);
 
-        $this->withToken($managerToken)->postJson('/api/users', [
+        $this->withToken($staffManagerToken)->postJson('/api/users', [
             'name' => 'New Staff',
             'email' => 'new.staff@example.com',
             'password' => 'temporary123',
             'role' => 'staff',
             'active' => true,
-        ])->assertCreated();
+        ])->assertForbidden();
 
-        $this->withToken($managerToken)->postJson('/api/users', [
+        $this->withToken($staffManagerToken)->postJson('/api/users', [
             'name' => 'New Admin',
             'email' => 'new.admin@example.com',
             'password' => 'temporary123',
             'role' => 'admin',
             'active' => true,
         ])->assertForbidden();
+
+        $admin = User::factory()->create(['role' => 'admin', 'active' => true]);
+        $this->withToken($this->issueToken($admin))->postJson('/api/users', [
+            'name' => 'Unsupported Role',
+            'email' => 'manager-role@example.com',
+            'password' => 'temporary123',
+            'role' => 'manager',
+            'active' => true,
+        ])->assertUnprocessable();
 
         $this->withToken($staffToken)->postJson('/api/users', [
             'name' => 'Unauthorized User',

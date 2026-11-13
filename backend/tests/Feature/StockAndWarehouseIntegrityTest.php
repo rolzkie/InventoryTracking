@@ -13,7 +13,7 @@ class StockAndWarehouseIntegrityTest extends TestCase
 {
     public function test_stock_out_updates_quantity_and_prevents_negative_stock(): void
     {
-        $token = $this->managerToken();
+        $token = $this->staffToken();
         [$warehouse, $item] = $this->inventoryFixture(5);
 
         $this->withToken($token)->postJson('/api/transactions', [
@@ -42,14 +42,13 @@ class StockAndWarehouseIntegrityTest extends TestCase
             'email' => 'viewer@example.com',
             'password' => Hash::make('password123'),
             'role' => 'viewer',
-            'permission' => 'view',
+            // The role itself must enforce read-only access even if stale data
+            // contains an incorrect manage permission.
+            'permission' => 'manage',
             'active' => true,
         ]);
 
-        $token = $this->postJson('/api/auth/login', [
-            'email' => $user->email,
-            'password' => 'password123',
-        ])->json('token');
+        $token = $this->issueToken($user);
 
         [$warehouse, $item] = $this->inventoryFixture(5);
 
@@ -167,20 +166,17 @@ class StockAndWarehouseIntegrityTest extends TestCase
         return [$warehouse, $item];
     }
 
-    private function managerToken(): string
+    private function staffToken(): string
     {
-        $manager = User::factory()->create([
-            'email' => 'manager@example.com',
+        $staff = User::factory()->create([
+            'email' => 'stock-staff@example.com',
             'password' => Hash::make('password123'),
-            'role' => 'manager',
+            'role' => 'staff',
             'permission' => 'manage',
             'active' => true,
         ]);
 
-        return $this->postJson('/api/auth/login', [
-            'email' => $manager->email,
-            'password' => 'password123',
-        ])->json('token');
+        return $this->issueToken($staff);
     }
 
     private function referencePattern(string $prefix): string

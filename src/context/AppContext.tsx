@@ -20,7 +20,7 @@ const THEME_STORAGE_KEY = "warehouseiq.theme";
 
 function getInitialDarkMode(): boolean {
   try {
-    return window.localStorage.getItem(THEME_STORAGE_KEY) !== "light";
+    return window.localStorage.getItem(THEME_STORAGE_KEY) === "dark";
   } catch {
     return true;
   }
@@ -520,9 +520,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [refreshOperationalData, state.categories]);
 
   const updateItem = useCallback(async (item: InventoryItem, supplierName?: string) => {
-    await api.inventory.update(item, state.categories, supplierName);
+    await api.inventory.update(item, state.categories, supplierName, state.currentUser.role === "admin");
     await refreshOperationalData();
-  }, [refreshOperationalData, state.categories]);
+  }, [refreshOperationalData, state.categories, state.currentUser.role]);
 
   const deleteItem = useCallback(async (id: string) => {
     await api.inventory.delete(id);

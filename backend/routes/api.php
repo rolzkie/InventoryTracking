@@ -16,14 +16,24 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\AlertAcknowledgementController;
 use App\Http\Controllers\SystemDataController;
+use App\Http\Controllers\BorrowRecordController;
+use App\Http\Controllers\ActivityLogController;
 
-Route::middleware('api')->group(function () {
+Route::middleware(['api', 'api.access'])->group(function () {
+    Route::get('/auth/csrf-token', [AuthController::class, 'csrfToken']);
     Route::post('/auth/login', [AuthController::class, 'login']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword']);
 
     Route::apiResource('users', UserController::class)->middleware('account.manager');
     Route::get('/categories', [ReferenceDataController::class, 'categories']);
+    Route::post('/categories', [ReferenceDataController::class, 'storeCategory']);
+    Route::put('/categories/{category}', [ReferenceDataController::class, 'updateCategory']);
+    Route::delete('/categories/{category}', [ReferenceDataController::class, 'deleteCategory']);
+    Route::get('/borrow-records', [BorrowRecordController::class, 'index']);
+    Route::post('/borrow-records', [BorrowRecordController::class, 'store']);
+    Route::post('/borrow-records/{borrow}/return', [BorrowRecordController::class, 'returnItems']);
+    Route::get('/activity-logs', [ActivityLogController::class, 'index']);
     Route::get('/suppliers', [ReferenceDataController::class, 'suppliers']);
     Route::apiResource('reorders', ReorderRequestController::class)->except(['show']);
     Route::get('/notifications', [NotificationController::class, 'index']);

@@ -145,9 +145,7 @@ class StockTransactionController extends Controller
     public function update(Request $request, StockTransaction $transaction)
     {
         $actor = $this->authenticatedUser($request);
-        if ($actor->permission === 'view') {
-            return response()->json(['message' => 'This account has view-only access.'], 403);
-        }
+        $this->authorizeAdministrator($request, 'Only administrators can change recorded stock transactions.');
 
         $validated = $request->validate([
             'itemId' => 'sometimes|exists:inventory_items,id',
@@ -224,9 +222,7 @@ class StockTransactionController extends Controller
     public function destroy(Request $request, StockTransaction $transaction)
     {
         $actor = $this->authenticatedUser($request);
-        if ($actor->permission === 'view') {
-            return response()->json(['message' => 'This account has view-only access.'], 403);
-        }
+        $this->authorizeAdministrator($request, 'Only administrators can delete recorded stock transactions.');
 
         DB::transaction(function () use ($transaction) {
             $item = InventoryItem::whereKey($transaction->itemId)->lockForUpdate()->first();

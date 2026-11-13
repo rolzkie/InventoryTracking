@@ -8,13 +8,13 @@ import {
   Lock,
   Mail,
   Loader2,
-  Moon,
-  Sun,
 } from "lucide-react";
+import BrandLogo from "../components/BrandLogo";
 
 interface LoginProps {
   onLogin: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   onForgotPassword: (email: string) => Promise<{ success: boolean; message: string }>;
+  onContactUs: () => void;
   darkMode: boolean;
   onToggleTheme: () => void;
 }
@@ -43,7 +43,7 @@ const binStatuses = [
   { id: "C-04", level: 78, status: "Stocked" },
 ];
 
-export default function Login({ onLogin, onForgotPassword, darkMode, onToggleTheme }: LoginProps) {
+export default function Login({ onLogin, onForgotPassword, onContactUs }: LoginProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -116,7 +116,7 @@ export default function Login({ onLogin, onForgotPassword, darkMode, onToggleThe
             </div>
             <div>
               <p className="text-sm font-bold tracking-wide text-content">Inventory System</p>
-              <p className="mt-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-content-subtle">Inventory operations</p>
+              <p className="mt-0.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-content-subtle">Access Control</p>
             </div>
           </div>
 
@@ -126,18 +126,18 @@ export default function Login({ onLogin, onForgotPassword, darkMode, onToggleThe
               One connected operation
             </div>
             <h1 className="text-3xl font-bold leading-[1.12] tracking-tight text-content sm:text-4xl xl:text-[2.7rem]">
-              Every bin, every location,
-              <span className="login-heading-accent block">one clear count.</span>
+              School resources,
+              <span className="login-heading-accent block">clearly accounted for.</span>
             </h1>
             <p className="mt-3 max-w-lg text-sm leading-relaxed text-content-muted">
-              Track stock, approve transfers, and catch shortages before they reach the shelf.
+              Monitor supplies, computer equipment, laboratory materials, and borrowed resources in one secure place.
             </p>
           </div>
 
           <div className="login-warehouse-preview rounded-[1.4rem] p-3.5 sm:p-4" aria-label="Illustration of live warehouse inventory bins">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
-                <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-content-subtle">East DC · Aisles A–C</p>
+                <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-content-subtle">East DC · Aisles Aâ€“C</p>
                 <p className="mt-1 text-[11px] font-semibold text-content">Warehouse floor overview</p>
               </div>
               <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-[9px] font-semibold text-emerald-300">
@@ -185,28 +185,16 @@ export default function Login({ onLogin, onForgotPassword, darkMode, onToggleThe
       </section>
 
       <section className="login-form-panel flex min-h-screen items-center justify-center px-4 py-6 sm:px-8 lg:px-10 xl:px-14" aria-label="Account access">
-        <div className="login-card w-full max-w-[430px] rounded-[1.6rem] p-5 sm:p-7">
-          <div className="mb-4 flex items-center gap-2.5 lg:hidden">
-            <div className="login-brand-mark flex h-8 w-8 items-center justify-center rounded-xl"><Box size={15} aria-hidden="true" /></div>
-            <div><p className="text-xs font-bold text-content">Inventory System</p><p className="text-[8px] font-semibold uppercase tracking-[0.16em] text-content-subtle">Inventory operations</p></div>
+        <div className="login-card w-full max-w-[530px] rounded-[1.6rem] p-5 sm:p-7">
+          <div className="login-logo-panel">
+            <BrandLogo className="login-brand-logo" />
           </div>
+          <div className="login-card-content">
           <div className="mb-5 flex items-start justify-between gap-4">
             <div>
-              <div className="mb-2 flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.2em] text-content-subtle">
-                <Lock size={11} aria-hidden="true" /> Secure access
-              </div>
               <h2 className="text-2xl font-bold tracking-tight text-content">Welcome back</h2>
-              <p className="mt-1 text-xs leading-relaxed text-content-muted">Sign in to your command center.</p>
+              <p className="mt-1 text-xs leading-relaxed text-content-muted">Sign in to manage school inventory.</p>
             </div>
-            <button
-              type="button"
-              onClick={onToggleTheme}
-              aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-              title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-              className="login-theme-toggle inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-colors"
-            >
-              {darkMode ? <Sun size={15} aria-hidden="true" /> : <Moon size={15} aria-hidden="true" />}
-            </button>
           </div>
 
           {recentLogins.length > 0 && (
@@ -244,7 +232,7 @@ export default function Login({ onLogin, onForgotPassword, darkMode, onToggleThe
 
               <form onSubmit={handleSubmit} className="space-y-3.5">
                 <div>
-                  <label htmlFor="login-email" className="mb-1.5 block text-[10px] font-semibold text-content-muted">Work email</label>
+                  <label htmlFor="login-email" className="mb-1.5 block text-[10px] font-semibold text-content-muted">University email</label>
                   <div className="login-input-wrap relative">
                     <Mail size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-content-subtle" aria-hidden="true" />
                     <input
@@ -294,14 +282,14 @@ export default function Login({ onLogin, onForgotPassword, darkMode, onToggleThe
               </form>
 
               <div className="login-access-note mt-4 border-t border-border-subtle pt-3 text-center">
-                <p className="text-[10px] text-content-subtle">Need access? Contact your administrator.</p>
+                <p className="text-[10px] text-content-subtle">Need access? <button type="button" onClick={onContactUs} className="login-link font-semibold">Contact your administrator.</button></p>
+                <p className="mt-1 text-[10px] text-content-subtle">Inventory System</p>
               </div>
+          </div>
         </div>
 
-        <p className="mt-4 text-center text-[10px] text-content-subtle lg:absolute lg:bottom-5">
-          Inventory System <span aria-hidden="true">·</span> Secure operations workspace
-        </p>
       </section>
     </main>
   );
 }
+

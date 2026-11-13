@@ -2,7 +2,7 @@ export type ItemStatus = "in-stock" | "low-stock" | "out-of-stock" | "expired" |
 export type TransactionType = "stock-in" | "stock-out";
 export type TransferStatus = "pending" | "in-transit" | "completed" | "cancelled";
 export type AlertType = "low-stock" | "out-of-stock" | "expiring" | "overstock";
-export type UserRole = "admin" | "manager" | "staff" | "viewer";
+export type UserRole = "admin" | "staff" | "viewer";
 export type UserPermission = "manage" | "view";
 
 export interface Category {
@@ -75,6 +75,21 @@ export interface StockTransaction {
   expirationDate?: string;
 }
 
+export interface BorrowRecord {
+  id: string;
+  itemId: string;
+  itemName: string;
+  borrowerName: string;
+  quantity: number;
+  quantityReturned: number;
+  outstandingQuantity: number;
+  borrowedAt: string;
+  expectedReturnAt: string;
+  returnedAt: string | null;
+  status: "borrowed" | "returned" | "overdue";
+  notes: string;
+}
+
 export interface Transfer {
   id: string;
   itemId: string;
@@ -140,6 +155,9 @@ export type Page =
   | "warehouses"
   | "transfers"
   | "stock-transactions"
+  | "borrow-records"
+  | "categories"
+  | "activity-logs"
   | "reports"
   | "users"
   | "settings";
