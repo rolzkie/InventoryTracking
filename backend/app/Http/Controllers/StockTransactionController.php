@@ -182,7 +182,12 @@ class StockTransactionController extends Controller
                 }
 
                 if ($oldTransaction->transactionType === 'stock_in') {
-                    $oldItem->quantity = max(0, $oldItem->quantity - $oldTransaction->quantity);
+                    if ($oldItem->quantity < $oldTransaction->quantity) {
+                        throw ValidationException::withMessages([
+                            'quantity' => 'This transaction cannot be changed because some of its received stock has already been used.',
+                        ]);
+                    }
+                    $oldItem->quantity -= $oldTransaction->quantity;
                 } else {
                     $oldItem->quantity += $oldTransaction->quantity;
                 }
@@ -228,7 +233,12 @@ class StockTransactionController extends Controller
             $item = InventoryItem::whereKey($transaction->itemId)->lockForUpdate()->first();
             if ($item) {
                 if ($transaction->transactionType === 'stock_in') {
-                    $item->quantity = max(0, $item->quantity - $transaction->quantity);
+                    if ($item->quantity < $transaction->quantity) {
+                        throw ValidationException::withMessages([
+                            'quantity' => 'This transaction cannot be deleted because some of its received stock has already been used.',
+                        ]);
+                    }
+                    $item->quantity -= $transaction->quantity;
                 } else {
                     $item->quantity += $transaction->quantity;
                 }

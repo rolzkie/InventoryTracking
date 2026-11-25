@@ -36,6 +36,17 @@ class StockAndWarehouseIntegrityTest extends TestCase
         $this->assertDatabaseHas('inventory_items', ['id' => $item->id, 'quantity' => 2]);
     }
 
+    public function test_direct_adjustment_rejects_a_reduction_below_zero(): void
+    {
+        [$warehouse, $item] = $this->inventoryFixture(5);
+
+        $this->postJson("/api/inventory/{$item->id}/adjust", ['delta' => -6])->assertUnprocessable();
+        $this->assertDatabaseHas('inventory_items', ['id' => $item->id, 'quantity' => 5]);
+
+        $this->postJson("/api/inventory/{$item->id}/adjust", ['delta' => -3])->assertOk();
+        $this->assertDatabaseHas('inventory_items', ['id' => $item->id, 'quantity' => 2]);
+    }
+
     public function test_view_only_accounts_cannot_write_stock_transactions(): void
     {
         $user = User::factory()->create([

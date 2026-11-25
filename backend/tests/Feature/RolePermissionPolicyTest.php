@@ -88,4 +88,34 @@ class RolePermissionPolicyTest extends TestCase
         $this->deleteJson("/api/transactions/{$transactionId}")->assertOk();
         $this->assertDatabaseHas('inventory_items', ['id' => $item->id, 'quantity' => 5]);
     }
+
+    public function test_stock_in_history_cannot_be_reversed_after_received_units_were_used(): void
+    {
+        $warehouse = Warehouse::create(['name' => 'Ledger Store', 'location' => 'Main building', 'capacity' => 100]);
+        $item = InventoryItem::create([
+            'sku' => 'LEDGER-REVERSAL-1', 'name' => 'Printer Paper', 'category' => 'School Supplies',
+            'quantity' => 0, 'reorderPoint' => 1, 'maxStock' => 100,
+            'warehouseId' => $warehouse->id, 'unitPrice' => 5,
+        ]);
+
+        $stockInId = $this->postJson('/api/transactions', [
+            'itemId' => $item->id,
+            'warehouseId' => $warehouse->id,
+            'transactionType' => 'stock_in',
+            'quantity' => 5,
+        ])->assertCreated()->json('id');
+
+        $this->postJson('/api/transactions', [
+            'itemId' => $item->id,
+            'warehouseId' => $warehouse->id,
+            'transactionType' => 'stock_out',
+            'quantity' => 4,
+        ])->assertCreated();
+
+        $this->deleteJson("/api/transactions/{$stockInId}")->assertUnprocessable();
+        $this->putJson("/api/transactions/{$stockInId}", ['quantity' => 3])->assertUnprocessable();
+
+        $this->assertDatabaseHas('stock_transactions', ['id' => $stockInId, 'quantity' => 5]);
+        $this->assertDatabaseHas('inventory_items', ['id' => $item->id, 'quantity' => 1]);
+    }
 }

@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Carbon\CarbonInterface;
 
 class InventoryController extends Controller
@@ -269,7 +270,13 @@ class InventoryController extends Controller
                 return null;
             }
 
-            $item->quantity = max(0, $item->quantity + $validated['delta']);
+            if ($item->quantity + $validated['delta'] < 0) {
+                throw ValidationException::withMessages([
+                    'delta' => 'The adjustment cannot reduce available stock below zero.',
+                ]);
+            }
+
+            $item->quantity += $validated['delta'];
             $item->save();
 
             return $this->sync->reconcileItem($item);

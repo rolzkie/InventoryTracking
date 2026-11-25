@@ -650,9 +650,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [refreshOperationalData]);
 
   const markAllNotificationsRead = useCallback(async () => {
-    await api.notifications.markAllRead();
+    const unreadAlertIds = state.alerts
+      .filter((alert) => !alert.acknowledged)
+      .map((alert) => alert.id);
+    await api.notifications.markAllRead(unreadAlertIds);
     await refreshOperationalData();
-  }, [refreshOperationalData]);
+  }, [refreshOperationalData, state.alerts]);
 
   const setDarkMode = useCallback(async (value: boolean) => {
     const appearance = { ...(state.settings.appearance ?? {}), darkMode: value };

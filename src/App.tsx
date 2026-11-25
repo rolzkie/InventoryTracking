@@ -18,10 +18,17 @@ import ContactUs from "./pages/ContactUs";
 import HelpGuide from "./pages/HelpGuide";
 
 function AppContent() {
-  const { state, dispatch, login, forgotPassword, showToast, refreshOperationalData } = useApp();
+  const { state, dispatch, navigate, login, forgotPassword, showToast, refreshOperationalData } = useApp();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showPublicContact, setShowPublicContact] = useState(false);
   const [supportPage, setSupportPage] = useState<null | "help" | "contact">(null);
+  const isHelpPage = supportPage === "help";
+
+  const returnToDashboard = () => {
+    setSupportPage(null);
+    setSidebarOpen(false);
+    navigate("dashboard");
+  };
 
   // ─── Not authenticated → show login ───────────────────────────────────────
   if (!state.isAuthenticated) {
@@ -66,10 +73,10 @@ function AppContent() {
 
   return (
     <div className="app-shell min-h-screen bg-canvas text-content">
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      {!isHelpPage && <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
 
-      <div className="lg:pl-60 flex flex-col min-h-screen min-w-0">
-        <TopNav onMenuToggle={() => setSidebarOpen((v) => !v)} onOpenHelp={() => setSupportPage("help")} helpActive={supportPage !== null} />
+      <div className={`${isHelpPage ? "" : "lg:pl-60 "}flex flex-col min-h-screen min-w-0`}>
+        {!isHelpPage && <TopNav onMenuToggle={() => setSidebarOpen((v) => !v)} onOpenHelp={() => { setSidebarOpen(false); setSupportPage("help"); }} helpActive={supportPage !== null} />}
 
         <main className="app-main flex-1 min-w-0 p-4 md:p-6 xl:p-7 overflow-auto">
           {state.backendError && (
@@ -89,7 +96,7 @@ function AppContent() {
               Loading operational data from Laravel…
             </div>
           )}
-          {supportPage === "help" ? <HelpGuide onContact={() => setSupportPage("contact")} onBack={() => setSupportPage(null)} />
+          {supportPage === "help" ? <HelpGuide onBack={returnToDashboard} />
             : supportPage === "contact" ? <ContactUs onBack={() => setSupportPage("help")} />
               : page}
         </main>

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\AppNotification;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class NotificationController extends Controller
 {
@@ -18,9 +20,28 @@ class NotificationController extends Controller
         return response()->json($notification->fresh());
     }
 
-    public function markAllRead()
+    public function markAllRead(Request $request)
     {
-        AppNotification::where('read', false)->update(['read' => true]);
+        $validated = $request->validate([
+            'alertIds' => ['sometimes', 'array', 'max:500'],
+            'alertIds.*' => ['required', 'string', 'max:255'],
+        ]);
+        $actorId = $request->attributes->get('authenticatedUser')?->id;
+
+        DB::transaction(function () use ($validated, $actorId): void {
+            AppNotification::where('read', false)->update(['read' => true]);
+
+            $now = now();
+            foreach (array_unique($validated['alertIds'] ?? []) as $alertId) {
+                DB::table('alert_acknowledgements')->updateOrInsert(
+                    ['alertId' => $alertId],
+                    [
+                        'userId' => $actorId,
+                        'acknowledgedAt' => $now,
+                    ],
+                );
+            }
+        });
 
         return response()->json(['ok' => true]);
     }

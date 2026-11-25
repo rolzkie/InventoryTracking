@@ -12,6 +12,39 @@ use Tests\TestCase;
 
 class ApplicationSupportApiTest extends TestCase
 {
+    public function test_mark_all_read_updates_notifications_and_acknowledges_inventory_alerts(): void
+    {
+        $notification = AppNotification::create([
+            'title' => 'Low Stock',
+            'message' => 'Paper is below its reorder point.',
+            'type' => 'warning',
+            'read' => false,
+        ]);
+
+        $this->patchJson('/api/notifications/read-all', [
+            'alertIds' => ['low-123', 'exp-456'],
+        ])->assertOk()->assertJsonPath('ok', true);
+
+        $this->assertDatabaseHas('app_notifications', ['id' => $notification->id, 'read' => true]);
+        $this->assertDatabaseHas('alert_acknowledgements', ['alertId' => 'low-123']);
+        $this->assertDatabaseHas('alert_acknowledgements', ['alertId' => 'exp-456']);
+    }
+
+    public function test_mark_all_read_rejects_invalid_alert_ids_without_marking_notifications_read(): void
+    {
+        $notification = AppNotification::create([
+            'title' => 'Test',
+            'message' => 'Unread notification',
+            'type' => 'info',
+            'read' => false,
+        ]);
+
+        $this->patchJson('/api/notifications/read-all', ['alertIds' => 'low-123'])->assertUnprocessable();
+
+        $this->assertDatabaseHas('app_notifications', ['id' => $notification->id, 'read' => false]);
+        $this->assertDatabaseCount('alert_acknowledgements', 0);
+    }
+
     public function test_login_users_notifications_settings_and_reorders_are_database_backed(): void
     {
         $user = User::factory()->create([

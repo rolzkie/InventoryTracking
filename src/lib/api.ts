@@ -338,7 +338,11 @@ export const api = {
     list: () => request<ApiRecord[]>("/notifications").then((rows) => rows.map(normalizeNotification)),
     markRead: (id: string) =>
       request<ApiRecord>(`/notifications/${id}/read`, { method: "PATCH" }).then(normalizeNotification),
-    markAllRead: () => request<{ ok: boolean }>("/notifications/read-all", { method: "PATCH" }),
+    markAllRead: (alertIds: string[] = []) =>
+      request<{ ok: boolean }>("/notifications/read-all", {
+        method: "PATCH",
+        body: JSON.stringify({ alertIds }),
+      }),
   },
   alerts: {
     acknowledge: (alertId: string, userId?: string) =>
