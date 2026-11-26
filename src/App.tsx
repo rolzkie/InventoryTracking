@@ -21,7 +21,7 @@ function AppContent() {
   const { state, dispatch, navigate, login, forgotPassword, showToast, refreshOperationalData } = useApp();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showPublicContact, setShowPublicContact] = useState(false);
-  const [supportPage, setSupportPage] = useState<null | "help" | "contact">(null);
+  const [supportPage, setSupportPage] = useState<null | "help">(null);
   const isHelpPage = supportPage === "help";
 
   const returnToDashboard = () => {
@@ -96,9 +96,7 @@ function AppContent() {
               Loading operational data from Laravel…
             </div>
           )}
-          {supportPage === "help" ? <HelpGuide onBack={returnToDashboard} />
-            : supportPage === "contact" ? <ContactUs onBack={() => setSupportPage("help")} />
-              : page}
+          {supportPage === "help" ? <HelpGuide onBack={returnToDashboard} /> : page}
         </main>
 
         <footer className="app-footer px-6 py-3 border-t text-center text-xs text-slate-500" style={{ borderColor: "var(--border-subtle)" }}>

@@ -1,4 +1,6 @@
-import { ArrowLeft, CircleHelp } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeft, CircleHelp, Mail } from "lucide-react";
+import HelpContactUs from "./HelpContactUs";
 
 const sections = [
   { title: "Dashboard overview", body: "Use the dashboard to review total products, available stock, low stock warnings, borrowed items, recent activity, and recent transactions. Select the related navigation item to open a full list." },
@@ -20,6 +22,8 @@ const faqs = [
 ];
 
 export default function HelpGuide({ onBack }: { onBack: () => void }) {
+  const [showContactUs, setShowContactUs] = useState(false);
+
   return (
     <section className="help-page">
       <header className="help-page-header">
@@ -28,8 +32,9 @@ export default function HelpGuide({ onBack }: { onBack: () => void }) {
       </header>
       <div className="help-layout">
         <section className="help-panel"><h2>How to use the system</h2><div className="help-steps">{sections.map((item, i) => <article className="help-step" key={item.title}><span>{String(i + 1).padStart(2, "0")}</span><div><h3>{item.title}</h3><p>{item.body}</p></div></article>)}</div></section>
-        <section className="help-panel"><h2>Frequently asked questions</h2><div className="help-faqs">{faqs.map((item) => <details key={item.q}><summary>{item.q}</summary><p>{item.a}</p></details>)}</div></section>
+        <section className="help-panel"><h2>Frequently asked questions</h2><div className="help-faqs">{faqs.map((item) => <details key={item.q}><summary>{item.q}</summary><p>{item.a}</p></details>)}</div><button type="button" className="help-contact" onClick={() => setShowContactUs(true)}><Mail size={15} /> Contact Us</button></section>
       </div>
+      {showContactUs && <HelpContactUs onBack={() => setShowContactUs(false)} />}
     </section>
   );
 }
