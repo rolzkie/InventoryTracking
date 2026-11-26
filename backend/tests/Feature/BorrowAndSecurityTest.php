@@ -31,18 +31,13 @@ class BorrowAndSecurityTest extends TestCase
             'expectedReturnAt' => now()->addDay()->toDateString(),
         ])->assertCreated()->json('id');
 
-<<<<<<< HEAD
         $this->assertDatabaseHas('inventory_items', ['id' => $item->id, 'quantity' => 1, 'status' => 'low_stock']);
         $this->assertDatabaseHas('app_notifications', ['title' => 'Low Stock', 'read' => false]);
-        $this->assertDatabaseHas('activity_logs', ['action' => 'POST api/borrow-records']);
-=======
-        $this->assertDatabaseHas('inventory_items', ['id' => $item->id, 'quantity' => 3]);
         $this->assertDatabaseHas('activity_logs', [
             'action' => 'inventory_borrowed',
             'subjectType' => 'inventory_item',
             'subjectId' => (string) $item->id,
         ]);
->>>>>>> 88e1fc435c2e991c57d32c4fb3264a4b241eff00
 
         $this->postJson("/api/borrow-records/{$borrow}/return", ['quantity' => 3])->assertOk()->assertJsonPath('status', 'borrowed');
         $this->assertDatabaseHas('inventory_items', ['id' => $item->id, 'quantity' => 4, 'status' => 'in_stock']);

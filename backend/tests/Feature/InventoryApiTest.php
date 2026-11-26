@@ -88,8 +88,8 @@ class InventoryApiTest extends TestCase
             'warehouseId' => $warehouse->id,
             'transactionType' => 'stock_in',
             'quantity' => 1,
-            'purpose' => 'inventory_adjustment',
-            'notes' => 'Quantity changed from the inventory record form.',
+            'purpose' => 'adjustment',
+            'notes' => 'Administrator stock adjustment. Reason: Inventory recount correction. Quantity: 2 -> 3.',
         ]);
     }
 
@@ -251,7 +251,7 @@ class InventoryApiTest extends TestCase
 
         $this->deleteJson("/api/inventory/{$item->id}")
             ->assertUnprocessable()
-            ->assertJsonPath('error', 'Inventory with on-hand stock or movement history cannot be deleted. Keep the record for audit purposes.');
+            ->assertJsonPath('message', 'Inventory with stock, borrow, or transfer history cannot be deleted.');
 
         $this->assertDatabaseHas('inventory_items', ['id' => $item->id]);
         $this->assertDatabaseHas('stock_transactions', ['id' => $transaction->id]);
