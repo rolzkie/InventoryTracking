@@ -10,6 +10,7 @@ class StockTransaction extends Model
 
     protected $fillable = [
         'itemId',
+        'userId',
         'warehouseId',
         'transactionType',
         'quantity',
@@ -33,6 +34,11 @@ class StockTransaction extends Model
     public function item()
     {
         return $this->belongsTo(InventoryItem::class, 'itemId');
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'userId');
     }
 
     public function warehouse()

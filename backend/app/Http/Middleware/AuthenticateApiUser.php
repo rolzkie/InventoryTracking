@@ -12,6 +12,10 @@ class AuthenticateApiUser
 {
     public function handle(Request $request, Closure $next): Response
     {
+        if (app()->environment('production') && ! $request->isSecure()) {
+            return response()->json(['message' => 'HTTPS is required.'], 400);
+        }
+
         if ($request->is('api/auth/csrf-token') || $request->is('api/auth/login') || $request->is('api/auth/forgot-password')) {
             return $next($request);
         }
@@ -21,6 +25,36 @@ class AuthenticateApiUser
 
         if (! $user || ! $user->active || ! $user->token_expires_at || $user->token_expires_at->isPast()) {
             return response()->json(['message' => 'Authentication is required.'], 401);
+        }
+
+        $path = $request->path();
+        if ($user->role === 'viewer' || $user->permission === 'view') {
+            $viewerReadPrefixes = [
+                'api/dashboard',
+                'api/inventory',
+                'api/warehouses',
+                'api/categories',
+                'api/suppliers',
+                'api/reports',
+            ];
+            $allowedViewerRead = in_array($request->method(), ['GET', 'HEAD'], true)
+                && collect($viewerReadPrefixes)->contains(fn (string $prefix) => $path === $prefix || str_starts_with($path, $prefix.'/'));
+
+            if (! $allowedViewerRead) {
+                return response()->json(['message' => 'Viewers can only access inventory information and reports.'], 403);
+            }
+        }
+
+        if ($user->role !== 'admin' && ($path === 'api/settings' || str_starts_with($path, 'api/settings/'))) {
+            return response()->json(['message' => 'Only administrators can access system settings.'], 403);
+        }
+
+        if ($user->role !== 'admin' && (str_starts_with($path, 'api/transfers') || str_starts_with($path, 'api/system/'))) {
+            return response()->json(['message' => 'Only administrators can access transfer and system administration data.'], 403);
+        }
+
+        if ($user->role === 'staff' && str_starts_with($path, 'api/reports/')) {
+            return response()->json(['message' => 'Reports are available to administrators and viewers.'], 403);
         }
 
         if (! in_array($request->method(), ['GET', 'HEAD', 'OPTIONS'], true)
@@ -40,7 +74,7 @@ class AuthenticateApiUser
         $response = $next($request);
 
         $path = $request->path();
-        if ($response->getStatusCode() < 400 && (
+        if (! $request->attributes->get('detailedInventoryActivityLogged') && $response->getStatusCode() < 400 && (
             ! in_array($request->method(), ['GET', 'HEAD', 'OPTIONS'], true)
             || str_starts_with($path, 'api/reports/')
         )) {

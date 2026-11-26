@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\BorrowRecord;
 use App\Models\InventoryItem;
 use App\Models\StockTransaction;
+use App\Services\InventoryActivityLogger;
 use App\Services\StockTransactionReferenceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,7 +22,7 @@ class BorrowRecordController extends Controller
         }));
     }
 
-    public function store(Request $request, StockTransactionReferenceService $references)
+    public function store(Request $request, StockTransactionReferenceService $references, InventoryActivityLogger $activityLogger)
     {
         $validated = $request->validate([
             'itemId' => ['required', 'integer', 'exists:inventory_items,id'],
@@ -32,8 +33,9 @@ class BorrowRecordController extends Controller
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        $record = DB::transaction(function () use ($validated, $request, $references) {
+        $record = DB::transaction(function () use ($validated, $request, $references, $activityLogger) {
             $item = InventoryItem::query()->lockForUpdate()->findOrFail($validated['itemId']);
+            $previousQuantity = (int) $item->quantity;
             if ($item->quantity < $validated['quantity']) {
                 throw ValidationException::withMessages(['quantity' => 'Borrow quantity exceeds available stock.']);
             }
@@ -51,14 +53,21 @@ class BorrowRecordController extends Controller
             ]);
             StockTransaction::create([
                 'itemId' => $item->id,
+                'userId' => $request->attributes->get('authenticatedUser')->id,
                 'warehouseId' => $item->warehouseId,
                 'transactionType' => 'stock_out',
                 'quantity' => $validated['quantity'],
                 'purpose' => 'borrow',
-                'processedBy' => $request->attributes->get('authenticatedUser')?->name,
+                'processedBy' => $request->attributes->get('authenticatedUser')?->name.' (#'.$request->attributes->get('authenticatedUser')?->id.')',
                 'notes' => 'Borrow record #'.$record->id.': '.$validated['borrowerName'],
                 'createdAt' => now(),
                 'referenceNumber' => $references->generate('stock_out'),
+            ]);
+            $activityLogger->log($request, 'inventory_borrowed', 'inventory_item', $item->id, [
+                'previous' => ['quantity' => $previousQuantity],
+                'updated' => ['quantity' => (int) $item->quantity],
+                'quantityChange' => ['from' => $previousQuantity, 'to' => (int) $item->quantity, 'delta' => (int) $item->quantity - $previousQuantity],
+                'borrowRecordId' => $record->id,
             ]);
 
             return $record;
@@ -67,11 +76,11 @@ class BorrowRecordController extends Controller
         return response()->json($record->load('item'), 201);
     }
 
-    public function returnItems(Request $request, BorrowRecord $borrow, StockTransactionReferenceService $references)
+    public function returnItems(Request $request, BorrowRecord $borrow, StockTransactionReferenceService $references, InventoryActivityLogger $activityLogger)
     {
         $validated = $request->validate(['quantity' => ['required', 'integer', 'min:1']]);
 
-        $record = DB::transaction(function () use ($borrow, $validated, $request, $references) {
+        $record = DB::transaction(function () use ($borrow, $validated, $request, $references, $activityLogger) {
             $record = BorrowRecord::query()->lockForUpdate()->findOrFail($borrow->id);
             $outstanding = $record->quantity - $record->quantityReturned;
             if ($validated['quantity'] > $outstanding) {
@@ -79,6 +88,7 @@ class BorrowRecordController extends Controller
             }
 
             $item = InventoryItem::query()->lockForUpdate()->findOrFail($record->itemId);
+            $previousQuantity = (int) $item->quantity;
             $item->quantity += $validated['quantity'];
             $item->save();
 
@@ -91,14 +101,21 @@ class BorrowRecordController extends Controller
 
             StockTransaction::create([
                 'itemId' => $item->id,
+                'userId' => $request->attributes->get('authenticatedUser')->id,
                 'warehouseId' => $item->warehouseId,
                 'transactionType' => 'stock_in',
                 'quantity' => $validated['quantity'],
                 'purpose' => 'return',
-                'processedBy' => $request->attributes->get('authenticatedUser')?->name,
+                'processedBy' => $request->attributes->get('authenticatedUser')?->name.' (#'.$request->attributes->get('authenticatedUser')?->id.')',
                 'notes' => 'Return for borrow record #'.$record->id,
                 'createdAt' => now(),
                 'referenceNumber' => $references->generate('stock_in'),
+            ]);
+            $activityLogger->log($request, 'inventory_returned', 'inventory_item', $item->id, [
+                'previous' => ['quantity' => $previousQuantity],
+                'updated' => ['quantity' => (int) $item->quantity],
+                'quantityChange' => ['from' => $previousQuantity, 'to' => (int) $item->quantity, 'delta' => (int) $item->quantity - $previousQuantity],
+                'borrowRecordId' => $record->id,
             ]);
 
             return $record;

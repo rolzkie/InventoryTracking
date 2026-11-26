@@ -32,11 +32,19 @@ class BorrowAndSecurityTest extends TestCase
         ])->assertCreated()->json('id');
 
         $this->assertDatabaseHas('inventory_items', ['id' => $item->id, 'quantity' => 3]);
-        $this->assertDatabaseHas('activity_logs', ['action' => 'POST api/borrow-records']);
+        $this->assertDatabaseHas('activity_logs', [
+            'action' => 'inventory_borrowed',
+            'subjectType' => 'inventory_item',
+            'subjectId' => (string) $item->id,
+        ]);
 
         $this->postJson("/api/borrow-records/{$borrow}/return", ['quantity' => 2])->assertOk()->assertJsonPath('status', 'returned');
         $this->assertDatabaseHas('inventory_items', ['id' => $item->id, 'quantity' => 5]);
-        $this->assertDatabaseHas('activity_logs', ['action' => "POST api/borrow-records/{$borrow}/return"]);
+        $this->assertDatabaseHas('activity_logs', [
+            'action' => 'inventory_returned',
+            'subjectType' => 'inventory_item',
+            'subjectId' => (string) $item->id,
+        ]);
     }
 
     public function test_borrow_cannot_exceed_available_stock(): void
@@ -68,9 +76,19 @@ class BorrowAndSecurityTest extends TestCase
         $this->withToken($token)->getJson('/api/inventory')->assertUnauthorized();
     }
 
-    public function test_sql_injection_login_input_is_rejected(): void
+    public function test_sql_injection_search_input_does_not_expand_transaction_results(): void
     {
-        $this->loginApi("' OR 1=1 --", 'anything')->assertUnprocessable();
+        $item = $this->itemWithStock();
+        $this->postJson('/api/transactions', [
+            'itemId' => $item->id,
+            'warehouseId' => $item->warehouseId,
+            'transactionType' => 'stock_in',
+            'quantity' => 1,
+            'notes' => 'ordinary note',
+        ])->assertCreated();
+
+        $payload = urlencode("%' OR 1=1 --");
+        $this->getJson('/api/transactions?search='.$payload)->assertOk()->assertExactJson([]);
     }
 
     public function test_deactivated_account_cannot_log_in(): void
@@ -83,7 +101,7 @@ class BorrowAndSecurityTest extends TestCase
 
     public function test_login_sets_http_only_lax_cookie_with_eight_hour_expiry(): void
     {
-        User::factory()->create([
+        $user = User::factory()->create([
             'email' => 'cookie@example.test', 'password' => Hash::make('secret123'), 'role' => 'staff', 'active' => true,
         ]);
         $response = $this->loginApi('cookie@example.test', 'secret123')->assertOk();
@@ -93,5 +111,45 @@ class BorrowAndSecurityTest extends TestCase
         $this->assertSame('lax', strtolower((string) $cookie->getSameSite()));
         $this->assertSame(8 * 60 * 60, $cookie->getMaxAge());
         $this->assertArrayNotHasKey('token', $response->json());
+        $this->assertSame(hash('sha256', $cookie->getValue()), $user->fresh()->api_token);
+        $this->assertNotSame($cookie->getValue(), $user->fresh()->api_token);
+    }
+
+    public function test_logout_revokes_the_active_token(): void
+    {
+        User::factory()->create([
+            'email' => 'logout@example.test', 'password' => Hash::make('secret123'), 'role' => 'staff', 'active' => true,
+        ]);
+        $response = $this->loginApi('logout@example.test', 'secret123')->assertOk();
+        $cookie = collect($response->headers->getCookies())->first(fn ($cookie) => $cookie->getName() === 'inventory_auth');
+        $this->assertNotNull($cookie);
+        $token = $cookie->getValue();
+        $user = User::where('email', 'logout@example.test')->firstOrFail();
+
+        $this->withToken($token)->postJson('/api/auth/logout')->assertOk();
+
+        $this->assertNull($user->fresh()->api_token);
+        $this->assertNull($user->fresh()->token_expires_at);
+    }
+
+    public function test_production_api_requires_https_and_sets_secure_auth_cookie(): void
+    {
+        $this->app->detectEnvironment(fn () => 'production');
+        $this->getJson('/api/auth/csrf-token')->assertStatus(400);
+        $csrfResponse = $this->call('GET', 'https://localhost/api/auth/csrf-token');
+        $csrfResponse->assertOk();
+
+        User::factory()->create([
+            'email' => 'secure-cookie@example.test', 'password' => Hash::make('secret123'), 'role' => 'staff', 'active' => true,
+        ]);
+        $csrf = $csrfResponse->json('csrfToken');
+        $response = $this->call('POST', 'https://localhost/api/auth/login', [], [], [], [
+            'HTTP_ACCEPT' => 'application/json',
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_X_CSRF_TOKEN' => $csrf,
+        ], json_encode(['email' => 'secure-cookie@example.test', 'password' => 'secret123']))->assertOk();
+        $cookie = collect($response->headers->getCookies())->first(fn ($cookie) => $cookie->getName() === 'inventory_auth');
+        $this->assertNotNull($cookie);
+        $this->assertTrue($cookie->isSecure());
     }
 }

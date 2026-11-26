@@ -10,6 +10,7 @@ use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use App\Models\Warehouse;
+use App\Services\InventoryActivityLogger;
 use App\Services\InventoryNotificationService;
 use App\Services\InventorySynchronizationService;
 use App\Services\StockTransactionReferenceService;
@@ -20,6 +21,7 @@ class StockTransactionController extends Controller
         protected InventoryNotificationService $notifications,
         protected InventorySynchronizationService $sync,
         protected StockTransactionReferenceService $references,
+        protected InventoryActivityLogger $activityLogger,
     )
     {
     }
@@ -84,13 +86,14 @@ class StockTransactionController extends Controller
             'expirationDate' => 'nullable|date',
             'supplierId' => 'nullable|string|max:100',
             'purpose' => 'nullable|string|max:100',
-            'processedBy' => 'nullable|string|max:255',
             'unitCost' => 'sometimes|numeric|min:0',
             'notes' => 'nullable|string',
         ]);
 
-        $transaction = DB::transaction(function () use ($validated) {
+        $actor = $this->authenticatedUser($request);
+        $transaction = DB::transaction(function () use ($validated, $request, $actor) {
             $item = InventoryItem::lockForUpdate()->findOrFail($validated['itemId']);
+            $previousQuantity = (int) $item->quantity;
 
             if (!$item->warehouseId) {
                 throw ValidationException::withMessages([
@@ -117,16 +120,18 @@ class StockTransactionController extends Controller
                 $item->quantity -= $validated['quantity'];
             }
             $item->save();
+            $updatedQuantity = (int) $item->quantity;
 
             $transaction = StockTransaction::create([
                 'itemId' => $validated['itemId'],
+                'userId' => $actor->id,
                 'warehouseId' => $validated['warehouseId'],
                 'transactionType' => $validated['transactionType'],
                 'quantity' => $validated['quantity'],
                 'expirationDate' => $validated['expirationDate'] ?? null,
                 'supplierId' => $validated['supplierId'] ?? null,
                 'purpose' => $validated['purpose'] ?? null,
-                'processedBy' => $validated['processedBy'] ?? null,
+                'processedBy' => $actor->name.' (#'.$actor->id.')',
                 'unitCost' => $validated['unitCost'] ?? $item->unitPrice,
                 'notes' => $validated['notes'] ?? '',
                 'createdAt' => now(),
@@ -135,6 +140,14 @@ class StockTransactionController extends Controller
 
             $this->sync->reconcileItem($item, false);
             $this->notifications->stockTransactionCreated($transaction->fresh(['item', 'warehouse']));
+            $this->activityLogger->log($request, 'stock_transaction_created', 'inventory_item', $item->id, [
+                'previous' => ['quantity' => $previousQuantity],
+                'updated' => ['quantity' => $updatedQuantity],
+                'quantityChange' => ['from' => $previousQuantity, 'to' => $updatedQuantity, 'delta' => $updatedQuantity - $previousQuantity],
+                'stockTransactionId' => $transaction->id,
+                'transactionType' => $transaction->transactionType,
+                'purpose' => $transaction->purpose,
+            ]);
 
             return $transaction;
         });
@@ -155,7 +168,6 @@ class StockTransactionController extends Controller
             'expirationDate' => 'nullable|date',
             'supplierId' => 'nullable|string|max:100',
             'purpose' => 'nullable|string|max:100',
-            'processedBy' => 'nullable|string|max:255',
             'unitCost' => 'sometimes|numeric|min:0',
             'notes' => 'nullable|string',
         ]);
@@ -166,8 +178,9 @@ class StockTransactionController extends Controller
         $newType = $validated['transactionType'] ?? $transaction->transactionType;
         $newQuantity = $validated['quantity'] ?? $transaction->quantity;
 
-        DB::transaction(function () use ($validated, $transaction, $oldTransaction, $newItemId, $newWarehouseId, $newType, $newQuantity) {
+        DB::transaction(function () use ($validated, $transaction, $oldTransaction, $newItemId, $newWarehouseId, $newType, $newQuantity, $request) {
             $affectedItemIds = collect();
+            $previousQuantities = [];
             $changedStock = $newItemId !== $oldTransaction->itemId || $newWarehouseId !== $oldTransaction->warehouseId || $newType !== $oldTransaction->transactionType || $newQuantity !== $oldTransaction->quantity;
 
             if ($changedStock) {
@@ -176,6 +189,9 @@ class StockTransactionController extends Controller
                 $lockedItems = InventoryItem::whereIn('id', $itemIds)->lockForUpdate()->get()->keyBy('id');
                 $oldItem = $lockedItems->get($oldTransaction->itemId);
                 $newItem = $lockedItems->get($newItemId);
+                foreach ($lockedItems as $itemId => $lockedItem) {
+                    $previousQuantities[(int) $itemId] = (int) $lockedItem->quantity;
+                }
 
                 if (!$oldItem || !$newItem) {
                     throw ValidationException::withMessages(['itemId' => 'The selected inventory item no longer exists.']);
@@ -219,6 +235,28 @@ class StockTransactionController extends Controller
             $transaction->update(collect($validated)->except(['referenceNumber'])->all());
 
             $affectedItemIds->each(fn ($itemId) => $this->sync->reconcileItemId((int) $itemId));
+
+            if ($affectedItemIds->isNotEmpty()) {
+                foreach ($affectedItemIds as $itemId) {
+                    $item = InventoryItem::find($itemId);
+                    if (! $item) continue;
+                    $before = $previousQuantities[(int) $itemId];
+                    $after = (int) $item->quantity;
+                    $this->activityLogger->log($request, 'stock_transaction_updated', 'inventory_item', $item->id, [
+                        'previous' => ['quantity' => $before],
+                        'updated' => ['quantity' => $after],
+                        'quantityChange' => ['from' => $before, 'to' => $after, 'delta' => $after - $before],
+                        'stockTransactionId' => $transaction->id,
+                        'purpose' => $validated['purpose'] ?? $transaction->purpose,
+                    ]);
+                }
+            } else {
+                $this->activityLogger->log($request, 'stock_transaction_updated', 'stock_transaction', $transaction->id, [
+                    'previous' => ['transactionType' => $oldTransaction->transactionType, 'quantity' => (int) $oldTransaction->quantity, 'itemId' => $oldTransaction->itemId],
+                    'updated' => ['transactionType' => $newType, 'quantity' => $newQuantity, 'itemId' => $newItemId],
+                    'stockTransactionId' => $transaction->id,
+                ]);
+            }
         });
 
         return response()->json($transaction->fresh(['item', 'warehouse']));
@@ -229,9 +267,10 @@ class StockTransactionController extends Controller
         $actor = $this->authenticatedUser($request);
         $this->authorizeAdministrator($request, 'Only administrators can delete recorded stock transactions.');
 
-        DB::transaction(function () use ($transaction) {
+        DB::transaction(function () use ($transaction, $request) {
             $item = InventoryItem::whereKey($transaction->itemId)->lockForUpdate()->first();
             if ($item) {
+                $previousQuantity = (int) $item->quantity;
                 if ($transaction->transactionType === 'stock_in') {
                     if ($item->quantity < $transaction->quantity) {
                         throw ValidationException::withMessages([
@@ -244,6 +283,14 @@ class StockTransactionController extends Controller
                 }
                 $item->save();
                 $this->sync->reconcileItem($item);
+                $updatedQuantity = (int) $item->quantity;
+                $this->activityLogger->log($request, 'stock_transaction_deleted', 'inventory_item', $item->id, [
+                    'previous' => ['quantity' => $previousQuantity],
+                    'updated' => ['quantity' => $updatedQuantity],
+                    'quantityChange' => ['from' => $previousQuantity, 'to' => $updatedQuantity, 'delta' => $updatedQuantity - $previousQuantity],
+                    'stockTransactionId' => $transaction->id,
+                    'purpose' => $transaction->purpose,
+                ]);
             }
             $transaction->delete();
         });

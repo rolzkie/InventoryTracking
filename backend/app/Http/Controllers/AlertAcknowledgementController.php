@@ -18,13 +18,13 @@ class AlertAcknowledgementController extends Controller
     {
         $validated = $request->validate([
             'alertId' => ['required', 'string', 'max:255'],
-            'userId' => ['nullable', 'exists:users,id'],
         ]);
+        $actor = $request->attributes->get('authenticatedUser');
 
         DB::table('alert_acknowledgements')->updateOrInsert(
             ['alertId' => $validated['alertId']],
             [
-                'userId' => $validated['userId'] ?? null,
+                'userId' => $actor->id,
                 'acknowledgedAt' => now(),
             ],
         );

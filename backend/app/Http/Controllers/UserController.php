@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -75,7 +76,30 @@ class UserController extends Controller
             $validated['permission'] = 'view';
         }
 
+        $credentialsChanged = isset($validated['password']) && filled($validated['password']);
+        $deactivated = array_key_exists('active', $validated) && ! $validated['active'];
+        $trackedFields = ['name', 'email', 'role', 'permission', 'active'];
+        $previous = $user->only($trackedFields);
+
         $user->update($validated);
+        if ($credentialsChanged || $deactivated) {
+            $user->forceFill(['api_token' => null, 'token_expires_at' => null])->save();
+        }
+
+        ActivityLog::create([
+            'userId' => $actor->id,
+            'action' => $deactivated ? 'account_deactivated' : ($credentialsChanged ? 'account_password_changed' : 'account_updated'),
+            'subjectType' => 'user',
+            'subjectId' => (string) $user->id,
+            'details' => [
+                'previous' => $previous,
+                'updated' => $user->fresh()->only($trackedFields),
+                'passwordChanged' => $credentialsChanged,
+                'activeSessionsInvalidated' => $credentialsChanged || $deactivated,
+            ],
+            'ipAddress' => $request->ip(),
+        ]);
+        $request->attributes->set('detailedInventoryActivityLogged', true);
 
         return response()->json($user->fresh());
     }

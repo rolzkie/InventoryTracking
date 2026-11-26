@@ -40,10 +40,10 @@ class StockAndWarehouseIntegrityTest extends TestCase
     {
         [$warehouse, $item] = $this->inventoryFixture(5);
 
-        $this->postJson("/api/inventory/{$item->id}/adjust", ['delta' => -6])->assertUnprocessable();
+        $this->postJson("/api/inventory/{$item->id}/adjust", ['delta' => -6, 'reason' => 'Count correction'])->assertUnprocessable();
         $this->assertDatabaseHas('inventory_items', ['id' => $item->id, 'quantity' => 5]);
 
-        $this->postJson("/api/inventory/{$item->id}/adjust", ['delta' => -3])->assertOk();
+        $this->postJson("/api/inventory/{$item->id}/adjust", ['delta' => -3, 'reason' => 'Count correction'])->assertOk();
         $this->assertDatabaseHas('inventory_items', ['id' => $item->id, 'quantity' => 2]);
     }
 
