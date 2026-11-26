@@ -645,17 +645,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const acknowledgeAlert = useCallback(async (id: string) => {
     await api.alerts.acknowledge(id, state.currentUser.id);
-    await refreshOperationalData();
+    dispatch({ type: "ACKNOWLEDGE_ALERT", id });
+    void refreshOperationalData().catch(() => undefined);
   }, [refreshOperationalData, state.currentUser.id]);
 
   const createReorder = useCallback(async (request: ReorderRequest) => {
-    await api.reorders.create(request);
-    await refreshOperationalData();
+    const created = await api.reorders.create(request);
+    dispatch({ type: "ADD_REORDER", request: created });
+    void refreshOperationalData().catch(() => undefined);
   }, [refreshOperationalData]);
 
   const updateReorder = useCallback(async (request: ReorderRequest) => {
-    await api.reorders.update(request);
-    await refreshOperationalData();
+    const updated = await api.reorders.update(request);
+    dispatch({ type: "UPDATE_REORDER", request: updated });
+    void refreshOperationalData().catch(() => undefined);
   }, [refreshOperationalData]);
 
   const markNotificationRead = useCallback(async (id: string) => {

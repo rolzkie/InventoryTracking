@@ -6,12 +6,17 @@ use App\Models\BorrowRecord;
 use App\Models\InventoryItem;
 use App\Models\StockTransaction;
 use App\Services\StockTransactionReferenceService;
+use App\Services\InventorySynchronizationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class BorrowRecordController extends Controller
 {
+    public function __construct(protected InventorySynchronizationService $sync)
+    {
+    }
+
     public function index()
     {
         return response()->json(BorrowRecord::with('item')->latest()->get()->map(function (BorrowRecord $record) {
@@ -43,6 +48,7 @@ class BorrowRecordController extends Controller
 
             $item->quantity -= $validated['quantity'];
             $item->save();
+            $this->sync->reconcileItem($item);
 
             $record = BorrowRecord::create([
                 ...$validated,
@@ -81,6 +87,7 @@ class BorrowRecordController extends Controller
             $item = InventoryItem::query()->lockForUpdate()->findOrFail($record->itemId);
             $item->quantity += $validated['quantity'];
             $item->save();
+            $this->sync->reconcileItem($item);
 
             $record->quantityReturned += $validated['quantity'];
             if ($record->quantityReturned === $record->quantity) {

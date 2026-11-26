@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\InventoryItem;
 use App\Models\Supplier;
+use App\Models\StockTransaction;
 use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -80,6 +81,15 @@ class InventoryApiTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('name', 'Updated Laptop')
             ->assertJsonPath('quantity', 3);
+
+        $this->assertDatabaseHas('stock_transactions', [
+            'itemId' => $item->id,
+            'warehouseId' => $warehouse->id,
+            'transactionType' => 'stock_in',
+            'quantity' => 1,
+            'purpose' => 'inventory_adjustment',
+            'notes' => 'Quantity changed from the inventory record form.',
+        ]);
     }
 
     public function test_inventory_update_allows_the_same_sku_to_be_saved(): void
@@ -210,6 +220,40 @@ class InventoryApiTest extends TestCase
             'sku' => 'SKU-003-SUP',
             'supplierId' => (string) $supplier->id,
         ]);
+    }
+
+    public function test_inventory_with_stock_history_cannot_be_deleted(): void
+    {
+        $warehouse = Warehouse::create([
+            'name' => 'Audit Store',
+            'location' => 'Main building',
+            'capacity' => 100,
+        ]);
+        $item = InventoryItem::create([
+            'sku' => 'SKU-AUDIT-001',
+            'name' => 'Archived Projector',
+            'category' => 'Electronics',
+            'quantity' => 0,
+            'reorderPoint' => 1,
+            'warehouseId' => $warehouse->id,
+            'unitPrice' => 100,
+        ]);
+        $transaction = StockTransaction::create([
+            'itemId' => $item->id,
+            'warehouseId' => $warehouse->id,
+            'transactionType' => 'stock_out',
+            'quantity' => 1,
+            'purpose' => 'issue',
+            'referenceNumber' => 'STKOUT-TEST-0001',
+            'createdAt' => now(),
+        ]);
+
+        $this->deleteJson("/api/inventory/{$item->id}")
+            ->assertUnprocessable()
+            ->assertJsonPath('error', 'Inventory with on-hand stock or movement history cannot be deleted. Keep the record for audit purposes.');
+
+        $this->assertDatabaseHas('inventory_items', ['id' => $item->id]);
+        $this->assertDatabaseHas('stock_transactions', ['id' => $transaction->id]);
     }
 
     public function test_assignable_inventory_endpoint_returns_only_unassigned_valid_items(): void

@@ -43,8 +43,19 @@ class StockAndWarehouseIntegrityTest extends TestCase
         $this->postJson("/api/inventory/{$item->id}/adjust", ['delta' => -6])->assertUnprocessable();
         $this->assertDatabaseHas('inventory_items', ['id' => $item->id, 'quantity' => 5]);
 
-        $this->postJson("/api/inventory/{$item->id}/adjust", ['delta' => -3])->assertOk();
+        $this->postJson("/api/inventory/{$item->id}/adjust", [
+            'delta' => -3,
+            'notes' => 'Physical count found three fewer units.',
+        ])->assertOk();
         $this->assertDatabaseHas('inventory_items', ['id' => $item->id, 'quantity' => 2]);
+        $this->assertDatabaseHas('stock_transactions', [
+            'itemId' => $item->id,
+            'warehouseId' => $warehouse->id,
+            'transactionType' => 'stock_out',
+            'quantity' => 3,
+            'purpose' => 'inventory_adjustment',
+            'notes' => 'Physical count found three fewer units.',
+        ]);
     }
 
     public function test_view_only_accounts_cannot_write_stock_transactions(): void

@@ -26,15 +26,20 @@ class BorrowAndSecurityTest extends TestCase
         $borrow = $this->postJson('/api/borrow-records', [
             'itemId' => $item->id,
             'borrowerName' => 'Test Student',
-            'quantity' => 2,
+            'quantity' => 4,
             'borrowedAt' => now()->toDateString(),
             'expectedReturnAt' => now()->addDay()->toDateString(),
         ])->assertCreated()->json('id');
 
-        $this->assertDatabaseHas('inventory_items', ['id' => $item->id, 'quantity' => 3]);
+        $this->assertDatabaseHas('inventory_items', ['id' => $item->id, 'quantity' => 1, 'status' => 'low_stock']);
+        $this->assertDatabaseHas('app_notifications', ['title' => 'Low Stock', 'read' => false]);
         $this->assertDatabaseHas('activity_logs', ['action' => 'POST api/borrow-records']);
 
-        $this->postJson("/api/borrow-records/{$borrow}/return", ['quantity' => 2])->assertOk()->assertJsonPath('status', 'returned');
+        $this->postJson("/api/borrow-records/{$borrow}/return", ['quantity' => 3])->assertOk()->assertJsonPath('status', 'borrowed');
+        $this->assertDatabaseHas('inventory_items', ['id' => $item->id, 'quantity' => 4, 'status' => 'in_stock']);
+        $this->assertDatabaseHas('app_notifications', ['title' => 'Low Stock', 'read' => true]);
+
+        $this->postJson("/api/borrow-records/{$borrow}/return", ['quantity' => 1])->assertOk()->assertJsonPath('status', 'returned');
         $this->assertDatabaseHas('inventory_items', ['id' => $item->id, 'quantity' => 5]);
         $this->assertDatabaseHas('activity_logs', ['action' => "POST api/borrow-records/{$borrow}/return"]);
     }
