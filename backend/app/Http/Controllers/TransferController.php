@@ -5,17 +5,22 @@ namespace App\Http\Controllers;
 use App\Models\Transfer;
 use App\Models\InventoryItem;
 use App\Models\Warehouse;
+use App\Models\StockTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use App\Services\InventoryNotificationService;
 use App\Services\InventorySynchronizationService;
+use App\Services\InventoryActivityLogger;
+use App\Services\StockTransactionReferenceService;
 
 class TransferController extends Controller
 {
     public function __construct(
         protected InventoryNotificationService $notifications,
         protected InventorySynchronizationService $sync,
+        protected InventoryActivityLogger $activityLogger,
+        protected StockTransactionReferenceService $references,
     )
     {
     }
@@ -141,7 +146,7 @@ class TransferController extends Controller
         return InventoryItem::create($payload);
     }
 
-    protected function applyStatusTransition(Transfer $transfer, string $oldStatus, string $newStatus): array
+    protected function applyStatusTransition(Transfer $transfer, string $oldStatus, string $newStatus, Request $request): array
     {
         $item = $this->findItem($transfer->itemId);
 
@@ -154,8 +159,54 @@ class TransferController extends Controller
                 throw new \DomainException('Item is no longer in the source warehouse.');
             }
 
+            $sourcePreviousQuantity = (int) $item->quantity;
             $this->decrementSourceQuantity($item, $transfer->quantity);
             $destinationItem = $this->createOrUpdateDestinationItem($item, $transfer->destinationWarehouse, $transfer->quantity, $transfer);
+            $destinationUpdatedQuantity = (int) $destinationItem->quantity;
+            $destinationPreviousQuantity = $destinationUpdatedQuantity - (int) $transfer->quantity;
+            $actor = $request->attributes->get('authenticatedUser');
+            $now = now();
+
+            $outTransaction = StockTransaction::create([
+                'itemId' => $item->id,
+                'userId' => $actor->id,
+                'warehouseId' => $transfer->sourceWarehouse,
+                'transactionType' => 'stock_out',
+                'quantity' => $transfer->quantity,
+                'purpose' => 'transfer',
+                'referenceNumber' => $this->references->generate('stock_out', $now),
+                'processedBy' => $actor->name.' (#'.$actor->id.')',
+                'unitCost' => $item->unitPrice,
+                'notes' => 'Transfer #'.$transfer->id.' to warehouse '.$transfer->destinationWarehouse.'.',
+                'createdAt' => $now,
+            ]);
+            $inTransaction = StockTransaction::create([
+                'itemId' => $destinationItem->id,
+                'userId' => $actor->id,
+                'warehouseId' => $transfer->destinationWarehouse,
+                'transactionType' => 'stock_in',
+                'quantity' => $transfer->quantity,
+                'purpose' => 'transfer',
+                'referenceNumber' => $this->references->generate('stock_in', $now),
+                'processedBy' => $actor->name.' (#'.$actor->id.')',
+                'unitCost' => $destinationItem->unitPrice,
+                'notes' => 'Transfer #'.$transfer->id.' from warehouse '.$transfer->sourceWarehouse.'.',
+                'createdAt' => $now,
+            ]);
+            $this->activityLogger->log($request, 'inventory_transfer_completed', 'inventory_item', $item->id, [
+                'previous' => ['quantity' => $sourcePreviousQuantity, 'warehouseId' => $transfer->sourceWarehouse],
+                'updated' => ['quantity' => (int) $item->quantity, 'warehouseId' => $transfer->sourceWarehouse],
+                'quantityChange' => ['from' => $sourcePreviousQuantity, 'to' => (int) $item->quantity, 'delta' => (int) $item->quantity - $sourcePreviousQuantity],
+                'transferId' => $transfer->id,
+                'stockTransactionId' => $outTransaction->id,
+            ]);
+            $this->activityLogger->log($request, 'inventory_transfer_completed', 'inventory_item', $destinationItem->id, [
+                'previous' => ['quantity' => $destinationPreviousQuantity, 'warehouseId' => $transfer->destinationWarehouse],
+                'updated' => ['quantity' => $destinationUpdatedQuantity, 'warehouseId' => $transfer->destinationWarehouse],
+                'quantityChange' => ['from' => $destinationPreviousQuantity, 'to' => $destinationUpdatedQuantity, 'delta' => $destinationUpdatedQuantity - $destinationPreviousQuantity],
+                'transferId' => $transfer->id,
+                'stockTransactionId' => $inTransaction->id,
+            ]);
 
             return array_values(array_filter([$item, $destinationItem]));
         }
@@ -189,7 +240,7 @@ class TransferController extends Controller
             'toShelf' => 'nullable|string|max:100',
         ]);
 
-        return DB::transaction(function () use ($validated) {
+        return DB::transaction(function () use ($validated, $request) {
             $item = $this->findItem($validated['itemId']);
 
             if ($item->warehouseId != $validated['sourceWarehouse']) {
@@ -222,7 +273,7 @@ class TransferController extends Controller
                 'createdAt' => now(),
             ]);
 
-            $affectedItems = $this->applyStatusTransition($transfer, 'pending', $transfer->status);
+            $affectedItems = $this->applyStatusTransition($transfer, 'pending', $transfer->status, $request);
 
             if ($transfer->status === 'completed') {
                 foreach ($affectedItems as $affectedItem) {
@@ -256,7 +307,7 @@ class TransferController extends Controller
         ]);
 
         try {
-            return DB::transaction(function () use ($transfer, $validated) {
+            return DB::transaction(function () use ($transfer, $validated, $request) {
                 $transfer = Transfer::whereKey($transfer->id)->lockForUpdate()->firstOrFail();
                 $oldStatus = $transfer->status;
                 $newStatus = $validated['status'] ?? $oldStatus;
@@ -265,7 +316,7 @@ class TransferController extends Controller
                     return response()->json(['error' => 'Completed transfers cannot be changed.'], 422);
                 }
 
-                $affectedItems = $this->applyStatusTransition($transfer, $oldStatus, $newStatus);
+                $affectedItems = $this->applyStatusTransition($transfer, $oldStatus, $newStatus, $request);
                 $transfer->fill($validated);
 
                 if ($newStatus === 'completed' && !$transfer->completedAt) {
@@ -294,6 +345,10 @@ class TransferController extends Controller
     public function destroy(Request $request, Transfer $transfer)
     {
         $this->authorizeAdministrator($request, 'Only administrators can manage transfers.');
+
+        if ($transfer->status === 'completed') {
+            return response()->json(['error' => 'Completed transfers cannot be deleted because they have changed inventory quantities.'], 422);
+        }
 
         return DB::transaction(function () use ($transfer) {
             $transfer->delete();

@@ -14,8 +14,17 @@ export default function ActivityLogs() {
   return <div className="space-y-4">
     <PageHeader title="Activity Logs" subtitle="Successful sign-ins, changes, stock actions, and report access" />
     <Card className="overflow-x-auto p-5"><Table>
-      <thead><tr><Th>When</Th><Th>User</Th><Th>Action</Th><Th>IP address</Th></tr></thead>
-      <tbody>{rows.map((row) => <tr key={row.id}><Td>{new Date(row.created_at).toLocaleString()}</Td><Td>{row.user?.name ?? "Deleted account"}</Td><Td>{row.action}</Td><Td>{row.ipAddress ?? "—"}</Td></tr>)}</tbody>
+      <thead><tr><Th>When</Th><Th>User</Th><Th>Action</Th><Th>Details</Th><Th>IP address</Th></tr></thead>
+      <tbody>{rows.map((row) => <tr key={row.id}>
+        <Td>{new Date(row.created_at).toLocaleString()}</Td>
+        <Td>{row.user?.name ?? "Deleted account"}</Td>
+        <Td>{row.action}</Td>
+        <Td>{row.details ? <details className="max-w-sm">
+          <summary className="cursor-pointer text-xs text-content-muted">View details</summary>
+          <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words rounded border border-border-subtle bg-surface-canvas p-2 text-[10px] text-content-muted">{JSON.stringify(row.details, null, 2)}</pre>
+        </details> : "—"}</Td>
+        <Td>{row.ipAddress ?? "—"}</Td>
+      </tr>)}</tbody>
     </Table>
     {!rows.length && <p className="py-6 text-center text-sm text-slate-500">No activity logged yet.</p>}</Card>
   </div>;

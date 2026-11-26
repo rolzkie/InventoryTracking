@@ -70,7 +70,7 @@ class AuthController extends Controller
         return response()->json([
             'user' => $user->fresh(),
             'csrfToken' => hash_hmac('sha256', $plainToken, (string) config('app.key')),
-        ])->cookie('inventory_auth', $plainToken, 480, '/', null, $request->isSecure(), true, false, 'Lax');
+        ])->cookie('inventory_auth', $plainToken, 480, '/', null, app()->environment('production') || $request->isSecure(), true, false, 'Lax');
     }
 
     public function logout(Request $request)
@@ -86,6 +86,7 @@ class AuthController extends Controller
                     'subjectId' => (string) $user->id,
                     'ipAddress' => $request->ip(),
                 ]);
+                $request->attributes->set('detailedInventoryActivityLogged', true);
             }
             User::where('api_token', hash('sha256', $token))->update([
                 'api_token' => null,

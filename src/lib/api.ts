@@ -253,22 +253,23 @@ export const api = {
       ]);
       const categories = categoryRows.map(normalizeCategory);
       const canManageAccounts = currentUser?.role === "admin";
+      const isViewer = currentUser?.role === "viewer" || currentUser?.permission === "view";
       const [warehouseRows, itemRows, assignableRows, transactionRows, transferRows, userRows, reorderRows, notificationRows, settings, acknowledgedAlertIds] = await Promise.all([
         request<ApiRecord[]>("/warehouses"),
         request<ApiRecord[]>("/inventory"),
         request<ApiRecord[]>("/inventory/assignable"),
-        request<ApiRecord[]>("/transactions"),
-        request<ApiRecord[]>("/transfers"),
+        isViewer ? Promise.resolve([]) : request<ApiRecord[]>("/transactions"),
+        canManageAccounts ? request<ApiRecord[]>("/transfers") : Promise.resolve([]),
         // User management is an admin-only endpoint. Keep an authorization
         // failure there from preventing inventory, transactions, and reports
         // from loading for an otherwise authenticated administrator session.
         canManageAccounts
           ? request<ApiRecord[]>("/users").catch(() => [])
           : Promise.resolve([]),
-        request<ApiRecord[]>("/reorders"),
-        request<ApiRecord[]>("/notifications"),
-        request<Record<string, Record<string, unknown>>>("/settings"),
-        request<string[]>("/alert-acknowledgements"),
+        isViewer ? Promise.resolve([]) : request<ApiRecord[]>("/reorders"),
+        isViewer ? Promise.resolve([]) : request<ApiRecord[]>("/notifications"),
+        canManageAccounts ? request<Record<string, Record<string, unknown>>>("/settings") : Promise.resolve({}),
+        isViewer ? Promise.resolve([]) : request<string[]>("/alert-acknowledgements"),
       ]);
       return {
         categories,
@@ -406,12 +407,13 @@ export const api = {
           supplierName: supplierName?.trim() || null,
         }),
       }),
-    update: (item: InventoryItem, categories: Category[], supplierName?: string, allowQuantity = false) =>
+    update: (item: InventoryItem, categories: Category[], supplierName?: string, allowQuantity = false, adjustmentReason?: string) =>
       request<ApiRecord>(`/inventory/${item.id}`, {
         method: "PUT",
         body: JSON.stringify({
           ...itemPayload(item, categories, allowQuantity),
           supplierName: supplierName?.trim() || null,
+          ...(adjustmentReason ? { adjustmentReason } : {}),
         }),
       }),
     delete: (id: string) => request<{ ok: boolean }>(`/inventory/${id}`, { method: "DELETE" }),

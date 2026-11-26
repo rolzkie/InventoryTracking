@@ -422,7 +422,7 @@ interface AppContextValue {
   logout: () => Promise<void>;
   refreshOperationalData: (currentUser?: User) => Promise<void>;
   createItem: (item: InventoryItem, supplierName?: string) => Promise<void>;
-  updateItem: (item: InventoryItem, supplierName?: string) => Promise<void>;
+  updateItem: (item: InventoryItem, supplierName?: string, adjustmentReason?: string) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
   createWarehouse: (warehouse: Warehouse) => Promise<void>;
   updateWarehouse: (warehouse: Warehouse) => Promise<void>;
@@ -495,6 +495,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!state.isAuthenticated) return;
+    if (state.currentUser.role === "viewer" || state.currentUser.permission === "view") return;
 
     const refreshNotifications = () => {
       void api.notifications.list()
@@ -505,7 +506,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     refreshNotifications();
     const timer = window.setInterval(refreshNotifications, 10_000);
     return () => window.clearInterval(timer);
-  }, [state.isAuthenticated]);
+  }, [state.isAuthenticated, state.currentUser]);
 
   useEffect(() => {
     if (!state.isAuthenticated) return;
@@ -533,8 +534,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await refreshOperationalData();
   }, [refreshOperationalData, state.categories]);
 
-  const updateItem = useCallback(async (item: InventoryItem, supplierName?: string) => {
-    await api.inventory.update(item, state.categories, supplierName, state.currentUser.role === "admin");
+  const updateItem = useCallback(async (item: InventoryItem, supplierName?: string, adjustmentReason?: string) => {
+    await api.inventory.update(item, state.categories, supplierName, state.currentUser.role === "admin", adjustmentReason);
     await refreshOperationalData();
   }, [refreshOperationalData, state.categories, state.currentUser.role]);
 

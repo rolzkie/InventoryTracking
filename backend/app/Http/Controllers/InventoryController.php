@@ -9,6 +9,7 @@ use App\Models\Supplier;
 use App\Models\Transfer;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\InventoryActivityLogger;
 use App\Services\InventoryNotificationService;
 use App\Services\InventorySynchronizationService;
 use App\Services\StockTransactionReferenceService;
@@ -24,6 +25,10 @@ class InventoryController extends Controller
     public function __construct(
         protected InventoryNotificationService $notifications,
         protected InventorySynchronizationService $sync,
+<<<<<<< HEAD
+=======
+        protected InventoryActivityLogger $activityLogger,
+>>>>>>> 88e1fc435c2e991c57d32c4fb3264a4b241eff00
         protected StockTransactionReferenceService $references,
     )
     {
@@ -191,9 +196,16 @@ class InventoryController extends Controller
             $payload['unit'] = $validated['unit'] ?? 'pcs';
         }
 
-        $item = DB::transaction(function () use ($payload) {
+        $item = DB::transaction(function () use ($payload, $request) {
             $item = InventoryItem::create($payload);
             $this->notifications->inventoryUpdated($item);
+            $quantity = (int) $item->quantity;
+            $this->activityLogger->log($request, 'inventory_created', 'inventory_item', $item->id, [
+                'previous' => ['quantity' => 0],
+                'updated' => ['sku' => $item->sku, 'name' => $item->name, 'category' => $item->category, 'quantity' => $quantity],
+                'quantityChange' => ['from' => 0, 'to' => $quantity, 'delta' => $quantity],
+                'note' => 'Initial quantity is recorded as opening stock when the item is assigned to a warehouse.',
+            ]);
 
             return $item;
         });
@@ -221,6 +233,7 @@ class InventoryController extends Controller
             'reorderPoint' => 'sometimes|integer|min:0',
             'maxStock' => 'sometimes|integer|min:0',
             'unitPrice' => 'sometimes|numeric|min:0',
+            'adjustmentReason' => 'sometimes|nullable|string|min:3|max:500',
             'supplierId' => 'nullable|exists:suppliers,id',
             'supplierName' => 'nullable|string|max:255',
             'expiryDate' => 'nullable|date',
@@ -244,6 +257,7 @@ class InventoryController extends Controller
             $validated['sku'] = trim($validated['sku']);
         }
 
+<<<<<<< HEAD
         DB::transaction(function () use ($inventory, $validated, $actor) {
             $inventory = InventoryItem::whereKey($inventory->id)->lockForUpdate()->firstOrFail();
             $oldQuantity = (int) $inventory->quantity;
@@ -257,9 +271,57 @@ class InventoryController extends Controller
                     $actor,
                     'Quantity changed from the inventory record form.',
                 );
+=======
+        DB::transaction(function () use ($inventory, $validated, $request, $actor) {
+            $inventory = InventoryItem::whereKey($inventory->id)->lockForUpdate()->firstOrFail();
+            $previous = [
+                'sku' => $inventory->sku,
+                'name' => $inventory->name,
+                'category' => $inventory->category,
+                'quantity' => (int) $inventory->quantity,
+                'warehouseId' => $inventory->warehouseId,
+                'reorderPoint' => (int) $inventory->reorderPoint,
+                'maxStock' => (int) $inventory->maxStock,
+                'unitPrice' => (float) $inventory->unitPrice,
+            ];
+            $oldQuantity = (int) $inventory->quantity;
+            $newQuantity = array_key_exists('quantity', $validated) ? (int) $validated['quantity'] : $oldQuantity;
+            $quantityChanged = $newQuantity !== $oldQuantity;
+            $reason = trim((string) ($validated['adjustmentReason'] ?? ''));
+
+            if ($quantityChanged && ! $inventory->warehouseId) {
+                throw ValidationException::withMessages(['quantity' => 'Assign the item to a warehouse before changing its quantity.']);
+            }
+            if ($quantityChanged && $reason === '') {
+                throw ValidationException::withMessages(['adjustmentReason' => 'Provide a reason for the stock adjustment.']);
+            }
+
+            unset($validated['adjustmentReason']);
+            $inventory->update($validated);
+
+            if ($quantityChanged) {
+                $this->createAdjustmentTransaction($inventory, $oldQuantity, $newQuantity, $reason, $actor);
+>>>>>>> 88e1fc435c2e991c57d32c4fb3264a4b241eff00
             }
 
             $this->notifications->inventoryUpdated($inventory);
+            $inventory = $this->sync->reconcileItem($inventory, false);
+            $updated = [
+                'sku' => $inventory->sku,
+                'name' => $inventory->name,
+                'category' => $inventory->category,
+                'quantity' => (int) $inventory->quantity,
+                'warehouseId' => $inventory->warehouseId,
+                'reorderPoint' => (int) $inventory->reorderPoint,
+                'maxStock' => (int) $inventory->maxStock,
+                'unitPrice' => (float) $inventory->unitPrice,
+            ];
+            $details = ['previous' => $previous, 'updated' => $updated];
+            if ($quantityChanged) {
+                $details['quantityChange'] = ['from' => $oldQuantity, 'to' => $newQuantity, 'delta' => $newQuantity - $oldQuantity];
+                $details['reason'] = $reason;
+            }
+            $this->activityLogger->log($request, $quantityChanged ? 'inventory_quantity_adjusted' : 'inventory_updated', 'inventory_item', $inventory->id, $details);
         });
 
         return response()->json($inventory->fresh('warehouse')->toArray() + ['warehouseName' => $inventory->warehouse?->name]);
@@ -269,6 +331,7 @@ class InventoryController extends Controller
     {
         $this->authorizeAdministrator($request, 'Only administrators can delete inventory records.');
 
+<<<<<<< HEAD
         if ((int) $inventory->quantity > 0
             || StockTransaction::where('itemId', $inventory->id)->exists()
             || BorrowRecord::where('itemId', $inventory->id)->exists()
@@ -280,6 +343,30 @@ class InventoryController extends Controller
 
         $inventory->delete();
         return response()->json(['ok' => true]);
+=======
+        return DB::transaction(function () use ($inventory, $request) {
+            $inventory = InventoryItem::whereKey($inventory->id)->lockForUpdate()->firstOrFail();
+            if (StockTransaction::where('itemId', $inventory->id)->exists()
+                || BorrowRecord::where('itemId', $inventory->id)->exists()
+                || Transfer::where('itemId', $inventory->id)->exists()) {
+                return response()->json(['message' => 'Inventory with stock, borrow, or transfer history cannot be deleted.'], 422);
+            }
+
+            $this->activityLogger->log($request, 'inventory_deleted', 'inventory_item', $inventory->id, [
+                'previous' => [
+                    'sku' => $inventory->sku,
+                    'name' => $inventory->name,
+                    'category' => $inventory->category,
+                    'quantity' => (int) $inventory->quantity,
+                    'warehouseId' => $inventory->warehouseId,
+                ],
+                'updated' => null,
+            ]);
+            $inventory->delete();
+
+            return response()->json(['ok' => true]);
+        });
+>>>>>>> 88e1fc435c2e991c57d32c4fb3264a4b241eff00
     }
 
     public function adjust(Request $request, $id)
@@ -287,6 +374,7 @@ class InventoryController extends Controller
         $this->authorizeAdministrator($request, 'Only administrators can make direct stock adjustments.');
 
         $validated = $request->validate([
+<<<<<<< HEAD
             'delta' => 'required|integer',
             'notes' => 'nullable|string|max:2000',
         ]);
@@ -294,21 +382,41 @@ class InventoryController extends Controller
         $actor = $request->attributes->get('authenticatedUser');
 
         $item = DB::transaction(function () use ($id, $validated, $actor) {
+=======
+            'delta' => 'required|integer|not_in:0',
+            'reason' => 'required|string|min:3|max:500',
+        ]);
+
+        $actor = $request->attributes->get('authenticatedUser');
+        $item = DB::transaction(function () use ($id, $validated, $request, $actor) {
+>>>>>>> 88e1fc435c2e991c57d32c4fb3264a4b241eff00
             $item = InventoryItem::whereKey($id)->lockForUpdate()->firstOrFail();
 
             if (!$item->warehouseId) {
                 return null;
             }
 
-            if ($item->quantity + $validated['delta'] < 0) {
+            $previousQuantity = (int) $item->quantity;
+            $updatedQuantity = $previousQuantity + (int) $validated['delta'];
+            if ($updatedQuantity < 0) {
                 throw ValidationException::withMessages([
                     'delta' => 'The adjustment cannot reduce available stock below zero.',
                 ]);
             }
 
-            $item->quantity += $validated['delta'];
+            $item->quantity = $updatedQuantity;
             $item->save();
+            $transaction = $this->createAdjustmentTransaction($item, $previousQuantity, $updatedQuantity, trim($validated['reason']), $actor);
+            $item = $this->sync->reconcileItem($item);
+            $this->activityLogger->log($request, 'inventory_quantity_adjusted', 'inventory_item', $item->id, [
+                'previous' => ['quantity' => $previousQuantity],
+                'updated' => ['quantity' => $updatedQuantity],
+                'quantityChange' => ['from' => $previousQuantity, 'to' => $updatedQuantity, 'delta' => $updatedQuantity - $previousQuantity],
+                'reason' => trim($validated['reason']),
+                'stockTransactionId' => $transaction->id,
+            ]);
 
+<<<<<<< HEAD
             if ($validated['delta'] !== 0) {
                 $this->recordQuantityAdjustment(
                     $item,
@@ -319,6 +427,9 @@ class InventoryController extends Controller
             }
 
             return $this->sync->reconcileItem($item);
+=======
+            return $item;
+>>>>>>> 88e1fc435c2e991c57d32c4fb3264a4b241eff00
         });
 
         if (!$item) {
@@ -354,13 +465,17 @@ class InventoryController extends Controller
             'shelf' => 'nullable|string|max:100',
         ]);
 
-        $item = DB::transaction(function () use ($id, $validated) {
+        $actor = $request->attributes->get('authenticatedUser');
+        $item = DB::transaction(function () use ($id, $validated, $request, $actor) {
             $item = InventoryItem::whereKey($id)->lockForUpdate()->firstOrFail();
 
             if ($item->warehouseId && $item->warehouseId != $validated['warehouseId']) {
                 return null;
             }
 
+            $previousWarehouseId = $item->warehouseId;
+            $openingQuantity = (int) $item->quantity;
+            $wasUnassigned = $previousWarehouseId === null;
             $item->warehouseId = $validated['warehouseId'];
             $item->storageLocation = $validated['storageLocation'] ?? null;
             $item->zone = $validated['zone'] ?? null;
@@ -372,6 +487,31 @@ class InventoryController extends Controller
             $item = $this->sync->reconcileItem($item, false);
             $this->notifications->inventoryAssigned($item);
 
+            $stockTransactionId = null;
+            if ($wasUnassigned && $openingQuantity > 0) {
+                $now = now();
+                $stockTransaction = StockTransaction::create([
+                    'itemId' => $item->id,
+                    'userId' => $actor->id,
+                    'warehouseId' => $item->warehouseId,
+                    'transactionType' => 'stock_in',
+                    'quantity' => $openingQuantity,
+                    'purpose' => 'opening_balance',
+                    'referenceNumber' => $this->references->generate('stock_in', $now),
+                    'processedBy' => $actor->name.' (#'.$actor->id.')',
+                    'unitCost' => $item->unitPrice,
+                    'notes' => 'Opening balance recorded when item was assigned to a warehouse.',
+                    'createdAt' => $now,
+                ]);
+                $stockTransactionId = $stockTransaction->id;
+            }
+            $this->activityLogger->log($request, 'inventory_assigned', 'inventory_item', $item->id, [
+                'previous' => ['warehouseId' => $previousWarehouseId, 'quantity' => $openingQuantity],
+                'updated' => ['warehouseId' => $item->warehouseId, 'quantity' => (int) $item->quantity],
+                'quantityChange' => ['from' => $openingQuantity, 'to' => (int) $item->quantity, 'delta' => (int) $item->quantity - $openingQuantity],
+                'stockTransactionId' => $stockTransactionId,
+            ]);
+
             return $item;
         });
 
@@ -380,5 +520,26 @@ class InventoryController extends Controller
         }
 
         return response()->json($item->fresh('warehouse')->toArray() + ['warehouseName' => $item->warehouse?->name]);
+    }
+
+    private function createAdjustmentTransaction(InventoryItem $item, int $previousQuantity, int $updatedQuantity, string $reason, User $actor): StockTransaction
+    {
+        $delta = $updatedQuantity - $previousQuantity;
+        $type = $delta > 0 ? 'stock_in' : 'stock_out';
+        $now = now();
+
+        return StockTransaction::create([
+            'itemId' => $item->id,
+            'userId' => $actor->id,
+            'warehouseId' => $item->warehouseId,
+            'transactionType' => $type,
+            'quantity' => abs($delta),
+            'purpose' => 'adjustment',
+            'referenceNumber' => $this->references->generate($type, $now),
+            'processedBy' => $actor->name.' (#'.$actor->id.')',
+            'unitCost' => $item->unitPrice,
+            'notes' => 'Administrator stock adjustment. Reason: '.$reason.'. Quantity: '.$previousQuantity.' -> '.$updatedQuantity.'.',
+            'createdAt' => $now,
+        ]);
     }
 }

@@ -6,6 +6,7 @@ use App\Models\InventoryItem;
 use App\Models\ReorderRequest;
 use App\Models\StockTransaction;
 use App\Services\InventoryNotificationService;
+use App\Services\InventoryActivityLogger;
 use App\Services\InventorySynchronizationService;
 use App\Services\StockTransactionReferenceService;
 use Illuminate\Http\Request;
@@ -66,7 +67,7 @@ class ReorderRequestController extends Controller
         return response()->json($reorder, 201);
     }
 
-    public function update(Request $request, ReorderRequest $reorder)
+    public function update(Request $request, ReorderRequest $reorder, InventoryActivityLogger $activityLogger)
     {
         $validated = $request->validate([
             'quantity' => ['sometimes', 'integer', 'min:1'],
@@ -75,7 +76,7 @@ class ReorderRequestController extends Controller
             'notes' => ['nullable', 'string'],
         ]);
 
-        $reorder = DB::transaction(function () use ($reorder, $validated) {
+        $reorder = DB::transaction(function () use ($reorder, $validated, $request, $activityLogger) {
             $reorder = ReorderRequest::whereKey($reorder->id)->lockForUpdate()->firstOrFail();
             $oldStatus = $reorder->status;
             $newStatus = $validated['status'] ?? $oldStatus;
@@ -90,6 +91,7 @@ class ReorderRequestController extends Controller
 
             if ($oldStatus !== 'received' && $newStatus === 'received') {
                 $item = InventoryItem::whereKey($reorder->itemId)->lockForUpdate()->firstOrFail();
+                $previousQuantity = (int) $item->quantity;
 
                 if (!$item->warehouseId) {
                     throw ValidationException::withMessages([
@@ -100,19 +102,28 @@ class ReorderRequestController extends Controller
                 $item->quantity += $reorder->quantity;
                 $item->lastRestocked = now();
                 $item->save();
-                StockTransaction::create([
+                $transaction = StockTransaction::create([
                     'itemId' => $item->id,
+                    'userId' => $request->attributes->get('authenticatedUser')->id,
                     'warehouseId' => $item->warehouseId,
                     'transactionType' => 'stock_in',
                     'quantity' => $reorder->quantity,
                     'supplierId' => $reorder->supplierId,
                     'referenceNumber' => $this->references->generate('stock_in', now()),
-                    'processedBy' => 'Reorder Receiving',
+                    'processedBy' => $request->attributes->get('authenticatedUser')?->name.' (#'.$request->attributes->get('authenticatedUser')?->id.')',
                     'unitCost' => $item->unitPrice,
                     'notes' => 'Reorder marked received.',
                     'createdAt' => now(),
                 ]);
                 $this->sync->reconcileItem($item, false);
+                $activityLogger->log($request, 'reorder_received', 'inventory_item', $item->id, [
+                    'previous' => ['quantity' => $previousQuantity],
+                    'updated' => ['quantity' => (int) $item->quantity],
+                    'quantityChange' => ['from' => $previousQuantity, 'to' => (int) $item->quantity, 'delta' => (int) $item->quantity - $previousQuantity],
+                    'reorderId' => $reorder->id,
+                    'stockTransactionId' => $transaction->id,
+                    'reason' => 'Reorder received',
+                ]);
             }
 
             $reorder = $reorder->fresh(['item', 'supplier']);
@@ -130,6 +141,10 @@ class ReorderRequestController extends Controller
 
     public function destroy(ReorderRequest $reorder)
     {
+        if ($reorder->status === 'received') {
+            return response()->json(['message' => 'Received reorders cannot be deleted because they have changed inventory quantities.'], 422);
+        }
+
         $reorder->delete();
 
         return response()->json(['ok' => true]);

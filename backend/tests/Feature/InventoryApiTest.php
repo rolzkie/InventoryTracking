@@ -76,6 +76,7 @@ class InventoryApiTest extends TestCase
         $response = $this->putJson('/api/inventory/' . $item->id, [
             'name' => 'Updated Laptop',
             'quantity' => 3,
+            'adjustmentReason' => 'Inventory recount correction',
         ]);
 
         $response->assertOk()

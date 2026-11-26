@@ -60,6 +60,7 @@ export default function Inventory() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm());
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [adjustmentReason, setAdjustmentReason] = useState("");
   const normalizeSku = (value: string) => value.trim().toLowerCase();
   const generateSku = () => {
     const day = new Date().toISOString().slice(0, 10).replace(/-/g, "");
@@ -138,6 +139,10 @@ export default function Inventory() {
   const handleEdit = async () => {
     if (!selectedItem) return;
     const errors = validate(form, "edit");
+    const quantityChanged = Number(form.quantity) !== Number(selectedItem.quantity);
+    if (isAdmin && quantityChanged && adjustmentReason.trim().length < 3) {
+      errors.adjustmentReason = "Enter a reason for changing the stock quantity";
+    }
     if (Object.keys(errors).length) { setFormErrors(errors); return; }
     try {
       await updateItem(
@@ -150,10 +155,12 @@ export default function Inventory() {
           supplierId: form.supplierId || null,
         },
         form.supplierName?.trim() || undefined,
+        quantityChanged ? adjustmentReason.trim() : undefined,
       );
       showToast(`Item "${form.name}" updated successfully`, "success");
       setShowEditModal(false);
       setFormErrors({});
+      setAdjustmentReason("");
     } catch (error) {
       showToast(error instanceof Error ? error.message : "Unable to update item", "error");
     }
@@ -161,6 +168,7 @@ export default function Inventory() {
 
   const openEdit = (item: InventoryItem) => {
     setSelectedItem(item);
+    setAdjustmentReason("");
     setForm({ sku: item.sku, name: item.name, categoryId: item.categoryId, quantity: item.quantity, reorderPoint: item.reorderPoint, maxStock: item.maxStock, expirationDate: item.expirationDate, unitCost: item.unitCost, supplierId: item.supplierId, supplierName: "", description: item.description, unit: item.unit });
     setFormErrors({});
     setShowEditModal(true);
@@ -234,6 +242,15 @@ export default function Inventory() {
         <Input label="Reorder Point *" type="number" min={0} value={form.reorderPoint} onChange={(e) => setForm({ ...form, reorderPoint: parseInt(e.target.value) || 0 })} error={formErrors.reorderPoint} />
         <Input label="Max Stock" type="number" min={0} value={form.maxStock} onChange={(e) => setForm({ ...form, maxStock: parseInt(e.target.value) || 0 })} />
       </div>
+      {isEditing && isAdmin && selectedItem && Number(form.quantity) !== Number(selectedItem.quantity) && (
+        <Textarea
+          label="Stock adjustment reason *"
+          value={adjustmentReason}
+          onChange={(event) => { setAdjustmentReason(event.target.value); setFormErrors((current) => ({ ...current, adjustmentReason: "" })); }}
+          placeholder="Explain why the quantity is changing..."
+          error={formErrors.adjustmentReason}
+        />
+      )}
       <div className="grid grid-cols-3 gap-4">
         <Input label="Unit Cost (PHP) *" type="number" min={0} step="0.01" value={form.unitCost} onChange={(e) => setForm({ ...form, unitCost: parseFloat(e.target.value) || 0 })} error={formErrors.unitCost} />
         <Input label="Unit" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="units, boxes, kg..." />
