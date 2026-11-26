@@ -12,7 +12,7 @@ import type {
   Notification,
   Page,
 } from "../types";
-import { api } from "../lib/api";
+import { ApiError, api } from "../lib/api";
 
 const AUTH_STORAGE_KEY = "warehouseiq.auth";
 const RECENT_LOGINS_KEY = "warehouseiq.recent-logins";
@@ -360,7 +360,13 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, isAuthenticated: true, currentUser: action.user };
 
     case "LOGOUT":
-      return { ...state, isAuthenticated: false, currentPage: "dashboard" };
+      return {
+        ...state,
+        isAuthenticated: false,
+        currentPage: "dashboard",
+        loadingOperationalData: false,
+        backendError: null,
+      };
 
     default:
       return state;
@@ -444,16 +450,30 @@ const AppContext = createContext<AppContextValue | null>(null);
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
 
+  const showToast = useCallback((message: string, type: Toast["type"] = "success") => {
+    const id = `toast-${Date.now()}`;
+    dispatch({ type: "ADD_TOAST", toast: { id, message, type } });
+    setTimeout(() => dispatch({ type: "REMOVE_TOAST", id }), 3500);
+  }, []);
+
   const refreshOperationalData = useCallback(async (currentUser = state.currentUser) => {
     try {
       const data = await api.operational.load(currentUser);
       dispatch({ type: "SET_OPERATIONAL_DATA", data });
     } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        window.sessionStorage.removeItem(AUTH_STORAGE_KEY);
+        window.localStorage.removeItem(AUTH_STORAGE_KEY);
+        dispatch({ type: "LOGOUT" });
+        showToast("Your session expired. Please sign in again.", "warning");
+        return;
+      }
+
       const message = error instanceof Error ? error.message : "Unable to reach the Laravel API.";
       dispatch({ type: "SET_BACKEND_ERROR", error: message });
       throw error;
     }
-  }, [state.currentUser]);
+  }, [showToast, state.currentUser]);
 
   useEffect(() => {
     // Every new page load starts at the login screen. This also prevents a stale
@@ -501,12 +521,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     (page: Page) => dispatch({ type: "SET_PAGE", page }),
     [],
   );
-
-  const showToast = useCallback((message: string, type: Toast["type"] = "success") => {
-    const id = `toast-${Date.now()}`;
-    dispatch({ type: "ADD_TOAST", toast: { id, message, type } });
-    setTimeout(() => dispatch({ type: "REMOVE_TOAST", id }), 3500);
-  }, []);
 
   const getItem = useCallback((id: string) => state.items.find((i) => i.id === id), [state.items]);
   const getWarehouse = useCallback((id: string) => state.warehouses.find((w) => w.id === id), [state.warehouses]);

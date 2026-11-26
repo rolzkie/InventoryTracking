@@ -1,4 +1,4 @@
-const { copyFileSync, existsSync, readFileSync } = require("node:fs");
+const { copyFileSync, existsSync, readFileSync, writeFileSync } = require("node:fs");
 const { spawnSync } = require("node:child_process");
 const path = require("node:path");
 
@@ -41,9 +41,13 @@ const phpVersion = spawnSync(php, ["-r", "echo PHP_VERSION;"], {
   windowsHide: true,
 });
 
-const [major, minor] = (phpVersion.stdout || "").trim().split(".").map(Number);
-if (phpVersion.status !== 0 || major < 8 || (major === 8 && minor < 2)) {
-  console.error(`PHP 8.2+ is required. "${php}" resolved to ${phpVersion.stdout?.trim() || "an unavailable executable"}.`);
+const [major, minor, patch] = (phpVersion.stdout || "").trim().split(".").map(Number);
+if (
+  phpVersion.status !== 0 ||
+  major < 8 ||
+  (major === 8 && (minor < 4 || (minor === 4 && patch < 1)))
+) {
+  console.error(`PHP 8.4.1+ is required. "${php}" resolved to ${phpVersion.stdout?.trim() || "an unavailable executable"}.`);
   console.error("Set WAREHOUSEIQ_PHP_PATH to a compatible PHP executable and run setup again.");
   process.exit(1);
 }
@@ -68,6 +72,14 @@ if (!existsSync(path.join(backendDir, "vendor", "autoload.php"))) {
 const env = readFileSync(envPath, "utf8");
 if (!/^APP_KEY=base64:.+$/m.test(env)) {
   run(php, ["artisan", "key:generate", "--force"]);
+}
+
+const dbConnection = env.match(/^DB_CONNECTION=(.*)$/m)?.[1].trim();
+const dbDatabase = env.match(/^DB_DATABASE=(.*)$/m)?.[1].trim();
+const sqlitePath = path.join(backendDir, "database", "database.sqlite");
+if (dbConnection === "sqlite" && !dbDatabase && !existsSync(sqlitePath)) {
+  writeFileSync(sqlitePath, "");
+  console.log("Created backend/database/database.sqlite.");
 }
 
 run(php, ["artisan", "optimize:clear"]);
