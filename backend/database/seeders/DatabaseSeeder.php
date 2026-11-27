@@ -143,7 +143,7 @@ class DatabaseSeeder extends Seeder
 
         $users = [
             ['name' => 'Errol Miranda', 'email' => 'adminmiranda@gmail.com', 'password' => 'admin123', 'role' => 'admin', 'permission' => 'manage', 'department' => 'Operations', 'active' => true],
-            ['name' => 'Jesreel Domaanis', 'email' => 'jes@gmail.com', 'password' => 'staff123', 'role' => 'staff', 'permission' => 'manage', 'department' => 'Inventory', 'active' => true],
+            ['name' => 'Jesreel Domanais', 'email' => 'jes@gmail.com', 'password' => 'staff123', 'role' => 'staff', 'permission' => 'manage', 'department' => 'Inventory', 'active' => true],
             ['name' => 'Employee', 'email' => 'employee@gmail.com', 'password' => 'viewer123', 'role' => 'viewer', 'permission' => 'view', 'department' => 'Finance', 'active' => true],
         ];
         foreach ($users as $userData) {
