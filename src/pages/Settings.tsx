@@ -174,7 +174,7 @@ export default function Settings() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-medium transition-all ${
-                    activeTab === tab.id ? "bg-blue-600/20 text-blue-400" : "text-slate-400 hover:bg-[#2A3445]/50 hover:text-slate-200"
+                    activeTab === tab.id ? "bg-blue-600/20 text-white" : "text-slate-400 hover:bg-[#2A3445]/50 hover:text-slate-200"
                   }`}
                 >
                   {tab.icon}

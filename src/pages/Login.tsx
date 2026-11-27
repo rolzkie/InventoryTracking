@@ -56,7 +56,12 @@ export default function Login({ onLogin, onForgotPassword, onContactUs }: LoginP
     try {
       const raw = window.localStorage.getItem(RECENT_LOGINS_KEY);
       if (!raw) return;
-      setRecentLogins(JSON.parse(raw) as RecentLogin[]);
+      const profiles = (JSON.parse(raw) as RecentLogin[]).map((profile) => ({
+        ...profile,
+        name: profile.name.replace(/Domaanis/g, "Domanais"),
+      }));
+      setRecentLogins(profiles);
+      window.localStorage.setItem(RECENT_LOGINS_KEY, JSON.stringify(profiles));
     } catch {
       setRecentLogins([]);
     }

@@ -85,5 +85,5 @@ CREATE UNIQUE INDEX "users_email_unique" on "users" ("email");
 -- Development seed accounts. Passwords below are bcrypt hashes.
 INSERT INTO users (name, email, password, role, permission, avatar, department, active, created_at, updated_at) VALUES
 ('Errol Miranda', 'adminmiranda@gmail.com', '$2y$12$/jR792aRWWD8trOLVOntUOHezzQ9gruhritTNByGEATLYqvVtMyfG', 'admin', 'manage', 'EM', 'Administration', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-('Jesreel Domaanis', 'jes@gmail.com', '$2y$12$3wSdMc2ol2TlN.864UmBPOstMGdG/eBUhiNgNpfiAhOBLqfoouBiC', 'staff', 'manage', 'JD', 'Inventory', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('Jesreel Domanais', 'jes@gmail.com', '$2y$12$3wSdMc2ol2TlN.864UmBPOstMGdG/eBUhiNgNpfiAhOBLqfoouBiC', 'staff', 'manage', 'JD', 'Inventory', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 ('Employee Viewer', 'employee@gmail.com', '$2y$12$dKFCXH2ivPmydfHt4kJVl.W.ExQDqE8Wt0/CACyhOwzahQ2hY0nVa', 'viewer', 'view', 'EV', 'School', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
