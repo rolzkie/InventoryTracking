@@ -34,7 +34,7 @@ class Transfer extends Model
 
     public function item()
     {
-        return $this->belongsTo(InventoryItem::class, 'itemId');
+        return $this->belongsTo(InventoryItem::class, 'itemId')->withTrashed();
     }
 
     public function sourceWh()

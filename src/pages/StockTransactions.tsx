@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PackageMinus, PackagePlus, Filter, Calendar, AlertCircle } from "lucide-react";
 import { useApp } from "../context/AppContext";
+import { storageLocationLabel } from "../lib/api";
+import { DEFAULT_TIMEZONE, daysFromToday, todayDate } from "../lib/datetime";
 import type { InventoryItem, StockTransaction } from "../types";
 import {
   Button, Input, Select, Textarea, Modal, SearchableSelect,
@@ -103,6 +105,7 @@ function StockItemCombobox({
 
 export default function StockTransactions() {
   const { state, showToast, createTransaction } = useApp();
+  const timezone = String(state.settings.general?.timezone ?? DEFAULT_TIMEZONE);
   const canWrite = state.currentUser.role !== "viewer" && state.currentUser.permission !== "view";
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState<"" | "stock-in" | "stock-out">("");
@@ -136,16 +139,14 @@ export default function StockTransactions() {
   const stats = useMemo(() => {
     const totalIn = state.transactions.filter((t) => t.type === "stock-in").reduce((s, t) => s + t.quantity, 0);
     const totalOut = state.transactions.filter((t) => t.type === "stock-out").reduce((s, t) => s + t.quantity, 0);
-    const today = state.transactions.filter((t) => t.date === new Date().toISOString().split("T")[0]);
+    const today = state.transactions.filter((t) => t.date === todayDate(timezone));
     const expiringItems = state.items.filter((i) => {
       if (!i.expirationDate) return false;
-      const exp = new Date(i.expirationDate);
-      const now = new Date();
-      const days = Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      const days = daysFromToday(i.expirationDate, timezone);
       return days <= 90 && days > 0;
     });
     return { totalIn, totalOut, todayCount: today.length, expiringCount: expiringItems.length };
-  }, [state.transactions, state.items]);
+  }, [state.transactions, state.items, timezone]);
 
   const validateIn = () => {
     const errors: Record<string, string> = {};
@@ -171,7 +172,7 @@ export default function StockTransactions() {
       itemId: inForm.itemId,
       type: "stock-in" as const,
       quantity: inForm.quantity,
-      date: new Date().toISOString().split("T")[0],
+      date: todayDate(timezone),
       supplierId: inForm.supplierId || undefined,
       notes: inForm.notes,
       processedBy: state.currentUser.name,
@@ -197,7 +198,7 @@ export default function StockTransactions() {
       itemId: outForm.itemId,
       type: "stock-out" as const,
       quantity: outForm.quantity,
-      date: new Date().toISOString().split("T")[0],
+      date: todayDate(timezone),
       purpose: outForm.purpose,
       notes: outForm.notes,
       processedBy: state.currentUser.name,
@@ -216,8 +217,7 @@ export default function StockTransactions() {
 
   const expiringItems = state.items.filter((i) => {
     if (!i.expirationDate) return false;
-    const exp = new Date(i.expirationDate);
-    const days = Math.ceil((exp.getTime() - Date.now()) / 86400000);
+    const days = daysFromToday(i.expirationDate, timezone);
     return days <= 90;
   }).sort((a, b) => (a.expirationDate ?? "").localeCompare(b.expirationDate ?? ""));
 
@@ -283,7 +283,7 @@ export default function StockTransactions() {
               <tr>
                 <Th>SKU</Th>
                 <Th>Item Name</Th>
-                <Th>Warehouse</Th>
+                <Th>Department / Location</Th>
                 <Th>Quantity</Th>
                 <Th>Expiration Date</Th>
                 <Th>Days Remaining</Th>
@@ -295,13 +295,13 @@ export default function StockTransactions() {
                 <tr><td colSpan={7}><EmptyState title="No expiring items" description="All items are within safe date ranges" /></td></tr>
               ) : (
                 expiringItems.map((item) => {
-                  const daysLeft = Math.ceil((new Date(item.expirationDate!).getTime() - Date.now()) / 86400000);
+                  const daysLeft = daysFromToday(item.expirationDate!, timezone);
                   const wh = state.warehouses.find((w) => w.id === item.warehouseId);
                   return (
                     <tr key={item.id} className="hover:bg-[#1E2A3A]/50 transition-colors">
                       <Td><span className="font-mono text-xs text-blue-400">{item.sku}</span></Td>
                       <Td><span className="text-xs text-slate-200">{item.name}</span></Td>
-                      <Td><span className="text-xs text-slate-400">{wh?.name ?? "Unassigned"}</span></Td>
+                      <Td><span className="text-xs text-slate-400">{storageLocationLabel(wh)}</span></Td>
                       <Td><span className="text-xs">{item.quantity} {item.unit}</span></Td>
                       <Td><span className="text-xs text-slate-300">{item.expirationDate}</span></Td>
                       <Td>

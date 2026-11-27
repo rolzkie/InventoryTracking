@@ -41,6 +41,7 @@ export function StatusBadge({ status }: { status: string }) {
     "out-of-stock": { label: "Out of Stock", variant: "red" },
     "expired": { label: "Expired", variant: "red" },
     "overstock": { label: "Overstock", variant: "purple" },
+      "unassigned": { label: "Unassigned", variant: "blue" },
     "pending": { label: "Pending", variant: "amber" },
     "in-transit": { label: "In Transit", variant: "blue" },
     "completed": { label: "Completed", variant: "green" },

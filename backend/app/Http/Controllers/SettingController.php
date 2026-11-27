@@ -3,10 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Models\SystemSetting;
+use App\Support\ApplicationTimezone;
 use Illuminate\Http\Request;
 
 class SettingController extends Controller
 {
+    public function timezone()
+    {
+        return response()->json(['timezone' => ApplicationTimezone::name()]);
+    }
+
     public function index()
     {
         return response()->json(
@@ -20,6 +26,7 @@ class SettingController extends Controller
 
         $validated = $request->validate([
             'payload' => ['required', 'array'],
+            'payload.timezone' => ['sometimes', 'string', 'timezone'],
         ]);
 
         $setting = SystemSetting::updateOrCreate(

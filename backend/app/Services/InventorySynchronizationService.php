@@ -16,7 +16,7 @@ class InventorySynchronizationService
         $item->refreshStockStatus();
         $item = $item->fresh('warehouse');
 
-        if ($notify) {
+        if ($notify && !$item->trashed()) {
             $this->notifications->stockAlertChanged($item);
         }
 
@@ -25,7 +25,7 @@ class InventorySynchronizationService
 
     public function reconcileItemId(int $itemId, bool $notify = true): ?InventoryItem
     {
-        $item = InventoryItem::find($itemId);
+        $item = InventoryItem::withTrashed()->find($itemId);
 
         return $item ? $this->reconcileItem($item, $notify) : null;
     }

@@ -1,8 +1,8 @@
-export type ItemStatus = "in-stock" | "low-stock" | "out-of-stock" | "expired" | "overstock";
+export type ItemStatus = "in-stock" | "low-stock" | "out-of-stock" | "expired" | "overstock" | "unassigned";
 export type TransactionType = "stock-in" | "stock-out";
 export type TransferStatus = "pending" | "in-transit" | "completed" | "cancelled";
 export type AlertType = "low-stock" | "out-of-stock" | "expiring" | "overstock";
-export type UserRole = "admin" | "staff" | "viewer";
+export type UserRole = "admin" | "staff" | "viewer" | "visitor";
 export type UserPermission = "manage" | "view";
 
 export interface Category {
@@ -30,6 +30,7 @@ export interface WarehouseZone {
 
 export interface Warehouse {
   id: string;
+  department: string;
   name: string;
   location: string;
   address: string;

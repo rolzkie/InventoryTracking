@@ -8,6 +8,7 @@ use App\Models\StockTransaction;
 use App\Services\InventoryActivityLogger;
 use App\Services\StockTransactionReferenceService;
 use App\Services\InventorySynchronizationService;
+use App\Support\ApplicationTimezone;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -22,7 +23,9 @@ class BorrowRecordController extends Controller
     {
         return response()->json(BorrowRecord::with('item')->latest()->get()->map(function (BorrowRecord $record) {
             $data = $record->toArray();
-            $data['status'] = $record->status === 'borrowed' && $record->expectedReturnAt->isPast() ? 'overdue' : $record->status;
+            $dueDate = $record->expectedReturnAt->format('Y-m-d');
+            $today = now(ApplicationTimezone::name())->toDateString();
+            $data['status'] = $record->status === 'borrowed' && $dueDate < $today ? 'overdue' : $record->status;
             return $data;
         }));
     }
@@ -44,10 +47,6 @@ class BorrowRecordController extends Controller
             if ($item->quantity < $validated['quantity']) {
                 throw ValidationException::withMessages(['quantity' => 'Borrow quantity exceeds available stock.']);
             }
-            if (! $item->warehouseId) {
-                throw ValidationException::withMessages(['itemId' => 'Assign the item to a storage location before borrowing.']);
-            }
-
             $item->quantity -= $validated['quantity'];
             $item->save();
             $this->sync->reconcileItem($item);
@@ -93,7 +92,7 @@ class BorrowRecordController extends Controller
                 throw ValidationException::withMessages(['quantity' => 'Return quantity exceeds the outstanding borrowed quantity.']);
             }
 
-            $item = InventoryItem::query()->lockForUpdate()->findOrFail($record->itemId);
+            $item = InventoryItem::withTrashed()->lockForUpdate()->findOrFail($record->itemId);
             $previousQuantity = (int) $item->quantity;
             $item->quantity += $validated['quantity'];
             $item->save();

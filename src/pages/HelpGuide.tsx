@@ -5,6 +5,7 @@ import HelpContactUs from "./HelpContactUs";
 const sections = [
   { title: "Dashboard overview", body: "Use the dashboard to review total products, available stock, low stock warnings, borrowed items, recent activity, and recent transactions. Select the related navigation item to open a full list." },
   { title: "Find products", body: "Open Products to browse inventory. Use search and available filters to narrow the list by item, SKU, category, or stock status. Open a product row to review its details." },
+  { title: "Departments and storage locations", body: "Create locations under Departments & Locations, then assign unlocated products there. Stock movement and capacity tracking use the assigned department storage location." },
   { title: "Record incoming or outgoing stock", body: "Open Stock In / Out (Transactions), choose the item, enter a positive quantity, select the transaction type, and add a note when useful. Save the transaction to update available stock and preserve its history." },
   { title: "Borrow and return equipment", body: "Open Borrow & Return to record the item, borrower, quantity, and expected return date. When equipment comes back, record the return so the available quantity is restored. Review overdue status in the same area." },
   { title: "Categories and reports", body: "Categories organizes products into useful groups. Reports summarizes inventory and stock activity; use the report actions to print or save a copy when available." },

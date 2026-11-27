@@ -5,6 +5,8 @@ import {
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import type { ReorderRequest } from "../types";
+import { storageLocationLabel } from "../lib/api";
+import { addCalendarDays, DEFAULT_TIMEZONE, daysFromToday, formatDateTime, todayDate } from "../lib/datetime";
 import {
   Button, Card, Table, Th, Td, PageHeader, StatusBadge, Badge, Modal, Input, Select,
   formatPHP,
@@ -23,6 +25,7 @@ export default function Reports() {
     saveSettings,
   } = useApp();
   const canWrite = state.currentUser.role !== "viewer" && state.currentUser.permission !== "view";
+  const timezone = String(state.settings.general?.timezone ?? DEFAULT_TIMEZONE);
   const [activeTab, setActiveTab] = useState<ReportTab>("inventory");
   const [showThresholdModal, setShowThresholdModal] = useState(false);
   const [thresholds, setThresholds] = useState({ lowStockMin: 10, overstockMax: 500 });
@@ -44,13 +47,13 @@ export default function Reports() {
     const overstock = state.items.filter((i) => thresholds.overstockMax > 0 && i.quantity > thresholds.overstockMax);
     const expiring = state.items.filter((i) => {
       if (!i.expirationDate) return false;
-      const days = Math.ceil((new Date(i.expirationDate).getTime() - Date.now()) / 86400000);
+      const days = daysFromToday(i.expirationDate, timezone);
       return days <= 90 && days > 0;
     });
     const expired = state.items.filter((i) => i.status === "expired");
     const activeAlerts = state.alerts.filter((a) => !a.acknowledged);
     return { lowStock, outOfStock, overstock, expiring, expired, activeAlerts };
-  }, [state.items, state.alerts, thresholds]);
+  }, [state.items, state.alerts, thresholds, timezone]);
 
   const handleAcknowledge = async (id: string) => {
     try {
@@ -66,14 +69,15 @@ export default function Reports() {
     if (!item) return;
     const existingOpen = state.reorderRequests.find((r) => r.itemId === itemId && r.status !== "received");
     if (existingOpen) { showToast("An open reorder already exists for this item", "warning"); return; }
+    const reorderTarget = Math.max(item.maxStock, item.reorderPoint * 5, item.quantity + Math.max(item.reorderPoint, 1));
     const reorder: ReorderRequest = {
       id: generateId("ro"),
       itemId,
       supplierId: item.supplierId ?? state.suppliers[0]?.id ?? "",
-      quantity: Math.max(1, item.maxStock - item.quantity),
+      quantity: reorderTarget - item.quantity,
       status: "pending",
-      createdAt: new Date().toISOString().split("T")[0],
-      estimatedDelivery: new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0],
+      createdAt: todayDate(timezone),
+      estimatedDelivery: addCalendarDays(todayDate(timezone), 7),
       notes: "Auto-generated from stock alert",
     };
     try {
@@ -105,12 +109,12 @@ export default function Reports() {
 
   const handleExportCSV = () => {
     const rows = [
-      ["SKU", "Name", "Category", "Warehouse", "Quantity", "Unit Cost", "Total Value", "Status"],
+      ["SKU", "Name", "Category", "Department / Storage Location", "Quantity", "Unit Cost", "Total Value", "Status"],
       ...state.items.map((i) => [
         i.sku,
         i.name,
         state.categories.find((c) => c.id === i.categoryId)?.name ?? "",
-        state.warehouses.find((w) => w.id === i.warehouseId)?.name ?? "Unassigned",
+        storageLocationLabel(state.warehouses.find((w) => w.id === i.warehouseId)),
         i.quantity,
         i.unitCost,
         (i.quantity * i.unitCost).toFixed(2),
@@ -123,7 +127,7 @@ export default function Reports() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `inventory-report-${new Date().toISOString().split("T")[0]}.csv`;
+    a.download = `inventory-report-${todayDate(timezone)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     showToast("CSV exported successfully", "success");
@@ -147,14 +151,7 @@ export default function Reports() {
   const alertSeverityIcon = { critical: <AlertCircle size={14} className="text-red-400" />, warning: <AlertTriangle size={14} className="text-amber-400" />, info: <Clock size={14} className="text-blue-400" /> };
   const recentAlerts = [...state.alerts].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   const formatAlertTime = (value: string) => {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return value;
-    return new Intl.DateTimeFormat("en-US", {
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    }).format(date);
+    return formatDateTime(value, timezone, "en-US");
   };
 
   return (
@@ -233,7 +230,7 @@ export default function Reports() {
                 <Th>SKU</Th>
                 <Th>Item Name</Th>
                 <Th>Category</Th>
-                <Th>Warehouse</Th>
+                <Th>Department / Location</Th>
                 <Th>Quantity</Th>
                 <Th>Reorder Pt.</Th>
                 <Th>Unit Cost</Th>
@@ -250,7 +247,7 @@ export default function Reports() {
                     <Td><span className="font-mono text-xs text-blue-400">{item.sku}</span></Td>
                     <Td><span className="text-xs text-slate-200">{item.name}</span></Td>
                     <Td>{cat && <span className="text-xs px-2 py-0.5 rounded" style={{ color: cat.color, background: cat.color + "22" }}>{cat.name}</span>}</Td>
-                    <Td><span className="text-xs text-slate-400">{wh?.name ?? <span className="text-amber-400">Unassigned</span>}</span></Td>
+                    <Td><span className="text-xs text-slate-400">{wh ? storageLocationLabel(wh) : <span className="text-amber-400">Unassigned</span>}</span></Td>
                     <Td><span className="text-xs font-medium">{item.quantity}</span></Td>
                     <Td><span className="text-xs text-slate-500">{item.reorderPoint}</span></Td>
                     <Td><span className="text-xs">{formatPHP(item.unitCost)}</span></Td>
@@ -323,7 +320,7 @@ export default function Reports() {
               <tr>
                 <Th>SKU</Th>
                 <Th>Item</Th>
-                <Th>Warehouse</Th>
+                <Th>Department / Location</Th>
                 <Th>Current Qty</Th>
                 <Th>Reorder Pt.</Th>
                 <Th>Shortage</Th>
@@ -343,7 +340,7 @@ export default function Reports() {
                   <tr key={item.id} className="hover:bg-[#1E2A3A]/50 transition-colors">
                     <Td><span className="font-mono text-xs text-blue-400">{item.sku}</span></Td>
                     <Td><span className="text-xs text-slate-200">{item.name}</span></Td>
-                    <Td><span className="text-xs text-slate-400">{wh?.name ?? "Unassigned"}</span></Td>
+                    <Td><span className="text-xs text-slate-400">{storageLocationLabel(wh)}</span></Td>
                     <Td><span className="text-xs font-semibold text-amber-400">{item.quantity}</span></Td>
                     <Td><span className="text-xs">{item.reorderPoint}</span></Td>
                     <Td><span className="text-xs font-semibold text-red-400">{shortage > 0 ? shortage : "At point"}</span></Td>
@@ -428,7 +425,7 @@ export default function Reports() {
               <tr>
                 <Th>SKU</Th>
                 <Th>Item</Th>
-                <Th>Warehouse</Th>
+                <Th>Department / Location</Th>
                 <Th>Quantity</Th>
                 <Th>Expiry Date</Th>
                 <Th>Days Remaining</Th>
@@ -439,13 +436,13 @@ export default function Reports() {
               {[...stats.expiring, ...stats.expired].length === 0 ? (
                 <tr><td colSpan={7}><div className="flex items-center gap-2 justify-center py-8 text-emerald-400"><CheckCircle size={16} /> No expiring items</div></td></tr>
               ) : [...stats.expired, ...stats.expiring].map((item) => {
-                const daysLeft = Math.ceil((new Date(item.expirationDate!).getTime() - Date.now()) / 86400000);
+                const daysLeft = daysFromToday(item.expirationDate!, timezone);
                 const wh = state.warehouses.find((w) => w.id === item.warehouseId);
                 return (
                   <tr key={item.id} className="hover:bg-[#1E2A3A]/50 transition-colors">
                     <Td><span className="font-mono text-xs text-blue-400">{item.sku}</span></Td>
                     <Td><span className="text-xs text-slate-200">{item.name}</span></Td>
-                    <Td><span className="text-xs text-slate-400">{wh?.name ?? "Unassigned"}</span></Td>
+                      <Td><span className="text-xs text-slate-400">{storageLocationLabel(wh)}</span></Td>
                     <Td><span className="text-xs">{item.quantity} {item.unit}</span></Td>
                     <Td><span className="text-xs text-slate-300">{item.expirationDate}</span></Td>
                     <Td><span className={`text-xs font-semibold ${daysLeft <= 0 ? "text-red-400" : daysLeft <= 30 ? "text-red-400" : daysLeft <= 60 ? "text-amber-400" : "text-blue-400"}`}>{daysLeft <= 0 ? "Expired" : `${daysLeft} days`}</span></Td>

@@ -24,7 +24,7 @@ class WarehouseController extends Controller
 
         if ($search !== '') {
             $warehouses = $warehouses->filter(function ($warehouse) use ($search) {
-                $haystack = strtolower(($warehouse['name'] ?? '') . ' ' . ($warehouse['location'] ?? '') . ' ' . ($warehouse['manager'] ?? ''));
+            $haystack = strtolower(($warehouse['department'] ?? '') . ' ' . ($warehouse['name'] ?? '') . ' ' . ($warehouse['location'] ?? '') . ' ' . ($warehouse['manager'] ?? ''));
                 return str_contains($haystack, strtolower($search));
             })->values();
         }
@@ -55,6 +55,7 @@ class WarehouseController extends Controller
         $this->authorizeAdministrator($request, 'Only administrators can manage storage locations.');
 
         $validated = $request->validate([
+            'department' => 'sometimes|string|max:100',
             'name' => 'required|string|max:255',
             'location' => 'required|string|max:255',
             'address' => 'nullable|string|max:500',
@@ -62,6 +63,7 @@ class WarehouseController extends Controller
             'manager' => 'nullable|string|max:255',
             'zones' => 'sometimes|array',
         ]);
+        $validated['department'] ??= 'General';
 
         $warehouse = Warehouse::create($validated);
         $warehouse->status = $warehouse->computeStatus();
@@ -85,6 +87,7 @@ class WarehouseController extends Controller
         $this->authorizeAdministrator($request, 'Only administrators can manage storage locations.');
 
         $validated = $request->validate([
+            'department' => 'sometimes|string|max:100',
             'name' => 'sometimes|string|max:255',
             'location' => 'sometimes|string|max:255',
             'address' => 'nullable|string|max:500',
@@ -113,7 +116,7 @@ class WarehouseController extends Controller
 
         if ($hasTransferHistory || $hasStockHistory) {
             return response()->json([
-                'error' => 'This warehouse has transaction or transfer history and cannot be deleted.',
+                'error' => 'This storage location has transaction or transfer history and cannot be deleted.',
             ], 422);
         }
 

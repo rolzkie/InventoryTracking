@@ -90,7 +90,7 @@ class ReorderRequestController extends Controller
             $reorder->update($validated);
 
             if ($oldStatus !== 'received' && $newStatus === 'received') {
-                $item = InventoryItem::whereKey($reorder->itemId)->lockForUpdate()->firstOrFail();
+                $item = InventoryItem::withTrashed()->whereKey($reorder->itemId)->lockForUpdate()->firstOrFail();
                 $previousQuantity = (int) $item->quantity;
 
                 if (!$item->warehouseId) {

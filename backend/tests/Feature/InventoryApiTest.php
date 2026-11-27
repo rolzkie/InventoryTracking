@@ -223,7 +223,7 @@ class InventoryApiTest extends TestCase
         ]);
     }
 
-    public function test_inventory_with_stock_history_cannot_be_deleted(): void
+    public function test_inventory_with_stock_history_can_be_archived_without_losing_history(): void
     {
         $warehouse = Warehouse::create([
             'name' => 'Audit Store',
@@ -250,10 +250,10 @@ class InventoryApiTest extends TestCase
         ]);
 
         $this->deleteJson("/api/inventory/{$item->id}")
-            ->assertUnprocessable()
-            ->assertJsonPath('message', 'Inventory with stock, borrow, or transfer history cannot be deleted.');
+            ->assertOk()
+            ->assertJsonPath('ok', true);
 
-        $this->assertDatabaseHas('inventory_items', ['id' => $item->id]);
+        $this->assertSoftDeleted('inventory_items', ['id' => $item->id]);
         $this->assertDatabaseHas('stock_transactions', ['id' => $transaction->id]);
     }
 

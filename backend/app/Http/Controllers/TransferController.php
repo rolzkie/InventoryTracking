@@ -13,6 +13,7 @@ use App\Services\InventoryNotificationService;
 use App\Services\InventorySynchronizationService;
 use App\Services\InventoryActivityLogger;
 use App\Services\StockTransactionReferenceService;
+use App\Support\ApplicationTimezone;
 
 class TransferController extends Controller
 {
@@ -77,7 +78,7 @@ class TransferController extends Controller
 
     protected function findItem(int $itemId): InventoryItem
     {
-        return InventoryItem::lockForUpdate()->findOrFail($itemId);
+        return InventoryItem::withTrashed()->lockForUpdate()->findOrFail($itemId);
     }
 
     protected function decrementSourceQuantity(InventoryItem $item, int $quantity): void
@@ -135,7 +136,7 @@ class TransferController extends Controller
             'assignedAt' => now(),
             'unitPrice' => $sourceItem->unitPrice,
             'supplierId' => $sourceItem->supplierId,
-            'lastRestocked' => now()->toDateString(),
+            'lastRestocked' => now(ApplicationTimezone::name())->toDateString(),
             'expiryDate' => $sourceItem->expiryDate,
         ];
 

@@ -31,6 +31,7 @@ export const initialSuppliers: Supplier[] = [
 export const initialWarehouses: Warehouse[] = [
   {
     id: "wh-1",
+    department: "Information Technology",
     name: "Alpha Warehouse",
     location: "New York, NY",
     address: "123 Industrial Blvd, New York, NY 10001",
@@ -47,6 +48,7 @@ export const initialWarehouses: Warehouse[] = [
   },
   {
     id: "wh-2",
+    department: "Operations",
     name: "Beta Distribution Center",
     location: "Los Angeles, CA",
     address: "456 Logistics Ave, Los Angeles, CA 90001",
@@ -63,6 +65,7 @@ export const initialWarehouses: Warehouse[] = [
   },
   {
     id: "wh-3",
+    department: "Facilities",
     name: "Gamma Storage Facility",
     location: "Chicago, IL",
     address: "789 Commerce Dr, Chicago, IL 60601",
@@ -78,6 +81,7 @@ export const initialWarehouses: Warehouse[] = [
   },
   {
     id: "wh-4",
+    department: "Medical Services",
     name: "Delta Fulfillment Hub",
     location: "Houston, TX",
     address: "321 Supply Chain Rd, Houston, TX 77001",

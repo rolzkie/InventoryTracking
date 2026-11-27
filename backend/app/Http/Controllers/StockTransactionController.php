@@ -97,13 +97,13 @@ class StockTransactionController extends Controller
 
             if (!$item->warehouseId) {
                 throw ValidationException::withMessages([
-                    'itemId' => 'Item must be assigned to a warehouse before stock transactions can be recorded.',
+                    'itemId' => 'Product must be assigned to a department storage location before stock transactions can be recorded.',
                 ]);
             }
 
             if ($item->warehouseId != $validated['warehouseId']) {
                 throw ValidationException::withMessages([
-                    'warehouseId' => 'Selected warehouse does not match the item location.',
+                    'warehouseId' => 'Selected storage location does not match the product assignment.',
                 ]);
             }
 
@@ -186,7 +186,7 @@ class StockTransactionController extends Controller
             if ($changedStock) {
                 $itemIds = collect([$oldTransaction->itemId, $newItemId])->unique()->sort()->values();
                 $affectedItemIds = $itemIds;
-                $lockedItems = InventoryItem::whereIn('id', $itemIds)->lockForUpdate()->get()->keyBy('id');
+                $lockedItems = InventoryItem::withTrashed()->whereIn('id', $itemIds)->lockForUpdate()->get()->keyBy('id');
                 $oldItem = $lockedItems->get($oldTransaction->itemId);
                 $newItem = $lockedItems->get($newItemId);
                 foreach ($lockedItems as $itemId => $lockedItem) {
@@ -211,12 +211,12 @@ class StockTransactionController extends Controller
 
                 if (!$newItem->warehouseId) {
                     throw ValidationException::withMessages([
-                        'itemId' => 'Item must be assigned to a warehouse before stock transactions can be recorded.',
+                        'itemId' => 'Product must be assigned to a department storage location before stock transactions can be recorded.',
                     ]);
                 }
                 if ($newItem->warehouseId != $newWarehouseId) {
                     throw ValidationException::withMessages([
-                        'warehouseId' => 'Selected warehouse does not match the item location.',
+                        'warehouseId' => 'Selected storage location does not match the product assignment.',
                     ]);
                 }
                 if ($newType === 'stock_out' && $newItem->quantity < $newQuantity) {
@@ -238,7 +238,7 @@ class StockTransactionController extends Controller
 
             if ($affectedItemIds->isNotEmpty()) {
                 foreach ($affectedItemIds as $itemId) {
-                    $item = InventoryItem::find($itemId);
+                    $item = InventoryItem::withTrashed()->find($itemId);
                     if (! $item) continue;
                     $before = $previousQuantities[(int) $itemId];
                     $after = (int) $item->quantity;
@@ -268,7 +268,7 @@ class StockTransactionController extends Controller
         $this->authorizeAdministrator($request, 'Only administrators can delete recorded stock transactions.');
 
         DB::transaction(function () use ($transaction, $request) {
-            $item = InventoryItem::whereKey($transaction->itemId)->lockForUpdate()->first();
+            $item = InventoryItem::withTrashed()->whereKey($transaction->itemId)->lockForUpdate()->first();
             if ($item) {
                 $previousQuantity = (int) $item->quantity;
                 if ($transaction->transactionType === 'stock_in') {

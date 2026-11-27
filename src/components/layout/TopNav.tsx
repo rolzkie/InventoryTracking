@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect } from "react";
-import { Menu, Search, Bell, Sun, Moon, ChevronDown, LogOut, User, Settings, Package, Warehouse, TrendingUp, CircleHelp } from "lucide-react";
+import { Menu, Search, Bell, Sun, Moon, ChevronDown, LogOut, User, Settings, Package, TrendingUp, CircleHelp } from "lucide-react";
 import { useApp } from "../../context/AppContext";
+import { DEFAULT_TIMEZONE, formatDateTime } from "../../lib/datetime";
 import type { Page } from "../../types";
 
 const pageLabels: Record<Page, string> = {
   dashboard: "Dashboard",
   inventory: "Products",
-  warehouses: "Warehouses",
+  warehouses: "Departments & Storage Locations",
   transfers: "Transfers",
   "stock-transactions": "Transactions",
   "borrow-records": "Borrow & Return",
@@ -20,7 +21,7 @@ const pageLabels: Record<Page, string> = {
 const pageDescriptions: Record<Page, string> = {
   dashboard: "School inventory overview",
   inventory: "Track availability, value, and replenishment",
-  warehouses: "Manage facilities, capacity, and zones",
+  warehouses: "Assign products to departments and physical storage locations",
   transfers: "Coordinate stock between locations",
   "stock-transactions": "Review stock received, issued, borrowed, and returned",
   "borrow-records": "Record equipment loans and returns",
@@ -48,6 +49,7 @@ export default function TopNav({ onMenuToggle, onOpenHelp, helpActive = false }:
   const [showSearch, setShowSearch] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const timezone = String(state.settings.general?.timezone ?? DEFAULT_TIMEZONE);
   const searchRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -95,14 +97,7 @@ export default function TopNav({ onMenuToggle, onOpenHelp, helpActive = false }:
     ? "Notifications. No new alerts."
     : `Notifications. ${notificationStateLabel}. ${unreadFeedCount} unread in the feed.`;
   const formatFeedTime = (value: string) => {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return value;
-    return new Intl.DateTimeFormat("en-US", {
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    }).format(date);
+    return formatDateTime(value, timezone, "en-US");
   };
   const routeForNotification = (title: string) => {
     switch (title) {

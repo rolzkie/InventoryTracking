@@ -18,7 +18,7 @@ function canRun(command) {
   return result.status === 0;
 }
 
-// Prefer a compatible PHP already on PATH over XAMPP's bundled PHP.
+// Use the configured PHP when provided; otherwise prefer PHP on PATH.
 const php = process.env.WAREHOUSEIQ_PHP_PATH || (canRun("php") ? "php" : xamppPhp);
 
 function run(command, args, cwd = backendDir) {
@@ -26,7 +26,7 @@ function run(command, args, cwd = backendDir) {
     cwd,
     stdio: "inherit",
     windowsHide: true,
-    shell: process.platform === "win32" && !path.isAbsolute(command),
+    shell: process.platform === "win32" && /\.(cmd|bat)$/i.test(command),
   });
 
   if (result.error) {
@@ -41,14 +41,14 @@ const phpVersion = spawnSync(php, ["-r", "echo PHP_VERSION;"], {
   windowsHide: true,
 });
 
-const [major, minor, patch] = (phpVersion.stdout || "").trim().split(".").map(Number);
+const [major, minor] = (phpVersion.stdout || "").trim().split(".").map(Number);
 if (
   phpVersion.status !== 0 ||
   major < 8 ||
-  (major === 8 && (minor < 4 || (minor === 4 && patch < 1)))
+  (major === 8 && minor < 2)
 ) {
-  console.error(`PHP 8.4.1+ is required. "${php}" resolved to ${phpVersion.stdout?.trim() || "an unavailable executable"}.`);
-  console.error("Set WAREHOUSEIQ_PHP_PATH to a compatible PHP executable and run setup again.");
+  console.error(`PHP 8.2+ is required. "${php}" resolved to ${phpVersion.stdout?.trim() || "an unavailable executable"}.`);
+  console.error("Install PHP 8.2 or newer, or set WAREHOUSEIQ_PHP_PATH to its executable, then run setup again.");
   process.exit(1);
 }
 
@@ -57,16 +57,14 @@ if (!existsSync(envPath)) {
   console.log("Created backend/.env from backend/.env.example.");
 }
 
-if (!existsSync(path.join(backendDir, "vendor", "autoload.php"))) {
-  if (existsSync(composerPhar)) {
-    run(php, [composerPhar, "install", "--no-interaction", "--prefer-dist"]);
-  } else {
-    run(process.platform === "win32" ? "composer.bat" : "composer", [
-      "install",
-      "--no-interaction",
-      "--prefer-dist",
-    ]);
-  }
+if (existsSync(composerPhar)) {
+  run(php, [composerPhar, "install", "--no-interaction", "--prefer-dist"]);
+} else {
+  run(process.platform === "win32" ? "composer.bat" : "composer", [
+    "install",
+    "--no-interaction",
+    "--prefer-dist",
+  ]);
 }
 
 const env = readFileSync(envPath, "utf8");

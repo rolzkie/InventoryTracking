@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\StockTransaction;
+use App\Support\ApplicationTimezone;
 use Carbon\CarbonInterface;
 
 class StockTransactionReferenceService
@@ -10,7 +11,10 @@ class StockTransactionReferenceService
     public function generate(string $transactionType, ?CarbonInterface $date = null): string
     {
         $prefix = $transactionType === 'stock_out' ? 'STKOUT' : 'STKIN';
-        $day = ($date ?? now())->format('Ymd');
+        $day = ($date ?? now(ApplicationTimezone::name()))
+            ->copy()
+            ->setTimezone(ApplicationTimezone::name())
+            ->format('Ymd');
         $base = "{$prefix}-{$day}-";
 
         $latest = StockTransaction::query()

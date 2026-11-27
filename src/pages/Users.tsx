@@ -2,18 +2,20 @@ import { useState, useMemo, useRef, type FormEvent } from "react";
 import { Plus, Edit2, Trash2, UserCheck, UserX, Shield, User as UserIcon, Eye, EyeOff, Copy, RefreshCw, Check, X, AlertCircle, ShieldCheck, ShieldAlert } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import type { User, UserRole } from "../types";
+import { DEFAULT_TIMEZONE, todayDate } from "../lib/datetime";
 import {
   Button, Input, Select, Modal, ConfirmDialog,
   Card, Table, Th, Td, SearchBar, PageHeader, Badge, StatusBadge, EmptyState,
 } from "../components/ui";
 
-const ROLES: UserRole[] = ["admin", "staff", "viewer"];
+const ROLES: UserRole[] = ["admin", "staff", "viewer", "visitor"];
 const DEPARTMENTS = ["Operations", "Logistics", "Warehouse", "Inventory", "Receiving", "Finance", "IT", "Management"];
 
 const roleColors: Record<UserRole, string> = {
   admin: "red",
   staff: "blue",
   viewer: "gray",
+  visitor: "gray",
 };
 
 type UserForm = Omit<User, "id" | "createdAt" | "lastLogin"> & { password: string; passwordConfirmation: string };
@@ -31,14 +33,15 @@ function passwordRules(password: string) {
   };
 }
 
-function passwordStrength(password: string): "weak" | "strong" | "extreme" {
+function passwordStrength(password: string): "weak" | "moderate" | "strong" {
   const rules = passwordRules(password);
   if (!rules.length || !rules.letter || !rules.number || !rules.spaces) return "weak";
-  return password.length >= 12 && /[A-Z]/.test(password) && /[a-z]/.test(password) ? "extreme" : "strong";
+  return password.length >= 12 && /[A-Z]/.test(password) && /[a-z]/.test(password) ? "strong" : "moderate";
 }
 
 export default function Users() {
   const { state, showToast, generateId, createUser, updateUser, deleteUser } = useApp();
+  const timezone = String(state.settings.general?.timezone ?? DEFAULT_TIMEZONE);
   const [search, setSearch] = useState("");
   const [filterRole, setFilterRole] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
@@ -145,7 +148,7 @@ export default function Users() {
       ...userFields,
       id: generateId("user"),
       avatar: initials,
-      createdAt: new Date().toISOString().split("T")[0],
+      createdAt: todayDate(timezone),
       lastLogin: "Never",
     };
     try {
@@ -211,11 +214,11 @@ export default function Users() {
     if (!rules.length) return "Use 8 or more characters";
     if (!rules.letter) return "Add a letter";
     if (!rules.number) return "Add a number";
-    if (passwordLevel === "strong" && (!/[A-Z]/.test(form.password) || !/[a-z]/.test(form.password))) return "Add uppercase and lowercase letters";
-    if (passwordLevel === "strong") return "Use 12 or more characters to reach Extreme";
-    return "Your password meets the Extreme requirements";
+    if (passwordLevel === "moderate" && (!/[A-Z]/.test(form.password) || !/[a-z]/.test(form.password))) return "Add uppercase and lowercase letters to reach Strong";
+    if (passwordLevel === "moderate") return "Use 12 or more characters to reach Strong";
+    return "Your password meets the Strong requirements";
   })();
-  const strengthColor = passwordLevel === "weak" ? "#C62828" : passwordLevel === "strong" ? "#F9A825" : "#1B5E20";
+  const strengthColor = passwordLevel === "weak" ? "#C62828" : passwordLevel === "moderate" ? "#F9A825" : "#1B5E20";
   const passwordFormValid = Boolean(selectedUser && !form.password) || (
     passwordLevel !== "weak" && Boolean(form.passwordConfirmation) && form.passwordConfirmation === form.password
   );
@@ -270,7 +273,7 @@ export default function Users() {
           <div className="flex items-center gap-2" role="status" aria-live="polite" aria-atomic="true">
             <div className="grid h-3 flex-1 grid-cols-3 gap-1" aria-hidden="true">
               {[1, 2, 3].map((segment) => (
-                <span key={segment} className="border-2 border-content" style={{ backgroundColor: segment <= (passwordLevel === "weak" ? 1 : passwordLevel === "strong" ? 2 : 3) ? strengthColor : "transparent" }} />
+                <span key={segment} className="border-2 border-content" style={{ backgroundColor: segment <= (passwordLevel === "weak" ? 1 : passwordLevel === "moderate" ? 2 : 3) ? strengthColor : "transparent" }} />
               ))}
             </div>
             <span className="sr-only">Password strength: {passwordLevel}.</span>
@@ -293,24 +296,30 @@ export default function Users() {
           error={formErrors.role}
           onChange={(e) => {
             const role = e.target.value as UserRole;
-            setForm((current) => ({ ...current, role, permission: role === "viewer" ? "view" : current.permission }));
+            setForm((current) => ({
+              ...current,
+              role,
+              permission: role === "viewer" || role === "visitor" ? "view" : current.role === "viewer" || current.role === "visitor" ? "manage" : current.permission,
+              department: role === "viewer" || role === "visitor" ? "N/A" : current.department === "N/A" ? "Operations" : current.department,
+            }));
             setFormErrors((current) => ({ ...current, role: "" }));
           }}
         >
           {availableRoles.map((r) => <option key={r} value={r} className="capitalize">{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
         </Select>
-        <Select label="Permission *" value={form.permission} disabled={form.role === "viewer"} onChange={(e) => updateForm("permission", e.target.value as User["permission"])}>
+        <Select label="Permission *" value={form.permission} disabled={form.role === "viewer" || form.role === "visitor"} onChange={(e) => updateForm("permission", e.target.value as User["permission"])}>
           <option value="manage">Manage</option>
           <option value="view">View only</option>
         </Select>
         <Select label="Department" value={form.department} onChange={(e) => updateForm("department", e.target.value)}>
+          {(form.role === "viewer" || form.role === "visitor") && <option value="N/A">N/A</option>}
           {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
         </Select>
       </div>
-      <div className="flex items-center gap-3">
+      {selectedUser && <div className="flex items-center gap-3">
         <input type="checkbox" id="active" checked={form.active} onChange={(e) => updateForm("active", e.target.checked)} className="w-4 h-4 rounded accent-blue-500" />
         <label htmlFor="active" className="text-sm text-slate-300">Active account</label>
-      </div>
+      </div>}
     </div>
   );
 
