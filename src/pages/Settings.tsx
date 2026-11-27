@@ -20,8 +20,6 @@ export default function Settings() {
   const [saved, setSaved] = useState<string | null>(null);
 
   const [general, setGeneral] = useState({
-    companyName: "WarehouseIQ Corp",
-    systemEmail: "system@warehouseiq.com",
     timezone: DEFAULT_TIMEZONE,
     currency: "USD",
     dateFormat: "YYYY-MM-DD",
@@ -45,7 +43,23 @@ export default function Settings() {
     ipAllowlist: false,
   });
   useEffect(() => {
-    if (state.settings.general) setGeneral((current) => ({ ...current, ...state.settings.general }));
+    if (state.settings.general) {
+      const settings = state.settings.general;
+      setGeneral((current) => ({
+        ...current,
+        ...(typeof settings.timezone === "string" ? { timezone: settings.timezone } : {}),
+        ...(typeof settings.currency === "string" ? { currency: settings.currency } : {}),
+        ...(typeof settings.dateFormat === "string" ? { dateFormat: settings.dateFormat } : {}),
+      }));
+    }
+    if (state.settings.thresholds) {
+      const thresholds = state.settings.thresholds;
+      setGeneral((current) => ({
+        ...current,
+        ...(thresholds.lowStockMin != null ? { lowStockThreshold: Number(thresholds.lowStockMin) } : {}),
+        ...(thresholds.overstockMax != null ? { overstockThreshold: Number(thresholds.overstockMax) } : {}),
+      }));
+    }
     if (state.settings.notifications) setNotifications((current) => ({ ...current, ...state.settings.notifications }));
     if (state.settings.security) setSecurity((current) => ({ ...current, ...state.settings.security }));
   }, [state.settings]);
@@ -186,9 +200,11 @@ export default function Settings() {
                 </Button>
               </div>
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <Input label="Company Name" value={general.companyName} onChange={(e) => setGeneral({ ...general, companyName: e.target.value })} />
-                  <Input label="System Email" type="email" value={general.systemEmail} onChange={(e) => setGeneral({ ...general, systemEmail: e.target.value })} />
+                <div className="pt-1">
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input label="Low Stock Minimum" type="number" min={0} value={general.lowStockThreshold} onChange={(e) => setGeneral({ ...general, lowStockThreshold: parseInt(e.target.value) || 0 })} />
+                    <Input label="Overstock Maximum" type="number" min={0} value={general.overstockThreshold} onChange={(e) => setGeneral({ ...general, overstockThreshold: parseInt(e.target.value) || 0 })} />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <Select label="Timezone" value={general.timezone} onChange={(e) => setGeneral({ ...general, timezone: e.target.value })}>
@@ -213,13 +229,6 @@ export default function Settings() {
                     <option value="MM/DD/YYYY">MM/DD/YYYY</option>
                     <option value="DD/MM/YYYY">DD/MM/YYYY</option>
                   </Select>
-                </div>
-                <div className="pt-4 border-t border-[#2A3445]">
-                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-3">Alert Thresholds</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Input label="Low Stock Minimum" type="number" min={0} value={general.lowStockThreshold} onChange={(e) => setGeneral({ ...general, lowStockThreshold: parseInt(e.target.value) || 0 })} />
-                    <Input label="Overstock Maximum" type="number" min={0} value={general.overstockThreshold} onChange={(e) => setGeneral({ ...general, overstockThreshold: parseInt(e.target.value) || 0 })} />
-                  </div>
                 </div>
               </div>
             </Card>
