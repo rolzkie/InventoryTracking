@@ -20,7 +20,7 @@ class StoreInventoryRequest extends FormRequest
             'category' => ['required', 'string', 'max:100'],
             'quantity' => ['required', 'integer', 'min:0'],
             'reorderPoint' => ['required', 'integer', 'min:0'],
-            'warehouseId' => ['required', 'exists:warehouses,id'],
+            'warehouseId' => ['nullable', 'exists:warehouses,id'],
             'unitPrice' => ['required', 'numeric', 'min:0'],
         ];
     }

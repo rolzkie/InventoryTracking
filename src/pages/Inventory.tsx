@@ -1,6 +1,8 @@
 import { useState, useMemo } from "react";
 import { Plus, Edit2, Trash2, Eye, Package, Filter, ChevronDown } from "lucide-react";
 import { useApp } from "../context/AppContext";
+import { storageLocationLabel } from "../lib/api";
+import { DEFAULT_TIMEZONE, daysFromToday, todayDate } from "../lib/datetime";
 import type { InventoryItem } from "../types";
 import {
   Button,
@@ -44,6 +46,7 @@ const emptyForm = (): InventoryForm => ({
 
 export default function Inventory() {
   const { state, showToast, generateId, createItem, updateItem, deleteItem } = useApp();
+  const timezone = String(state.settings.general?.timezone ?? DEFAULT_TIMEZONE);
   const canWrite = state.currentUser.role !== "viewer" && state.currentUser.permission !== "view";
   const isAdmin = state.currentUser.role === "admin";
   const [search, setSearch] = useState("");
@@ -63,7 +66,7 @@ export default function Inventory() {
   const [adjustmentReason, setAdjustmentReason] = useState("");
   const normalizeSku = (value: string) => value.trim().toLowerCase();
   const generateSku = () => {
-    const day = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const day = todayDate(timezone).replace(/-/g, "");
     const base = `SKU-${day}-`;
     const next = state.items.reduce((highest, item) => {
       if (!item.sku.toUpperCase().startsWith(base)) return highest;
@@ -112,14 +115,14 @@ export default function Inventory() {
   const handleAdd = async () => {
     const errors = validate(form);
     if (Object.keys(errors).length) { setFormErrors(errors); return; }
-    const now = new Date().toISOString().split("T")[0];
+    const now = todayDate(timezone);
     const newItem: InventoryItem = {
       ...form,
       sku: form.sku.trim(),
       id: generateId("item"),
       warehouseId: null,
       zoneId: null,
-      status: "out-of-stock",
+      status: "unassigned",
       createdAt: now,
       updatedAt: now,
       expirationDate: form.expirationDate || null,
@@ -150,7 +153,7 @@ export default function Inventory() {
           ...selectedItem,
           ...form,
           sku: form.sku.trim(),
-          updatedAt: new Date().toISOString().split("T")[0],
+          updatedAt: todayDate(timezone),
           expirationDate: form.expirationDate || null,
           supplierId: form.supplierId || null,
         },
@@ -258,7 +261,7 @@ export default function Inventory() {
       </div>
       <Textarea label="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Optional item description..." />
       <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-xs text-blue-300">
-        <strong>Note:</strong> Warehouse assignment is done in the Warehouses module after item creation.
+        <strong>Note:</strong> Assign products to a department storage location from Departments &amp; Locations after creation.
       </div>
     </div>
   );
@@ -285,11 +288,11 @@ export default function Inventory() {
             {state.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </Select>
           <Select value={filterWarehouse} onChange={(e) => { setFilterWarehouse(e.target.value); setPage(1); }} className="w-44">
-            <option value="" disabled hidden>Warehouse</option>
-            <option value="">All Warehouses</option>
+            <option value="" disabled hidden>Storage location</option>
+            <option value="">All locations</option>
             <option value="__unassigned__">Unassigned</option>
             {state.warehouses.map((warehouse) => (
-              <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>
+              <option key={warehouse.id} value={warehouse.id}>{storageLocationLabel(warehouse)}</option>
             ))}
           </Select>
           <Select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }} className="w-36">
@@ -299,6 +302,7 @@ export default function Inventory() {
             <option value="out-of-stock">Out of Stock</option>
             <option value="expired">Expired</option>
             <option value="overstock">Overstock</option>
+            <option value="unassigned">Unassigned</option>
           </Select>
           <div className="flex items-center gap-1 text-xs text-slate-400 ml-auto">
             <Filter size={12} />
@@ -356,7 +360,8 @@ export default function Inventory() {
               paginated.map((item) => {
                 const cat = state.categories.find((c) => c.id === item.categoryId);
                 const totalValue = item.quantity * item.unitCost;
-                const isExpiringSoon = item.expirationDate && new Date(item.expirationDate) <= new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
+                const daysToExpiry = item.expirationDate ? daysFromToday(item.expirationDate, timezone) : Number.NaN;
+                const isExpiringSoon = item.expirationDate && daysToExpiry >= 0 && daysToExpiry <= 60;
                 return (
                   <tr key={item.id} className="hover:bg-[#1E2A3A]/50 transition-colors group">
                     <Td><span className="font-mono text-xs text-blue-400">{item.sku}</span></Td>
@@ -400,7 +405,7 @@ export default function Inventory() {
                         {canWrite && <button onClick={() => openEdit(item)} className="p-1.5 rounded-lg border border-[#334155]/70 bg-[#0B1220]/70 text-slate-300 transition-all hover:border-amber-500/60 hover:bg-amber-500/10 hover:text-amber-300 hover:shadow-[0_0_14px_rgba(245,158,11,0.28)] focus-visible:shadow-[0_0_14px_rgba(245,158,11,0.28)]" title="Edit">
                           <Edit2 size={13} />
                         </button>}
-                        {isAdmin && <button onClick={() => setDeleteId(item.id)} className="p-1.5 rounded-lg border border-[#334155]/70 bg-[#0B1220]/70 text-slate-300 transition-all hover:border-red-500/60 hover:bg-red-500/10 hover:text-red-300 hover:shadow-[0_0_14px_rgba(239,68,68,0.28)] focus-visible:shadow-[0_0_14px_rgba(239,68,68,0.28)]" title="Delete">
+                        {canWrite && <button onClick={() => setDeleteId(item.id)} className="p-1.5 rounded-lg border border-[#334155]/70 bg-[#0B1220]/70 text-slate-300 transition-all hover:border-red-500/60 hover:bg-red-500/10 hover:text-red-300 hover:shadow-[0_0_14px_rgba(239,68,68,0.28)] focus-visible:shadow-[0_0_14px_rgba(239,68,68,0.28)]" title="Archive">
                           <Trash2 size={13} />
                         </button>}
                       </div>
@@ -451,7 +456,7 @@ export default function Inventory() {
             <div className="grid grid-cols-2 gap-3">
               {[
                 { label: "Category", value: state.categories.find(c => c.id === selectedItem.categoryId)?.name ?? "—" },
-                { label: "Warehouse", value: state.warehouses.find(w => w.id === selectedItem.warehouseId)?.name ?? "Unassigned" },
+                { label: "Department / Storage Location", value: storageLocationLabel(state.warehouses.find(w => w.id === selectedItem.warehouseId)) },
                 { label: "Quantity", value: `${selectedItem.quantity} ${selectedItem.unit}` },
                 { label: "Reorder Point", value: selectedItem.reorderPoint },
                 { label: "Max Stock", value: selectedItem.maxStock },
@@ -483,7 +488,7 @@ export default function Inventory() {
         onClose={() => setDeleteId(null)}
         onConfirm={() => void handleDelete(deleteId!)}
         title="Delete Inventory Item"
-        message={`Are you sure you want to delete "${state.items.find(i => i.id === deleteId)?.name}"? This action cannot be undone.`}
+        message={`Archive "${state.items.find(i => i.id === deleteId)?.name}" from active inventory? Borrow, transfer, and stock history will be preserved.`}
         confirmLabel="Delete Item"
         variant="danger"
       />

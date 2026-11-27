@@ -6,6 +6,7 @@ use App\Models\InventoryItem;
 use App\Models\Warehouse;
 use App\Models\Transfer;
 use App\Models\StockTransaction;
+use App\Support\ApplicationTimezone;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
@@ -22,10 +23,12 @@ class DashboardController extends Controller
             return $item->quantity * $item->unitPrice;
         });
 
-        $today = now()->toDateString();
-        $todayTransfers = Transfer::whereDate('createdAt', $today)->count();
-        $recentStockIn = StockTransaction::where('transactionType', 'stock_in')->whereDate('createdAt', $today)->count();
-        $recentStockOut = StockTransaction::where('transactionType', 'stock_out')->whereDate('createdAt', $today)->count();
+        $timezone = ApplicationTimezone::name();
+        $todayStartUtc = now($timezone)->startOfDay()->utc();
+        $tomorrowStartUtc = $todayStartUtc->copy()->addDay();
+        $todayTransfers = Transfer::where('createdAt', '>=', $todayStartUtc)->where('createdAt', '<', $tomorrowStartUtc)->count();
+        $recentStockIn = StockTransaction::where('transactionType', 'stock_in')->where('createdAt', '>=', $todayStartUtc)->where('createdAt', '<', $tomorrowStartUtc)->count();
+        $recentStockOut = StockTransaction::where('transactionType', 'stock_out')->where('createdAt', '>=', $todayStartUtc)->where('createdAt', '<', $tomorrowStartUtc)->count();
 
         $unassigned = $inventory->where('status', 'unassigned')->count();
 

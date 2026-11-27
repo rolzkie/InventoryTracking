@@ -28,7 +28,7 @@ class AuthenticateApiUser
         }
 
         $path = $request->path();
-        if ($user->role === 'viewer' || $user->permission === 'view') {
+        if (in_array($user->role, ['viewer', 'visitor'], true) || $user->permission === 'view') {
             $viewerReadPrefixes = [
                 'api/dashboard',
                 'api/inventory',
@@ -36,6 +36,7 @@ class AuthenticateApiUser
                 'api/categories',
                 'api/suppliers',
                 'api/reports',
+                'api/timezone',
             ];
             $allowedViewerRead = in_array($request->method(), ['GET', 'HEAD'], true)
                 && collect($viewerReadPrefixes)->contains(fn (string $prefix) => $path === $prefix || str_starts_with($path, $prefix.'/'));
@@ -58,7 +59,7 @@ class AuthenticateApiUser
         }
 
         if (! in_array($request->method(), ['GET', 'HEAD', 'OPTIONS'], true)
-            && ($user->role === 'viewer' || $user->permission === 'view')) {
+            && (in_array($user->role, ['viewer', 'visitor'], true) || $user->permission === 'view')) {
             return response()->json(['message' => 'Your account has read-only access.'], 403);
         }
 

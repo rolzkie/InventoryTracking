@@ -3,9 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Support\ApplicationTimezone;
 
 class InventoryItem extends Model
 {
+    use SoftDeletes;
+
     protected $table = 'inventory_items';
 
     protected $fillable = [
@@ -64,16 +68,17 @@ class InventoryItem extends Model
             return 'overstock';
         }
 
-        if ((int) $this->quantity <= (int) $this->reorderPoint) {
-            return 'low_stock';
-        }
-
         if (!empty($this->expiryDate)) {
-            $expiryDay = \Illuminate\Support\Carbon::parse($this->expiryDate)->startOfDay();
+            $expiryDay = $this->expiryDate->format('Y-m-d');
+            $today = now(ApplicationTimezone::name())->toDateString();
 
-            if ($expiryDay < now()->startOfDay()) {
+            if ($expiryDay < $today) {
                 return 'expired';
             }
+        }
+
+        if ((int) $this->quantity <= (int) $this->reorderPoint) {
+            return 'low_stock';
         }
 
         return 'in_stock';

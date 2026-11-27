@@ -25,7 +25,7 @@ class UpdateInventoryRequest extends FormRequest
             'category' => ['sometimes', 'string', 'max:100'],
             'quantity' => ['sometimes', 'integer', 'min:0'],
             'reorderPoint' => ['sometimes', 'integer', 'min:0'],
-            'warehouseId' => ['sometimes', 'exists:warehouses,id'],
+            'warehouseId' => ['sometimes', 'nullable', 'exists:warehouses,id'],
             'unitPrice' => ['sometimes', 'numeric', 'min:0'],
         ];
     }

@@ -10,6 +10,7 @@ import {
   BookOpen,
   Tags,
   ClipboardList,
+  MapPin,
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import type { Page } from "../../types";
@@ -18,6 +19,7 @@ import BrandLogo from "../BrandLogo";
 const navItems: { id: Page; label: string; icon: React.ReactNode; badge?: string }[] = [
   { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
   { id: "inventory", label: "Products", icon: <Package size={18} /> },
+  { id: "warehouses", label: "Departments & Locations", icon: <MapPin size={18} /> },
   { id: "categories", label: "Categories", icon: <Tags size={18} /> },
   { id: "stock-transactions", label: "Stock In / Out", icon: <TrendingUp size={18} /> },
   { id: "borrow-records", label: "Borrow & Return", icon: <BookOpen size={18} /> },
@@ -30,7 +32,7 @@ const navItems: { id: Page; label: string; icon: React.ReactNode; badge?: string
 export default function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { state, navigate } = useApp();
   const isAdmin = state.currentUser.role === "admin";
-  const isViewer = state.currentUser.role === "viewer" || state.currentUser.permission === "view";
+  const isViewer = state.currentUser.role === "viewer" || state.currentUser.role === "visitor" || state.currentUser.permission === "view";
   const unacknowledgedAlerts = state.alerts.filter((a) => !a.acknowledged).length;
 
   const badges: Partial<Record<Page, number>> = {

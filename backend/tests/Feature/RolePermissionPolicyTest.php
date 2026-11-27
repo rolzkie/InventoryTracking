@@ -16,7 +16,7 @@ class RolePermissionPolicyTest extends TestCase
             ->assertUnauthorized();
     }
 
-    public function test_staff_can_add_and_update_inventory_but_cannot_change_quantity_or_delete(): void
+    public function test_staff_can_add_update_and_archive_inventory_but_cannot_change_quantity(): void
     {
         $staff = User::factory()->create(['role' => 'staff', 'permission' => 'manage', 'active' => true]);
         $token = $this->issueToken($staff);
@@ -41,7 +41,8 @@ class RolePermissionPolicyTest extends TestCase
         ])->assertForbidden();
         $this->assertDatabaseHas('inventory_items', ['id' => $itemId, 'quantity' => 5]);
 
-        $this->withToken($token)->deleteJson("/api/inventory/{$itemId}")->assertForbidden();
+        $this->withToken($token)->deleteJson("/api/inventory/{$itemId}")->assertOk();
+        $this->assertSoftDeleted('inventory_items', ['id' => $itemId]);
         $this->withToken($token)->postJson("/api/inventory/{$itemId}/adjust", ['delta' => -1])->assertForbidden();
     }
 

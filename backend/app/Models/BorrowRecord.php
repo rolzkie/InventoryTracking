@@ -23,7 +23,7 @@ class BorrowRecord extends Model
 
     public function item()
     {
-        return $this->belongsTo(InventoryItem::class, 'itemId');
+        return $this->belongsTo(InventoryItem::class, 'itemId')->withTrashed();
     }
 
     public function getOutstandingQuantityAttribute(): int

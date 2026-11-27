@@ -2,10 +2,12 @@ import { FormEvent, useEffect, useState } from "react";
 import { useApp } from "../context/AppContext";
 import { api } from "../lib/api";
 import type { BorrowRecord } from "../types";
+import { DEFAULT_TIMEZONE, todayDate } from "../lib/datetime";
 import { Badge, Button, Card, Input, PageHeader, Select, Table, Td, Th } from "../components/ui";
 
 export default function BorrowReturns() {
   const { state, showToast, refreshOperationalData } = useApp();
+  const timezone = String(state.settings.general?.timezone ?? DEFAULT_TIMEZONE);
   const [records, setRecords] = useState<BorrowRecord[]>([]);
   const [itemId, setItemId] = useState("");
   const [borrowerName, setBorrowerName] = useState("");
@@ -24,7 +26,7 @@ export default function BorrowReturns() {
     try {
       await api.borrowRecords.create({
         itemId: Number(itemId), borrowerName: borrowerName.trim(), quantity,
-        borrowedAt: new Date().toISOString().slice(0, 10), expectedReturnAt,
+        borrowedAt: todayDate(timezone), expectedReturnAt,
       });
       await Promise.all([load(), refreshOperationalData()]);
       setBorrowerName(""); setItemId(""); setQuantity(1); setExpectedReturnAt("");
@@ -50,11 +52,11 @@ export default function BorrowReturns() {
       <form onSubmit={(event) => void submitBorrow(event)} className="grid grid-cols-1 gap-3 md:grid-cols-5 md:items-end">
         <Select label="Equipment" value={itemId} onChange={(event) => setItemId(event.target.value)} required>
           <option value="">Select item</option>
-          {state.items.filter((item) => item.quantity > 0).map((item) => <option key={item.id} value={item.id}>{item.name} · {item.quantity} available</option>)}
+          {state.items.filter((item) => item.quantity > 0).map((item) => <option key={item.id} value={item.id}>{item.name} · {item.quantity} available{item.warehouseId ? "" : " · unassigned location"}</option>)}
         </Select>
         <Input label="Borrower name" value={borrowerName} onChange={(event) => setBorrowerName(event.target.value)} required maxLength={255} />
         <Input label="Quantity" type="number" min={1} value={quantity} onChange={(event) => setQuantity(Number(event.target.value))} required />
-        <Input label="Expected return" type="date" value={expectedReturnAt} min={new Date().toISOString().slice(0, 10)} onChange={(event) => setExpectedReturnAt(event.target.value)} required />
+        <Input label="Expected return" type="date" value={expectedReturnAt} min={todayDate(timezone)} onChange={(event) => setExpectedReturnAt(event.target.value)} required />
         <Button type="submit" disabled={loading}>{loading ? "Saving…" : "Record Borrowing"}</Button>
       </form>
     </Card>}

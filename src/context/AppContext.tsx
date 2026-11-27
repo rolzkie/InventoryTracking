@@ -13,6 +13,7 @@ import type {
   Page,
 } from "../types";
 import { ApiError, api } from "../lib/api";
+import { DEFAULT_TIMEZONE, daysFromToday } from "../lib/datetime";
 
 const AUTH_STORAGE_KEY = "warehouseiq.auth";
 const RECENT_LOGINS_KEY = "warehouseiq.recent-logins";
@@ -109,6 +110,7 @@ function buildAlerts(
   items: InventoryItem[],
   acknowledgedAlertIds: string[] = [],
   thresholds: Record<string, unknown> = {},
+  timezone = DEFAULT_TIMEZONE,
 ): Alert[] {
   const alerts: Alert[] = [];
   const lowStockMinimum = Number(thresholds.lowStockMin ?? 0);
@@ -151,7 +153,7 @@ function buildAlerts(
     }
 
     if (item.expirationDate) {
-      const days = Math.ceil((new Date(item.expirationDate).getTime() - Date.now()) / 86_400_000);
+      const days = daysFromToday(item.expirationDate, timezone);
       if (days >= 0 && days <= 30) {
         alerts.push({
           id: `exp-${item.id}`,
@@ -173,8 +175,9 @@ function mergeAlerts(
   items: InventoryItem[],
   acknowledgedAlertIds: string[],
   thresholds: Record<string, unknown>,
+  timezone = DEFAULT_TIMEZONE,
 ): Alert[] {
-  return buildAlerts(items, acknowledgedAlertIds, thresholds).sort(
+  return buildAlerts(items, acknowledgedAlertIds, thresholds, timezone).sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
 }
@@ -192,6 +195,7 @@ function reducer(state: AppState, action: Action): AppState {
           action.data.items,
           action.data.acknowledgedAlertIds,
           action.data.settings.thresholds,
+          String(action.data.settings.general?.timezone ?? DEFAULT_TIMEZONE),
         ),
         darkMode: typeof action.data.settings.appearance?.darkMode === "boolean"
           ? action.data.settings.appearance.darkMode
@@ -215,6 +219,7 @@ function reducer(state: AppState, action: Action): AppState {
           [...state.items, computeItemStatus(action.item)],
           state.acknowledgedAlertIds,
           state.settings.thresholds ?? {},
+          String(state.settings.general?.timezone ?? DEFAULT_TIMEZONE),
         ),
       };
 
@@ -223,7 +228,7 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         items: updatedItems,
-        alerts: mergeAlerts(updatedItems, state.acknowledgedAlertIds, state.settings.thresholds ?? {}),
+        alerts: mergeAlerts(updatedItems, state.acknowledgedAlertIds, state.settings.thresholds ?? {}, String(state.settings.general?.timezone ?? DEFAULT_TIMEZONE)),
       };
     }
 
@@ -232,7 +237,7 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         items,
-        alerts: mergeAlerts(items, state.acknowledgedAlertIds, state.settings.thresholds ?? {}),
+        alerts: mergeAlerts(items, state.acknowledgedAlertIds, state.settings.thresholds ?? {}, String(state.settings.general?.timezone ?? DEFAULT_TIMEZONE)),
       };
     }
 
@@ -269,7 +274,7 @@ function reducer(state: AppState, action: Action): AppState {
         transactions: [txn, ...state.transactions],
         items: updatedItems,
         warehouses: updatedWarehouses,
-        alerts: mergeAlerts(updatedItems, state.acknowledgedAlertIds, state.settings.thresholds ?? {}),
+        alerts: mergeAlerts(updatedItems, state.acknowledgedAlertIds, state.settings.thresholds ?? {}, String(state.settings.general?.timezone ?? DEFAULT_TIMEZONE)),
       };
     }
 
@@ -292,7 +297,7 @@ function reducer(state: AppState, action: Action): AppState {
         ...state,
         transfers: state.transfers.map((t) => (t.id === tr.id ? tr : t)),
         items: updatedItems,
-        alerts: mergeAlerts(updatedItems, state.acknowledgedAlertIds, state.settings.thresholds ?? {}),
+        alerts: mergeAlerts(updatedItems, state.acknowledgedAlertIds, state.settings.thresholds ?? {}, String(state.settings.general?.timezone ?? DEFAULT_TIMEZONE)),
       };
     }
 
@@ -566,7 +571,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const createTransaction = useCallback(async (transaction: Omit<StockTransaction, "id" | "referenceNumber"> & { id?: string; referenceNumber?: string }) => {
     const item = state.items.find((entry) => entry.id === transaction.itemId);
-    if (!item?.warehouseId) throw new Error("Assign this item to a warehouse before recording stock.");
+    if (!item?.warehouseId) throw new Error("Assign this product to a department storage location before recording stock.");
     await api.transactions.create(transaction, item.warehouseId);
     await refreshOperationalData();
   }, [refreshOperationalData, state.items]);
@@ -676,15 +681,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [refreshOperationalData, state.alerts]);
 
   const setDarkMode = useCallback(async (value: boolean) => {
-    const appearance = { ...(state.settings.appearance ?? {}), darkMode: value };
     dispatch({ type: "SET_DARK_MODE", value });
-    try {
+    // Appearance is a personal preference for staff and viewers. Only admins
+    // can write shared system settings through the API.
+    if (state.currentUser.role === "admin") {
+      const appearance = { ...(state.settings.appearance ?? {}), darkMode: value };
       await api.settings.update("appearance", appearance);
-    } catch (error) {
-      dispatch({ type: "SET_DARK_MODE", value: !value });
-      throw error;
     }
-  }, [state.settings.appearance]);
+  }, [state.currentUser.role, state.settings.appearance]);
 
   const saveSettings = useCallback(async (section: string, payload: Record<string, unknown>) => {
     await api.settings.update(section, payload);

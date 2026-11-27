@@ -3,15 +3,15 @@
 @section('content')
 <div class="flex flex-col gap-4">
     <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p class="text-xs text-muted-foreground">{{ count($warehouses) }} warehouses registered</p>
+        <p class="text-xs text-muted-foreground">{{ count($warehouses) }} department storage locations</p>
         <div class="flex items-center gap-2">
             <form method="GET" action="/warehouses" class="relative text-xs text-muted-foreground">
                 <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                <input value="{{ $search }}" name="search" placeholder="Search warehouses" class="pl-8 pr-3 py-2 rounded-lg border border-border bg-background text-foreground text-xs" />
+                <input value="{{ $search }}" name="search" placeholder="Search departments and locations" class="pl-8 pr-3 py-2 rounded-lg border border-border bg-background text-foreground text-xs" />
             </form>
             <a href="/warehouses" class="flex items-center gap-1.5 px-3 py-2 text-xs bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-                Add Warehouse
+                Add Department Storage Location
             </a>
         </div>
     </div>
@@ -33,6 +33,7 @@
                             <span class="text-xs text-primary font-medium" style="font-family: 'JetBrains Mono', monospace;">{{ $warehouse['id'] }}</span>
                             <span class="rounded-full px-2 py-1 text-[11px] {{ $status === 'near_full' ? 'bg-red-500/15 text-red-400' : 'bg-emerald-500/15 text-emerald-400' }}">{{ ucfirst(str_replace('_', ' ', $status)) }}</span>
                         </div>
+                        <p class="text-[10px] font-semibold uppercase tracking-wide text-primary">{{ $warehouse['department'] ?? 'General' }}</p>
                         <h3 class="text-sm font-semibold text-foreground">{{ $warehouse['name'] }}</h3>
                         <p class="text-xs text-muted-foreground mt-0.5">{{ $warehouse['location'] }}</p>
                     </div>

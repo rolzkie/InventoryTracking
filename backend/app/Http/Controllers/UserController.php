@@ -20,7 +20,7 @@ class UserController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8', 'regex:/^(?=.*[A-Za-z])(?=.*[0-9])\\S+$/', 'confirmed'],
-            'role' => ['required', Rule::in(['admin', 'staff', 'viewer'])],
+            'role' => ['required', Rule::in(['admin', 'staff', 'viewer', 'visitor'])],
             'permission' => ['sometimes', Rule::in(['manage', 'view'])],
             'avatar' => ['nullable', 'string', 'max:10'],
             'department' => ['nullable', 'string', 'max:100'],
@@ -28,7 +28,7 @@ class UserController extends Controller
         ]);
 
         $validated['email'] = strtolower($validated['email']);
-        $validated['permission'] = $validated['role'] === 'viewer'
+        $validated['permission'] = in_array($validated['role'], ['viewer', 'visitor'], true)
             ? 'view'
             : ($validated['permission'] ?? 'manage');
         $user = User::create($validated);
@@ -49,7 +49,7 @@ class UserController extends Controller
             'name' => ['sometimes', 'string', 'max:255'],
             'email' => ['sometimes', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
             'password' => ['sometimes', 'nullable', 'string', 'min:8', 'regex:/^(?=.*[A-Za-z])(?=.*[0-9])\\S+$/', 'confirmed'],
-            'role' => ['sometimes', Rule::in(['admin', 'staff', 'viewer'])],
+            'role' => ['sometimes', Rule::in(['admin', 'staff', 'viewer', 'visitor'])],
             'permission' => ['sometimes', Rule::in(['manage', 'view'])],
             'avatar' => ['nullable', 'string', 'max:10'],
             'department' => ['nullable', 'string', 'max:100'],
@@ -72,7 +72,7 @@ class UserController extends Controller
         if (array_key_exists('password', $validated) && blank($validated['password'])) {
             unset($validated['password']);
         }
-        if (($validated['role'] ?? $user->role) === 'viewer') {
+        if (in_array($validated['role'] ?? $user->role, ['viewer', 'visitor'], true)) {
             $validated['permission'] = 'view';
         }
 

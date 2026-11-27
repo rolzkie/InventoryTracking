@@ -3,16 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Models\InventoryItem;
-use App\Models\BorrowRecord;
 use App\Models\StockTransaction;
 use App\Models\Supplier;
-use App\Models\Transfer;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\InventoryActivityLogger;
 use App\Services\InventoryNotificationService;
 use App\Services\InventorySynchronizationService;
 use App\Services\StockTransactionReferenceService;
+use App\Support\ApplicationTimezone;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -56,7 +55,10 @@ class InventoryController extends Controller
 
     protected function generateSku(?CarbonInterface $date = null): string
     {
-        $day = ($date ?? now())->format('Ymd');
+        $day = ($date ?? now(ApplicationTimezone::name()))
+            ->copy()
+            ->setTimezone(ApplicationTimezone::name())
+            ->format('Ymd');
         $base = "SKU-{$day}-";
 
         $latest = InventoryItem::query()
@@ -201,7 +203,7 @@ class InventoryController extends Controller
                 'previous' => ['quantity' => 0],
                 'updated' => ['sku' => $item->sku, 'name' => $item->name, 'category' => $item->category, 'quantity' => $quantity],
                 'quantityChange' => ['from' => 0, 'to' => $quantity, 'delta' => $quantity],
-                'note' => 'Initial quantity is recorded as opening stock when the item is assigned to a warehouse.',
+                'note' => 'Initial quantity is recorded as opening stock when the product is assigned to a department storage location.',
             ]);
 
             return $item;
@@ -272,7 +274,7 @@ class InventoryController extends Controller
             $reason = trim((string) ($validated['adjustmentReason'] ?? ''));
 
             if ($quantityChanged && ! $inventory->warehouseId) {
-                throw ValidationException::withMessages(['quantity' => 'Assign the item to a warehouse before changing its quantity.']);
+                throw ValidationException::withMessages(['quantity' => 'Assign the product to a department storage location before changing its quantity.']);
             }
             if ($quantityChanged && $reason === '') {
                 throw ValidationException::withMessages(['adjustmentReason' => 'Provide a reason for the stock adjustment.']);
@@ -310,18 +312,16 @@ class InventoryController extends Controller
 
     public function destroy(Request $request, InventoryItem $inventory)
     {
-        $this->authorizeAdministrator($request, 'Only administrators can delete inventory records.');
+        $actor = $request->attributes->get('authenticatedUser');
+        abort_if(
+            !$actor || $actor->role === 'viewer' || $actor->permission === 'view',
+            403,
+            'Only staff and administrators can archive inventory records.',
+        );
 
         return DB::transaction(function () use ($inventory, $request) {
             $inventory = InventoryItem::whereKey($inventory->id)->lockForUpdate()->firstOrFail();
-            if ((int) $inventory->quantity > 0
-                || StockTransaction::where('itemId', $inventory->id)->exists()
-                || BorrowRecord::where('itemId', $inventory->id)->exists()
-                || Transfer::where('itemId', $inventory->id)->exists()) {
-                return response()->json(['message' => 'Inventory with stock, borrow, or transfer history cannot be deleted.'], 422);
-            }
-
-            $this->activityLogger->log($request, 'inventory_deleted', 'inventory_item', $inventory->id, [
+            $this->activityLogger->log($request, 'inventory_archived', 'inventory_item', $inventory->id, [
                 'previous' => [
                     'sku' => $inventory->sku,
                     'name' => $inventory->name,
@@ -331,6 +331,8 @@ class InventoryController extends Controller
                 ],
                 'updated' => null,
             ]);
+            // Keep the row so its stock transactions, borrow records, and
+            // transfers remain available for audit and return processing.
             $inventory->delete();
 
             return response()->json(['ok' => true]);
@@ -378,7 +380,7 @@ class InventoryController extends Controller
         });
 
         if (!$item) {
-            return response()->json(['error' => 'Cannot adjust stock for an unassigned item. Assign a warehouse first.'], 422);
+            return response()->json(['error' => 'Cannot adjust stock for an unassigned product. Assign a department storage location first.'], 422);
         }
 
         return response()->json($item->fresh('warehouse')->toArray() + ['warehouseName' => $item->warehouse?->name]);
@@ -429,7 +431,7 @@ class InventoryController extends Controller
                     'referenceNumber' => $this->references->generate('stock_in', $now),
                     'processedBy' => $actor->name.' (#'.$actor->id.')',
                     'unitCost' => $item->unitPrice,
-                    'notes' => 'Opening balance recorded when item was assigned to a warehouse.',
+                    'notes' => 'Opening balance recorded when product was assigned to a department storage location.',
                     'createdAt' => $now,
                 ]);
                 $stockTransactionId = $stockTransaction->id;
@@ -445,7 +447,7 @@ class InventoryController extends Controller
         });
 
         if (!$item) {
-            return response()->json(['error' => 'Item already assigned to another warehouse. Use transfer instead.'], 422);
+            return response()->json(['error' => 'Product is already assigned to another department storage location. Use a transfer instead.'], 422);
         }
 
         return response()->json($item->fresh('warehouse')->toArray() + ['warehouseName' => $item->warehouse?->name]);

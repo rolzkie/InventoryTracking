@@ -7,6 +7,7 @@ import { ToastContainer } from "./components/ui";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Inventory from "./pages/Inventory";
+import DepartmentStorageLocations from "./pages/DepartmentStorageLocations";
 import StockTransactions from "./pages/StockTransactions";
 import BorrowReturns from "./pages/BorrowReturns";
 import Categories from "./pages/Categories";
@@ -57,6 +58,7 @@ function AppContent() {
     switch (state.currentPage) {
       case "dashboard": return <Dashboard />;
       case "inventory": return <Inventory />;
+      case "warehouses": return <DepartmentStorageLocations />;
       case "stock-transactions": return <StockTransactions />;
       case "borrow-records": return <BorrowReturns />;
       case "categories": return <Categories />;

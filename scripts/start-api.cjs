@@ -35,12 +35,12 @@ const phpVersion = spawnSync(php, ["-r", "echo PHP_VERSION;"], {
 });
 
 if (phpVersion.status !== 0) {
-  fail(`PHP could not be run from "${php}". Set WAREHOUSEIQ_PHP_PATH to PHP 8.4.1+.`);
+  fail(`PHP could not be run from "${php}". Set WAREHOUSEIQ_PHP_PATH to a PHP 8.2+ executable.`);
 }
 
-const [major, minor, patch] = phpVersion.stdout.trim().split(".").map(Number);
-if (major < 8 || (major === 8 && (minor < 4 || (minor === 4 && patch < 1)))) {
-  fail(`PHP ${phpVersion.stdout.trim()} was found, but this project requires PHP 8.4.1+. Set WAREHOUSEIQ_PHP_PATH to a compatible executable.`);
+const [major, minor] = phpVersion.stdout.trim().split(".").map(Number);
+if (major < 8 || (major === 8 && minor < 2)) {
+  fail(`PHP ${phpVersion.stdout.trim()} was found, but this project requires PHP 8.2+. Set WAREHOUSEIQ_PHP_PATH to a compatible executable.`);
 }
 
 if (!existsSync(envPath)) {
@@ -66,7 +66,7 @@ const server = spawn(
 
 server.on("error", (error) => {
   console.error(
-    `Unable to start Laravel with "${php}". Set WAREHOUSEIQ_PHP_PATH to a PHP 8.4.1+ executable.`,
+    `Unable to start Laravel with "${php}". Set WAREHOUSEIQ_PHP_PATH to a PHP 8.2+ executable.`,
   );
   console.error(error.message);
   process.exit(1);

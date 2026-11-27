@@ -46,7 +46,9 @@ class InventoryNotificationService
 
     public function inventoryAssigned(InventoryItem $item): void
     {
-        $warehouseName = $item->warehouse?->name ?? 'a warehouse';
+        $warehouseName = $item->warehouse
+            ? $item->warehouse->department.' / '.$item->warehouse->name
+            : 'a department storage location';
         $this->create(
             'Inventory Updated',
             "{$item->name} was assigned to {$warehouseName}.",
@@ -60,7 +62,9 @@ class InventoryNotificationService
     {
         $transaction->loadMissing(['item', 'warehouse']);
         $itemName = $transaction->item?->name ?? 'Inventory item';
-        $warehouseName = $transaction->warehouse?->name ?? 'warehouse';
+        $warehouseName = $transaction->warehouse
+            ? $transaction->warehouse->department.' / '.$transaction->warehouse->name
+            : 'department storage location';
         $isStockIn = $transaction->transactionType === 'stock_in';
 
         $this->create(
@@ -114,8 +118,12 @@ class InventoryNotificationService
     {
         $transfer->loadMissing(['item', 'sourceWh', 'destinationWh']);
         $itemName = $transfer->item?->name ?? $transfer->itemName;
-        $from = $transfer->sourceWh?->name ?? 'source warehouse';
-        $to = $transfer->destinationWh?->name ?? 'destination warehouse';
+        $from = $transfer->sourceWh
+            ? $transfer->sourceWh->department.' / '.$transfer->sourceWh->name
+            : 'source storage location';
+        $to = $transfer->destinationWh
+            ? $transfer->destinationWh->department.' / '.$transfer->destinationWh->name
+            : 'destination storage location';
 
         $this->create(
             'Transfer Completed',

@@ -13,5 +13,6 @@ The seeder creates or refreshes these development accounts:
 | Administrator | `adminmiranda@gmail.com` | `admin123` |
 | Inventory Staff | `jes@gmail.com` | `staff123` |
 | Viewer | `employee@gmail.com` | `viewer123` |
+| Visitor | `visitor@gmail.com` | `Visitor123` |
 
 Passwords are stored as Laravel password hashes. Change these demo credentials before deployment.

@@ -10,6 +10,7 @@ import type {
   User,
   Warehouse,
 } from "../types";
+import { dateOnly, formatDateTime, toIsoTimestamp } from "./datetime";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "/api").replace(/\/$/, "");
 const AUTH_STORAGE_KEY = "warehouseiq.auth";
@@ -57,10 +58,6 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return body as T;
 }
 
-function dateOnly(value: unknown): string {
-  return typeof value === "string" && value ? value.slice(0, 10) : "";
-}
-
 function normalizeItemStatus(rawStatus: unknown): InventoryItem["status"] {
   const statusMap: Record<string, InventoryItem["status"]> = {
     in_stock: "in-stock",
@@ -71,17 +68,18 @@ function normalizeItemStatus(rawStatus: unknown): InventoryItem["status"] {
     "out-of-stock": "out-of-stock",
     overstock: "overstock",
     expired: "expired",
-    unassigned: "out-of-stock",
+    unassigned: "unassigned",
   };
 
   return statusMap[String(rawStatus ?? "in_stock")] ?? "in-stock";
 }
 
-export function normalizeWarehouse(raw: ApiRecord): Warehouse {
+export function normalizeWarehouse(raw: ApiRecord, timezone?: string): Warehouse {
   const capacity = Number(raw.capacity ?? 0);
   const used = Number(raw.capacityUsed ?? raw.used ?? 0);
   return {
     id: String(raw.id ?? ""),
+    department: String(raw.department ?? "General"),
     name: String(raw.name ?? ""),
     location: String(raw.location ?? ""),
     address: String(raw.address ?? raw.location ?? ""),
@@ -89,18 +87,23 @@ export function normalizeWarehouse(raw: ApiRecord): Warehouse {
     used,
     manager: String(raw.manager ?? ""),
     zones: Array.isArray(raw.zones) ? (raw.zones as Warehouse["zones"]) : [],
-    createdAt: dateOnly(raw.created_at ?? raw.createdAt),
+    createdAt: dateOnly(raw.created_at ?? raw.createdAt, timezone),
   };
 }
 
-export function normalizeItem(raw: ApiRecord, categories: Category[]): InventoryItem {
+export function storageLocationLabel(location: Warehouse | null | undefined): string {
+  return location ? `${location.department} / ${location.name}` : "Unassigned";
+}
+
+export function normalizeItem(raw: ApiRecord, categories: Category[], timezone?: string): InventoryItem {
   const categoryName = String(raw.category ?? "");
   const category =
     categories.find((entry) => entry.name.toLowerCase() === categoryName.toLowerCase()) ??
     categories.find((entry) => entry.id === categoryName);
   const quantity = Number(raw.quantity ?? 0);
   const reorderPoint = Number(raw.reorderPoint ?? 0);
-  const maxStock = Number(raw.maxStock ?? Math.max(reorderPoint * 5, quantity, 1));
+  const storedMaxStock = Number(raw.maxStock ?? 0);
+  const maxStock = storedMaxStock > 0 ? storedMaxStock : Math.max(reorderPoint * 5, quantity, 1);
   const expirationDate = raw.expiryDate ? dateOnly(raw.expiryDate) : null;
   return {
     id: String(raw.id ?? ""),
@@ -118,19 +121,19 @@ export function normalizeItem(raw: ApiRecord, categories: Category[]): Inventory
     status: normalizeItemStatus(raw.status),
     description: String(raw.description ?? ""),
     unit: String(raw.unit ?? "pcs"),
-    createdAt: dateOnly(raw.created_at ?? raw.createdAt),
-    updatedAt: dateOnly(raw.updated_at ?? raw.updatedAt),
+    createdAt: dateOnly(raw.created_at ?? raw.createdAt, timezone),
+    updatedAt: dateOnly(raw.updated_at ?? raw.updatedAt, timezone),
   };
 }
 
-export function normalizeTransaction(raw: ApiRecord): StockTransaction {
+export function normalizeTransaction(raw: ApiRecord, timezone?: string): StockTransaction {
   const type = String(raw.transactionType ?? raw.type) === "stock_out" ? "stock-out" : "stock-in";
   return {
     id: String(raw.id ?? ""),
     itemId: String(raw.itemId ?? ""),
     type,
     quantity: Number(raw.quantity ?? 0),
-    date: dateOnly(raw.createdAt ?? raw.date),
+    date: dateOnly(raw.createdAt ?? raw.date, timezone),
     supplierId: raw.supplierId ? String(raw.supplierId) : undefined,
     purpose: raw.purpose ? String(raw.purpose) : undefined,
     referenceNumber: String(raw.referenceNumber ?? ""),
@@ -141,7 +144,7 @@ export function normalizeTransaction(raw: ApiRecord): StockTransaction {
   };
 }
 
-export function normalizeTransfer(raw: ApiRecord): Transfer {
+export function normalizeTransfer(raw: ApiRecord, timezone?: string): Transfer {
   const statusMap: Record<string, Transfer["status"]> = {
     pending: "pending",
     in_transit: "in-transit",
@@ -160,8 +163,8 @@ export function normalizeTransfer(raw: ApiRecord): Transfer {
     status: statusMap[String(raw.status ?? "pending")] ?? "pending",
     requestedBy: String(raw.requestedBy ?? "System"),
     approvedBy: raw.approvedBy ? String(raw.approvedBy) : undefined,
-    date: dateOnly(raw.createdAt ?? raw.date),
-    completedAt: raw.completedAt ? dateOnly(raw.completedAt) : undefined,
+    date: dateOnly(raw.createdAt ?? raw.date, timezone),
+    completedAt: raw.completedAt ? dateOnly(raw.completedAt, timezone) : undefined,
     notes: String(raw.notes ?? ""),
   };
 }
@@ -184,30 +187,31 @@ function normalizeSupplier(raw: ApiRecord): Supplier {
   };
 }
 
-function normalizeUser(raw: ApiRecord): User {
+function normalizeUser(raw: ApiRecord, timezone?: string): User {
   const name = String(raw.name ?? "");
+  const role = (raw.role ?? "staff") as User["role"];
   return {
     id: String(raw.id ?? ""),
     name,
     email: String(raw.email ?? ""),
-    role: (raw.role ?? "staff") as User["role"],
-    permission: (raw.permission ?? (raw.role === "viewer" ? "view" : "manage")) as User["permission"],
+    role,
+    permission: role === "viewer" || role === "visitor" ? "view" : (raw.permission ?? "manage") as User["permission"],
     avatar: String(raw.avatar ?? name.split(" ").map((part) => part[0]).join("").slice(0, 2)),
     department: String(raw.department ?? ""),
-    lastLogin: raw.last_login ? String(raw.last_login).replace("T", " ").slice(0, 16) : "Never",
+    lastLogin: raw.last_login ? formatDateTime(String(raw.last_login), timezone) : "Never",
     active: Boolean(raw.active ?? true),
-    createdAt: dateOnly(raw.created_at),
+    createdAt: dateOnly(raw.created_at, timezone),
   };
 }
 
-function normalizeReorder(raw: ApiRecord): ReorderRequest {
+function normalizeReorder(raw: ApiRecord, timezone?: string): ReorderRequest {
   return {
     id: String(raw.id ?? ""),
     itemId: String(raw.itemId ?? ""),
     supplierId: raw.supplierId == null ? "" : String(raw.supplierId),
     quantity: Number(raw.quantity ?? 0),
     status: (raw.status ?? "pending") as ReorderRequest["status"],
-    createdAt: dateOnly(raw.created_at ?? raw.createdAt),
+    createdAt: dateOnly(raw.created_at ?? raw.createdAt, timezone),
     estimatedDelivery: raw.estimatedDelivery ? dateOnly(raw.estimatedDelivery) : undefined,
     notes: String(raw.notes ?? ""),
   };
@@ -220,7 +224,7 @@ function normalizeNotification(raw: ApiRecord): Notification {
     message: String(raw.message ?? ""),
     type: (raw.type ?? "info") as Notification["type"],
     read: Boolean(raw.read),
-    createdAt: String(raw.created_at ?? raw.createdAt ?? "").replace("T", " ").slice(0, 16),
+    createdAt: toIsoTimestamp(raw.created_at ?? raw.createdAt),
   };
 }
 
@@ -247,13 +251,15 @@ function itemPayload(item: InventoryItem, categories: Category[], includeQuantit
 export const api = {
   operational: {
     async load(currentUser?: User) {
-      const [categoryRows, supplierRows] = await Promise.all([
+      const [categoryRows, supplierRows, timezoneResult] = await Promise.all([
         request<ApiRecord[]>("/categories"),
         request<ApiRecord[]>("/suppliers"),
+        request<{ timezone: string }>("/timezone"),
       ]);
+      const timezone = timezoneResult.timezone;
       const categories = categoryRows.map(normalizeCategory);
       const canManageAccounts = currentUser?.role === "admin";
-      const isViewer = currentUser?.role === "viewer" || currentUser?.permission === "view";
+      const isViewer = currentUser?.role === "viewer" || currentUser?.role === "visitor" || currentUser?.permission === "view";
       const [warehouseRows, itemRows, assignableRows, transactionRows, transferRows, userRows, reorderRows, notificationRows, settings, acknowledgedAlertIds] = await Promise.all([
         request<ApiRecord[]>("/warehouses"),
         request<ApiRecord[]>("/inventory"),
@@ -271,18 +277,19 @@ export const api = {
         canManageAccounts ? request<Record<string, Record<string, unknown>>>("/settings") : Promise.resolve({}),
         isViewer ? Promise.resolve([]) : request<string[]>("/alert-acknowledgements"),
       ]);
+      const loadedSettings = settings as Record<string, Record<string, unknown>>;
       return {
         categories,
         suppliers: supplierRows.map(normalizeSupplier),
-        warehouses: warehouseRows.map(normalizeWarehouse),
-        items: itemRows.map((row) => normalizeItem(row, categories)),
-        assignableItems: assignableRows.map((row) => normalizeItem(row, categories)),
-        transactions: transactionRows.map(normalizeTransaction),
-        transfers: transferRows.map(normalizeTransfer),
-        users: userRows.map(normalizeUser),
-        reorderRequests: reorderRows.map(normalizeReorder),
+        warehouses: warehouseRows.map((row) => normalizeWarehouse(row, timezone)),
+        items: itemRows.map((row) => normalizeItem(row, categories, timezone)),
+        assignableItems: assignableRows.map((row) => normalizeItem(row, categories, timezone)),
+        transactions: transactionRows.map((row) => normalizeTransaction(row, timezone)),
+        transfers: transferRows.map((row) => normalizeTransfer(row, timezone)),
+        users: userRows.map((row) => normalizeUser(row, timezone)),
+        reorderRequests: reorderRows.map((row) => normalizeReorder(row, timezone)),
         notifications: notificationRows.map(normalizeNotification),
-        settings,
+        settings: { ...loadedSettings, general: { ...(loadedSettings.general ?? {}), timezone } },
         acknowledgedAlertIds,
       };
     },

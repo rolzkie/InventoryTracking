@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useApp } from "../context/AppContext";
+import { DEFAULT_TIMEZONE, formatDateTime } from "../lib/datetime";
 import { Card, PageHeader, Table, Td, Th } from "../components/ui";
 
 type LogRow = { id: number; action: string; userId: number | null; ipAddress: string | null; created_at: string; details: Record<string, unknown> | null; user?: { name: string; email: string } | null };
 
 export default function ActivityLogs() {
-  const { showToast } = useApp();
+  const { showToast, state } = useApp();
+  const timezone = String(state.settings.general?.timezone ?? DEFAULT_TIMEZONE);
   const [rows, setRows] = useState<LogRow[]>([]);
   useEffect(() => {
     void api.activityLogs.list().then((data) => setRows(data as LogRow[])).catch((error) => showToast(error instanceof Error ? error.message : "Unable to load activity logs", "error"));
@@ -16,7 +18,7 @@ export default function ActivityLogs() {
     <Card className="overflow-x-auto p-5"><Table>
       <thead><tr><Th>When</Th><Th>User</Th><Th>Action</Th><Th>Details</Th><Th>IP address</Th></tr></thead>
       <tbody>{rows.map((row) => <tr key={row.id}>
-        <Td>{new Date(row.created_at).toLocaleString()}</Td>
+        <Td>{formatDateTime(row.created_at, timezone)}</Td>
         <Td>{row.user?.name ?? "Deleted account"}</Td>
         <Td>{row.action}</Td>
         <Td>{row.details ? <details className="max-w-sm">

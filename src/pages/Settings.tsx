@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Settings as SettingsIcon, Bell, Shield, Database, Globe, Palette, Save, RefreshCw, Check } from "lucide-react";
 import { useApp } from "../context/AppContext";
+import { storageLocationLabel } from "../lib/api";
+import { DEFAULT_TIMEZONE, todayDate } from "../lib/datetime";
 import { Button, Card, Input, Select, PageHeader } from "../components/ui";
 
 type SettingTab = "general" | "notifications" | "security" | "appearance" | "data";
@@ -20,7 +22,7 @@ export default function Settings() {
   const [general, setGeneral] = useState({
     companyName: "WarehouseIQ Corp",
     systemEmail: "system@warehouseiq.com",
-    timezone: "America/New_York",
+    timezone: DEFAULT_TIMEZONE,
     currency: "USD",
     dateFormat: "YYYY-MM-DD",
     lowStockThreshold: 10,
@@ -108,23 +110,23 @@ export default function Settings() {
     try {
       if (action === "Export CSV") {
         const rows = [
-          ["SKU", "Name", "Warehouse", "Quantity", "Unit Cost", "Status"],
+          ["SKU", "Name", "Department / Storage Location", "Quantity", "Unit Cost", "Status"],
           ...state.items.map((item) => [
             item.sku,
             item.name,
-            state.warehouses.find((warehouse) => warehouse.id === item.warehouseId)?.name ?? "Unassigned",
+            storageLocationLabel(state.warehouses.find((warehouse) => warehouse.id === item.warehouseId)),
             item.quantity,
             item.unitCost,
             item.status,
           ]),
         ];
         const csv = rows.map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(",")).join("\n");
-        download(csv, `warehouseiq-data-${new Date().toISOString().slice(0, 10)}.csv`, "text/csv");
+        download(csv, `warehouseiq-data-${todayDate(general.timezone)}.csv`, "text/csv");
       } else if (action === "Export PDF") {
         window.print();
       } else if (action === "Create Backup") {
         const data = await exportSystemData();
-        download(JSON.stringify(data, null, 2), `warehouseiq-backup-${new Date().toISOString().slice(0, 10)}.json`, "application/json");
+        download(JSON.stringify(data, null, 2), `warehouseiq-backup-${todayDate(general.timezone)}.json`, "application/json");
       } else if (action === "Reset Data") {
         if (!window.confirm("Reset all local operational data to the seeded demo records? This cannot be undone.")) return;
         await resetDemoData();

@@ -8,6 +8,7 @@ use App\Models\Warehouse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use App\Support\ApplicationTimezone;
 
 class ReportController extends Controller
 {
@@ -72,22 +73,20 @@ class ReportController extends Controller
 
     public function stockMovement(Request $request)
     {
-        $end = Carbon::now()->startOfMonth();
+        $timezone = ApplicationTimezone::name();
+        $end = Carbon::now($timezone)->startOfMonth();
         $start = (clone $end)->subMonths(6)->startOfMonth();
 
-        $monthExpression = DB::getDriverName() === 'sqlite'
-            ? "strftime('%Y-%m', createdAt)"
-            : "DATE_FORMAT(createdAt, '%Y-%m')";
-
         $rows = DB::table('stock_transactions')
-            ->selectRaw("{$monthExpression} as ym, transactionType, SUM(quantity) as qty")
-            ->whereBetween('createdAt', [$start->toDateString(), $end->endOfMonth()->toDateString()])
-            ->groupBy('ym', 'transactionType')
+            ->select(['createdAt', 'transactionType', 'quantity'])
+            ->where('createdAt', '>=', $start->copy()->utc())
+            ->where('createdAt', '<', $end->copy()->addMonth()->utc())
             ->get();
 
         $map = [];
         foreach ($rows as $r) {
-            $map[$r->ym][$r->transactionType] = (int) $r->qty;
+            $month = Carbon::parse($r->createdAt, 'UTC')->setTimezone($timezone)->format('Y-m');
+            $map[$month][$r->transactionType] = ($map[$month][$r->transactionType] ?? 0) + (int) $r->quantity;
         }
 
         $data = [];

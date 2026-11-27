@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { api } from "../lib/api";
+import { DEFAULT_TIMEZONE, formatDateTime, todayDate } from "../lib/datetime";
 import type { BorrowRecord } from "../types";
 import { StatCard, Card, Badge, StatusBadge, Table, Th, Td, formatPHP } from "../components/ui";
 
@@ -37,6 +38,7 @@ const chartDefaults = {
 
 export default function Dashboard() {
   const { state, navigate } = useApp();
+  const timezone = String(state.settings.general?.timezone ?? DEFAULT_TIMEZONE);
   const [borrowedRecords, setBorrowedRecords] = useState<BorrowRecord[]>([]);
   const [activityRows, setActivityRows] = useState<{ id: number; action: string; created_at: string; user?: { name: string } | null }[]>([]);
 
@@ -75,12 +77,12 @@ export default function Dashboard() {
     .slice(0, 4);
 
   const movement = useMemo(() => {
-    const current = new Date();
+    const [currentYear, currentMonth] = todayDate(timezone).split("-").map(Number);
     const months = Array.from({ length: 7 }, (_, index) => {
-      const date = new Date(current.getFullYear(), current.getMonth() - 6 + index, 1);
+      const date = new Date(Date.UTC(currentYear, currentMonth - 1 - 6 + index, 1));
       return {
-        key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
-        label: date.toLocaleString("en", { month: "short" }),
+        key: `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`,
+        label: new Intl.DateTimeFormat("en", { timeZone: timezone, month: "short" }).format(date),
       };
     });
     const totals = new Map(months.map((month) => [month.key, { inbound: 0, outbound: 0 }]));
@@ -98,7 +100,7 @@ export default function Dashboard() {
       outbound,
       net: inbound.reduce((sum, value) => sum + value, 0) - outbound.reduce((sum, value) => sum + value, 0),
     };
-  }, [state.transactions]);
+  }, [state.transactions, timezone]);
 
   const lineData = {
     labels: movement.labels,
@@ -258,7 +260,7 @@ export default function Dashboard() {
           <div className="divide-y divide-border-subtle">
             {activityRows.map((row) => (
               <div key={row.id} className="py-3 first:pt-0 last:pb-0">
-                <time className="block font-mono text-xs text-content-subtle">{new Date(row.created_at).toLocaleString()}</time>
+                <time className="block font-mono text-xs text-content-subtle">{formatDateTime(row.created_at, timezone)}</time>
                 <p className="mt-1 text-sm"><strong>{row.user?.name ?? "System"}</strong> {row.action}</p>
               </div>
             ))}

@@ -40,6 +40,7 @@ Route::middleware(['api', 'api.access'])->group(function () {
     Route::patch('/notifications/read-all', [NotificationController::class, 'markAllRead']);
     Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
     Route::get('/settings', [SettingController::class, 'index']);
+    Route::get('/timezone', [SettingController::class, 'timezone']);
     Route::put('/settings/{section}', [SettingController::class, 'update']);
     Route::get('/alert-acknowledgements', [AlertAcknowledgementController::class, 'index']);
     Route::post('/alert-acknowledgements', [AlertAcknowledgementController::class, 'store']);
