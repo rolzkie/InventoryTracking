@@ -44,13 +44,10 @@ export default function Settings() {
     auditLogging: true,
     ipAllowlist: false,
   });
-  const [themeColor, setThemeColor] = useState("#3B82F6");
-
   useEffect(() => {
     if (state.settings.general) setGeneral((current) => ({ ...current, ...state.settings.general }));
     if (state.settings.notifications) setNotifications((current) => ({ ...current, ...state.settings.notifications }));
     if (state.settings.security) setSecurity((current) => ({ ...current, ...state.settings.security }));
-    if (state.settings.appearance?.themeColor) setThemeColor(String(state.settings.appearance.themeColor));
   }, [state.settings]);
 
   const handleSave = async (section: string) => {
@@ -58,7 +55,7 @@ export default function Settings() {
       section === "General" ? general :
       section === "Notifications" ? notifications :
       section === "Security" ? security :
-      { darkMode: state.darkMode, themeColor };
+      { darkMode: state.darkMode };
     try {
       await saveSettings(section.toLowerCase(), payload);
       if (section === "General") {
@@ -84,16 +81,6 @@ export default function Settings() {
     } catch (error) {
       setSecurity(security);
       showToast(error instanceof Error ? error.message : "Unable to update security setting", "error");
-    }
-  };
-
-  const handleThemeColor = async (color: string) => {
-    setThemeColor(color);
-    try {
-      await saveSettings("appearance", { darkMode: state.darkMode, themeColor: color });
-      showToast("Theme color saved", "success");
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : "Unable to save theme color", "error");
     }
   };
 
@@ -324,19 +311,6 @@ export default function Settings() {
                         <p className="text-xs font-medium text-slate-200 mb-0.5">{opt.label}</p>
                         <p className="text-[10px] text-slate-500">{opt.desc}</p>
                       </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-3">Color Palette</p>
-                  <div className="flex gap-2">
-                    {["#3B82F6", "#8B5CF6", "#10B981", "#F59E0B", "#EF4444", "#06B6D4"].map((color) => (
-                      <button
-                        key={color}
-                        className={`w-8 h-8 rounded-full border-2 hover:border-white transition-all ${themeColor === color ? "border-white" : "border-transparent"}`}
-                        style={{ backgroundColor: color }}
-                        onClick={() => void handleThemeColor(color)}
-                      />
                     ))}
                   </div>
                 </div>
